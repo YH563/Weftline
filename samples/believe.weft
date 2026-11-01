@@ -16,5 +16,5 @@
 
 @set trust_low true
 
-@next(萧影):(trust_low)[相信他] -> 医院
+@next(萧影):(trust_low)[相信他] -> 医院 { @set has_key true }
     ()[沉默] -> 沉默

@@ -1,13 +1,16 @@
-# Step 1：编译器入门
+# 解析器前端：从源码到 AST
 
-这份文档配合 Step 1 的代码，目标不是“写完整个编译器”，而是用一个真实但收窄的例子，把下面几件事串起来：
+[**中文**](./compiler-walkthrough.md) | [English](./en/compiler-walkthrough.md)
+
+
+这份文档配合当前解析器的实现，目标不是“写完整个编译器”，而是用一个真实但收窄的例子，把下面几件事串起来：
 
 - 源文本如何变成带位置的结构；
 - Parser 如何按行消费并构造 AST；
 - 诊断如何定位到源码；
 - 为什么先做 AST，不急着做完整的语义分析。
 
-Step 1 只处理：`@globals`、模块头、旁白、对话、图片、`@set`，以及把 `@next` 出口块**原文暂存**。exit 的分支、条件、效果留到 Step 2。
+当前解析器处理：`@globals`、模块头、旁白、对话、图片、`@set`，以及 `@next` 出口块的分支、条件与效果。
 
 ---
 
@@ -61,7 +64,7 @@ public readonly record struct TextSpan(int Start, int Length)
 
 ### 2.2 把“行”当作 token
 
-Weftline 不是表达式密集的语言，正文块又是纯文本，所以 Step 1 没有做全量 Token 流。
+Weftline 不是表达式密集的语言，正文块又是纯文本，所以解析器没有做全量 Token 流。
 
 Parser 每读到一行，就按当前状态判断它是什么：
 
@@ -75,7 +78,7 @@ Parser 每读到一行，就按当前状态判断它是什么：
 
 ### 2.3 AST 只保留语义，位置靠 Span
 
-Step 1 的 AST：
+AST 结构：
 
 ```
 ScriptFileSyntax
@@ -88,7 +91,11 @@ ScriptFileSyntax
       DialogueSyntax
       FigureSyntax
       SetSyntax
-    ExitSyntax        // 原文占位，Step 2 解析
+    ExitSyntax
+      ExitBranchSyntax[]
+        Condition? / Label? / Target / Effects[]
+        BoolExprSyntax
+        EffectSyntax
 ```
 
 `ContentSyntax` 是抽象基类，所有子类型都带 `TextSpan`。这样图视图、诊断、后续文本编辑都能定位回源码。
@@ -116,7 +123,7 @@ ScriptFileSyntax
 @title -> 模块标题
 循环：
   @title       -> 当前模块结束
-  @next        -> 捕获原文出口块，模块结束
+  @next        -> 解析出口块（分支/条件/效果），模块结束
   @char        -> 模块头角色；若在内容之后出现则报错
   @globals/@var-> 不允许
   内容块       -> 旁白 / 对话 / @fig / @set
@@ -129,7 +136,17 @@ ScriptFileSyntax
 - 多行 `[` 换行 … 换行 `]`：只有**单独一行 `]`** 才结束；
 - 块内不解析任何关键字，`@title`、`@next` 在正文块里都只是文本。
 
-### 3.4 诊断
+### 3.4 出口块
+
+`@next(角色):` 打开出口块，后续行省略 `@next`。
+
+- **条件**：`(条件)` 里是布尔表达式，优先级 `not` > `and` > `or`，支持括号。
+- **文案**：`[文案]` 只允许在选择模式出现。
+- **目标**：`->` 之后到 `{` 或行尾的文本，可以包含空格。
+- **效果**：`{}` 内只允许 `@set`，可同行用 `;` 分隔，也可多行。
+- **校验**：模式一致、至少一条兜底分支、出口后不能有内容。
+
+### 3.5 诊断
 
 每个诊断都带 `TextSpan`。CLI 会把偏移换算成行列：
 
@@ -148,13 +165,15 @@ src/Weftline.Language/
   Diagnostics/Diagnostic.cs   诊断模型、诊断袋、诊断码
   Syntax/Ast.cs               AST 记录
   Syntax/Parser.cs            行式解析器
+  Syntax/ConditionParser.cs   布尔条件表达式解析
+  Syntax/SyntaxFacts.cs       标识符与布尔字面量工具
   WeftlineCompiler.cs         对外入口
 src/Weftline.Cli/
   Program.cs                  parse 命令
   AstPrinter.cs               AST 缩进打印
 tests/Weftline.Language.Tests/
   ParserTests.cs              解析与诊断测试
-samples/step1.weft            可直接用 CLI 运行的示例
+samples/believe.weft            可直接用 CLI 运行的示例
 ```
 
 ---
@@ -163,32 +182,30 @@ samples/step1.weft            可直接用 CLI 运行的示例
 
 ```bash
 dotnet test
-dotnet run --project src/Weftline.Cli -- parse samples/step1.weft
+dotnet run --project src/Weftline.Cli -- parse samples/believe.weft
 ```
 
 成功时会打印 AST；有错误时会打印诊断（文件:行:列、错误码、消息）。
 
 ---
 
-## 6. Step 1 刻意不做的事
+## 6. 当前范围之外
 
-- exit 分支、条件表达式、`{}` 效果；
-- 模块目标解析、变量引用解析；
-- 模式/兜底/可达性校验；
+- 模块目标解析；
+- 可达性/终点校验；
 - StoryGraph IR 与 HTML 导出。
 
-这些不是“忘了”，而是为了把第一步控制在可读、可学习的范围内。
+这些不是遗漏，而是当前解析器的边界。
 
 ---
 
-## 7. Step 2 会做什么
+## 7. 后续会补充什么
 
-1. 把 `ExitSyntax.RawLines` 解析成 `ExitBranchSyntax`；
-2. 增加条件表达式 AST 与递归下降解析器；
-3. 解析 `{}` 里的 `@set` 效果；
-4. Binder：解析目标模块、变量、角色；
-5. Validator：模式一致、兜底、可达性；
-6. 构建 `StoryGraph`。
+1. Binder：解析目标模块与入口；
+2. Validator：可达性、`END` 校验；
+3. 构建 `StoryGraph` IR；
+4. 导出 JSON；
+5. 接入图视图与 HTML 播放器。
 
 ---
 
@@ -199,14 +216,14 @@ dotnet run --project src/Weftline.Cli -- parse samples/step1.weft
 1. 给 `@char` 增加“角色名重复”诊断（已实现，尝试自己重写）；
 2. 给顶层普通文本增加一条更友好的诊断消息；
 3. 在 AST 打印器里显示每个节点的行号；
-4. 尝试解析 `@next` 的第一行头部（只解析角色与目标）；
+4. 为条件解析增加一个括号优先级测试；
 5. 为 `@fig` 增加路径转义测试。
 
 ---
 
-## 9. 学习提示
+## 9. 阅读提示
 
-- 先跟着一条真实数据走：`samples/step1.weft` → `SourceText` → `Parser` → AST；
+- 先跟着一条真实数据走：`samples/believe.weft` → `SourceText` → `Parser` → AST；
 - 每增加一个语法结构，先写一个失败测试，再实现；
-- 不要一开始就追求完整语法；Step 1 的价值是让“文本 → 结构化数据”这条链路成立；
+- 不要一开始就追求完整语法；当前实现的价值是让“文本 → 结构化数据”这条链路成立；
 - 诊断和 AST 是后续一切功能（图、补全、导出）的地基。

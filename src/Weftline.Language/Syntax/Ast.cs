@@ -3,27 +3,29 @@ using Weftline.Language.Source;
 namespace Weftline.Language.Syntax;
 
 /// <summary>
-/// 一个源文件解析后的抽象语法树。
-/// Step 1 只解析 globals、模块头、内容块，并把 exit 原文暂存起来。
+/// The syntax tree for one source file.
+/// Contains file-level globals, modules, their content blocks, and exit branches.
 /// </summary>
 public sealed record ScriptFileSyntax(
     GlobalsSyntax? Globals,
     IReadOnlyList<ModuleSyntax> Modules,
     TextSpan Span);
 
-/// <summary>文件顶部的全局布尔变量声明。</summary>
+/// <summary>Global boolean variable declarations at the top of a file.</summary>
 public sealed record GlobalsSyntax(
     IReadOnlyList<GlobalVariableSyntax> Variables,
     TextSpan Span);
 
+/// <summary>A global boolean variable declaration.</summary>
 public sealed record GlobalVariableSyntax(
     string Name,
     bool Value,
     TextSpan Span);
 
 /// <summary>
-/// 一个模块。模块 ID 暂时等于 Title。
-/// Exit 在 Step 1 里只保存原文行，Step 2 再解析成真正的分支。
+/// A module. Its ID is currently the title.
+/// Exit may be null: on syntax errors the parser still returns a usable partial
+/// tree so the editor can continue working.
 /// </summary>
 public sealed record ModuleSyntax(
     string Title,
@@ -33,39 +35,91 @@ public sealed record ModuleSyntax(
     ExitSyntax? Exit,
     TextSpan Span);
 
+/// <summary>A character declared in a module.</summary>
 public sealed record CharacterSyntax(
     string Name,
     TextSpan Span);
 
-/// <summary>模块内容块。所有具体内容块都带自己的源码位置。</summary>
+/// <summary>A module content block. Every concrete block carries its source span.</summary>
 public abstract record ContentSyntax(TextSpan Span);
 
-/// <summary>旁白：[] 中的纯文本。</summary>
+/// <summary>Narration: plain text inside [].</summary>
 public sealed record NarrationSyntax(
     string Text,
     TextSpan Span) : ContentSyntax(Span);
 
-/// <summary>对话：角色:[] 中的纯文本，说话人是结构化的。</summary>
+/// <summary>Dialogue: plain text inside character:[] with a structured speaker.</summary>
 public sealed record DialogueSyntax(
     string Speaker,
     string Text,
     TextSpan Span) : ContentSyntax(Span);
 
-/// <summary>图片：@fig "path"。</summary>
+/// <summary>Figure: @fig "path".</summary>
 public sealed record FigureSyntax(
     string Path,
     TextSpan Span) : ContentSyntax(Span);
 
-/// <summary>状态修改：@set name true|false。</summary>
+/// <summary>State update: @set name true|false.</summary>
 public sealed record SetSyntax(
     string Name,
     bool Value,
     TextSpan Span) : ContentSyntax(Span);
 
 /// <summary>
-/// Step 1 的出口块占位：保留原文，等 Step 2 解析。
-/// RawLines 包含 @next 行本身以及后续分支行。
+/// A module exit block. Character is the block-level character:
+/// a character means choice mode; no character means automatic mode.
 /// </summary>
 public sealed record ExitSyntax(
+    string? Character,
+    IReadOnlyList<ExitBranchSyntax> Branches,
+    TextSpan Span)
+{
+    public bool IsChoiceMode => Character is not null;
+}
+
+/// <summary>
+/// One exit branch. A null Condition means unconditional; a null Label means
+/// an automatic branch. Span covers the whole branch; the other spans point to
+/// individual fields for diagnostics and text edits.
+/// </summary>
+public sealed record ExitBranchSyntax(
+    BoolExprSyntax? Condition,
+    string? Label,
+    string Target,
+    IReadOnlyList<EffectSyntax> Effects,
     TextSpan Span,
-    IReadOnlyList<string> RawLines);
+    TextSpan TargetSpan,
+    TextSpan? ConditionSpan,
+    TextSpan? LabelSpan,
+    TextSpan? EffectSpan);
+
+/// <summary>A branch effect: @set name true|false.</summary>
+public sealed record EffectSyntax(
+    string Name,
+    bool Value,
+    TextSpan Span);
+
+/// <summary>A boolean condition expression.</summary>
+public abstract record BoolExprSyntax(TextSpan Span);
+
+public sealed record BoolLiteralSyntax(
+    bool Value,
+    TextSpan Span) : BoolExprSyntax(Span);
+
+public sealed record BoolRefSyntax(
+    string Name,
+    TextSpan Span) : BoolExprSyntax(Span);
+
+public sealed record NotExprSyntax(
+    BoolExprSyntax Operand,
+    TextSpan Span) : BoolExprSyntax(Span);
+
+public sealed record AndExprSyntax(
+    BoolExprSyntax Left,
+    BoolExprSyntax Right,
+    TextSpan Span) : BoolExprSyntax(Span);
+
+public sealed record OrExprSyntax(
+    BoolExprSyntax Left,
+    BoolExprSyntax Right,
+    TextSpan Span) : BoolExprSyntax(Span);

@@ -1,5 +1,8 @@
 # Weftline 语法定义
 
+[**中文**](./grammar.md) | [English](./en/grammar.md)
+
+
 本文定义 v0 的词法与语法。语义见 [language-spec.md](./language-spec.md)。
 
 ---

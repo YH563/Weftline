@@ -1,5 +1,8 @@
 # 示例
 
+[**中文**](./examples.md) | [English](./en/examples.md)
+
+
 本文给出两个示例：一个最小 demo（无 globals），一个包含条件、效果、图片与自动路由的完整示例。
 
 ---

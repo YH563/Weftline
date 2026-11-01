@@ -1,5 +1,8 @@
 # 项目架构
 
+[**中文**](./architecture.md) | [English](./en/architecture.md)
+
+
 本文描述工程结构与模块职责。语言语义见 [language-spec.md](./language-spec.md)。
 
 ---
@@ -268,5 +271,5 @@ M1 的验收标准：
 
 - 解决方案与项目骨架已创建。
 - 语言文档、架构文档、编译器入门文档已就位。
-- **Step 1 编译器前端已实现**：SourceText、诊断、AST、globals/模块/内容解析、CLI、测试。
-- `@next` 出口块目前只保留原文；Step 2 再解析分支、条件、效果，并构建 StoryGraph。
+- **解析器前端已实现**：SourceText、诊断、AST、globals/模块/内容/出口分支解析、CLI、测试。
+- `@next` 出口块已解析为分支、条件与效果；StoryGraph 与跨模块校验尚未接入。

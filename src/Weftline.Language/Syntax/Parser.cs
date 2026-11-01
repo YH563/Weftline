@@ -4,13 +4,11 @@ using Weftline.Language.Source;
 namespace Weftline.Language.Syntax;
 
 /// <summary>
-/// Step 1 的行式递归下降解析器。
+/// Line-oriented recursive-descent parser for Weftline.
 ///
-/// 它不做完整的词法 Token 流，而是把每一行当作一个“行 token”：
-/// 空行、注释、指令、正文围栏、普通行。Parser 按当前模块的状态消费这些行。
-///
-/// 已实现：globals、模块头、旁白、对话、图片、@set、exit 原文捕获。
-/// 留到 Step 2：exit 分支、条件表达式、分支效果、目标解析、StoryGraph IR。
+/// The parser does not build a full token stream. Instead, each line is a
+/// line-level unit: blank line, comment, directive, text fence, or ordinary
+/// line. The current parser state decides how that line is consumed.
 /// </summary>
 public sealed class Parser
 {
@@ -26,6 +24,7 @@ public sealed class Parser
         _diagnostics = diagnostics;
     }
 
+    /// <summary>Parses the entire source text and returns the syntax tree.</summary>
     public static ScriptFileSyntax Parse(SourceText source, DiagnosticBag diagnostics)
         => new Parser(source, diagnostics).ParseFile();
 
@@ -127,7 +126,7 @@ public sealed class Parser
             var rest = line.Text.Trim()["@var".Length..].Trim();
             var parts = rest.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
 
-            if (parts.Length != 2 || !IsIdentifier(parts[0]) || !TryParseBoolean(parts[1], out var value))
+            if (parts.Length != 2 || !SyntaxFacts.IsIdentifier(parts[0]) || !SyntaxFacts.TryParseBoolean(parts[1], out var value))
             {
                 _diagnostics.Error(
                     DiagnosticCode.MalformedDirective,
@@ -215,7 +214,7 @@ public sealed class Parser
 
             if (IsDirective(trimmed, "@next"))
             {
-                exit = ParseRawExit();
+                exit = ParseExit();
                 moduleEnd = exit.Span.End;
                 break;
             }
@@ -234,7 +233,7 @@ public sealed class Parser
                 moduleEnd = line.Span.End;
 
                 var name = trimmed["@char".Length..].Trim();
-                if (!IsIdentifier(name))
+                if (!SyntaxFacts.IsIdentifier(name))
                 {
                     _diagnostics.Error(
                         DiagnosticCode.MalformedDirective,
@@ -334,6 +333,552 @@ public sealed class Parser
             TextSpan.FromBounds(titleLine.Span.Start, moduleEnd));
     }
 
+    /// <summary>
+    /// Parses an @next exit block. Supports the full form and the
+    /// @next -> target shorthand.
+    /// </summary>
+    private ExitSyntax ParseExit()
+    {
+        var startLine = Current!.Value;
+        var text = startLine.Text;
+        var afterNext = text.IndexOf("@next", StringComparison.Ordinal) + "@next".Length;
+        var cursor = afterNext;
+
+        SkipWhitespace(text, ref cursor);
+
+        if (StartsWithAt(text, cursor, "->"))
+        {
+            var branch = ParseBranch(startLine, cursor, shorthand: true);
+            var shorthandBranches = branch is null
+                ? new List<ExitBranchSyntax>()
+                : new List<ExitBranchSyntax> { branch };
+
+            ConsumeAfterShorthand();
+            ValidateExit(null, shorthandBranches, startLine);
+
+            return new ExitSyntax(
+                null,
+                shorthandBranches,
+                TextSpan.FromBounds(startLine.Span.Start, branch?.Span.End ?? startLine.Span.End));
+        }
+
+        string? character = null;
+
+        if (cursor < text.Length && text[cursor] == '(')
+        {
+            var close = FindMatchingParen(text, cursor);
+            if (close < 0)
+            {
+                _diagnostics.Error(
+                    DiagnosticCode.MalformedDirective,
+                    startLine.Span,
+                    "@next 的角色括号没有闭合。");
+
+                ConsumeToNextModuleOrEnd();
+                ValidateExit(null, new List<ExitBranchSyntax>(), startLine);
+                return new ExitSyntax(null, Array.Empty<ExitBranchSyntax>(), startLine.Span);
+            }
+
+            var inner = text[(cursor + 1)..close].Trim();
+            if (inner.Length > 0)
+            {
+                if (!SyntaxFacts.IsIdentifier(inner))
+                {
+                    _diagnostics.Error(
+                        DiagnosticCode.MalformedDirective,
+                        startLine.Span,
+                        "@next 的角色名不合法。");
+                }
+                else
+                {
+                    character = inner;
+                }
+            }
+
+            cursor = close + 1;
+            SkipWhitespace(text, ref cursor);
+        }
+
+        if (cursor >= text.Length || text[cursor] != ':')
+        {
+            _diagnostics.Error(
+                DiagnosticCode.MalformedDirective,
+                startLine.Span,
+                "@next 的头部应为：@next(角色): 或 @next():");
+
+            var recovered = ParseBranch(startLine, cursor, shorthand: false);
+            var recoveredBranches = recovered is null
+                ? new List<ExitBranchSyntax>()
+                : new List<ExitBranchSyntax> { recovered };
+
+            ConsumeToNextModuleOrEnd();
+            ValidateExit(character, recoveredBranches, startLine);
+
+            return new ExitSyntax(
+                character,
+                recoveredBranches,
+                TextSpan.FromBounds(startLine.Span.Start, recovered?.Span.End ?? startLine.Span.End));
+        }
+
+        cursor++;
+
+        var branches = new List<ExitBranchSyntax>();
+        var firstBranch = ParseBranch(startLine, cursor, shorthand: false);
+        if (firstBranch is not null)
+        {
+            branches.Add(firstBranch);
+        }
+
+        var end = firstBranch?.Span.End ?? startLine.Span.End;
+
+        while (!IsAtEnd)
+        {
+            var line = Current!.Value;
+            var trimmed = line.Text.Trim();
+
+            if (IsDirective(trimmed, "@title"))
+            {
+                break;
+            }
+
+            if (trimmed.Length == 0 || trimmed.StartsWith("//", StringComparison.Ordinal))
+            {
+                Advance();
+                continue;
+            }
+
+            if (!IsBranchStart(trimmed))
+            {
+                _diagnostics.Error(
+                    DiagnosticCode.ContentAfterExit,
+                    line.Span,
+                    "出口块之后不能再有内容。");
+                ConsumeToNextModuleOrEnd();
+                break;
+            }
+
+            var branch = ParseBranch(line, 0, shorthand: false);
+            if (branch is null)
+            {
+                ConsumeToNextModuleOrEnd();
+                break;
+            }
+
+            branches.Add(branch);
+            end = branch.Span.End;
+        }
+
+        ValidateExit(character, branches, startLine);
+        return new ExitSyntax(character, branches, TextSpan.FromBounds(startLine.Span.Start, end));
+    }
+
+    /// <summary>
+    /// Parses one exit branch. Consumes the current line (and any multi-line
+    /// effect block) before returning.
+    /// </summary>
+    private ExitBranchSyntax? ParseBranch(SourceLine line, int contentStart, bool shorthand)
+    {
+        var text = line.Text;
+        var position = contentStart;
+        SkipWhitespace(text, ref position);
+        var branchStart = position;
+
+        if (position >= text.Length)
+        {
+            _diagnostics.Error(DiagnosticCode.MalformedExitBranch, line.Span, "出口分支不能为空。");
+            Advance();
+            return null;
+        }
+
+        BoolExprSyntax? condition = null;
+        TextSpan? conditionSpan = null;
+
+        if (!shorthand && text[position] == '(')
+        {
+            var close = FindMatchingParen(text, position);
+            if (close < 0)
+            {
+                _diagnostics.Error(DiagnosticCode.InvalidCondition, line.Span, "条件括号没有闭合。");
+                Advance();
+                return null;
+            }
+
+            var innerStart = position + 1;
+            var inner = text[innerStart..close];
+            conditionSpan = TextSpan.FromBounds(line.Span.Start + position, line.Span.Start + close + 1);
+
+            if (!string.IsNullOrWhiteSpace(inner))
+            {
+                condition = ConditionParser.Parse(inner, line.Span.Start + innerStart, _diagnostics);
+                if (condition is not null)
+                {
+                    ValidateConditionVariables(condition);
+                }
+            }
+
+            position = close + 1;
+            SkipWhitespace(text, ref position);
+        }
+
+        string? label = null;
+        TextSpan? labelSpan = null;
+
+        if (!shorthand && position < text.Length && text[position] == '[')
+        {
+            var close = text.IndexOf(']', position + 1);
+            if (close < 0)
+            {
+                _diagnostics.Error(DiagnosticCode.MalformedExitBranch, line.Span, "选项文案缺少右方括号。");
+                Advance();
+                return null;
+            }
+
+            var raw = text[(position + 1)..close];
+            var leading = raw.Length - raw.TrimStart().Length;
+            label = raw.Trim();
+            labelSpan = label.Length == 0
+                ? TextSpan.Empty(line.Span.Start + position + 1)
+                : new TextSpan(line.Span.Start + position + 1 + leading, label.Length);
+
+            position = close + 1;
+            SkipWhitespace(text, ref position);
+        }
+
+        if (!StartsWithAt(text, position, "->"))
+        {
+            _diagnostics.Error(DiagnosticCode.MalformedExitBranch, line.Span, "出口分支缺少 ->。");
+            Advance();
+            return null;
+        }
+
+        position += 2;
+        SkipWhitespace(text, ref position);
+
+        var targetEnd = text.IndexOf('{', position);
+        if (targetEnd < 0)
+        {
+            targetEnd = text.Length;
+        }
+
+        var rawTarget = text[position..targetEnd];
+        var targetLeading = rawTarget.Length - rawTarget.TrimStart().Length;
+        var target = rawTarget.Trim();
+
+        if (target.Length == 0)
+        {
+            _diagnostics.Error(DiagnosticCode.MalformedExitBranch, line.Span, "出口分支缺少目标模块。");
+            Advance();
+            return null;
+        }
+
+        var targetSpan = new TextSpan(line.Span.Start + position + targetLeading, target.Length);
+        position = targetEnd;
+
+        var effects = new List<EffectSyntax>();
+        TextSpan? effectSpan = null;
+        var advanceAtEnd = true;
+
+        if (position < text.Length && text[position] == '{')
+        {
+            var effectStart = position;
+            var close = text.IndexOf('}', position + 1);
+
+            if (close >= 0)
+            {
+                ParseEffectStatements(text, position + 1, close, line, effects);
+                effectSpan = TextSpan.FromBounds(
+                    line.Span.Start + effectStart,
+                    line.Span.Start + close + 1);
+
+                if (text[(close + 1)..].Trim().Length > 0)
+                {
+                    _diagnostics.Error(
+                        DiagnosticCode.MalformedExitBranch,
+                        line.Span,
+                        "效果块之后不能再有内容。");
+                }
+            }
+            else
+            {
+                if (text[(position + 1)..].Trim().Length > 0)
+                {
+                    _diagnostics.Error(
+                        DiagnosticCode.MalformedExitBranch,
+                        line.Span,
+                        "多行效果块的 { 后不能有内容。");
+                }
+
+                Advance();
+                advanceAtEnd = false;
+
+                var effectEnd = line.Span.End;
+                var closed = false;
+
+                while (!IsAtEnd)
+                {
+                    var effectLine = Current!.Value;
+                    var trimmed = effectLine.Text.Trim();
+
+                    if (trimmed == "}")
+                    {
+                        closed = true;
+                        effectEnd = effectLine.Span.End;
+                        Advance();
+                        break;
+                    }
+
+                    if (trimmed.Length == 0 || trimmed.StartsWith("//", StringComparison.Ordinal))
+                    {
+                        Advance();
+                        continue;
+                    }
+
+                    ParseEffectStatements(effectLine.Text, 0, effectLine.Text.Length, effectLine, effects);
+                    effectEnd = effectLine.Span.End;
+                    Advance();
+                }
+
+                if (!closed)
+                {
+                    _diagnostics.Error(
+                        DiagnosticCode.MalformedExitBranch,
+                        line.Span,
+                        "效果块缺少闭合的 }。");
+                }
+
+                effectSpan = TextSpan.FromBounds(line.Span.Start + effectStart, effectEnd);
+            }
+        }
+
+        if (advanceAtEnd)
+        {
+            Advance();
+        }
+
+        var branchEnd = effectSpan?.End ?? line.Span.End;
+        var branchSpan = TextSpan.FromBounds(line.Span.Start + branchStart, branchEnd);
+
+        return new ExitBranchSyntax(
+            condition,
+            label,
+            target,
+            effects,
+            branchSpan,
+            targetSpan,
+            conditionSpan,
+            labelSpan,
+            effectSpan);
+    }
+
+    private void ParseEffectStatements(
+        string text,
+        int start,
+        int end,
+        SourceLine line,
+        List<EffectSyntax> effects)
+    {
+        var position = start;
+
+        while (position < end)
+        {
+            while (position < end && (char.IsWhiteSpace(text[position]) || text[position] == ';'))
+            {
+                position++;
+            }
+
+            if (position >= end)
+            {
+                break;
+            }
+
+            var statementStart = position;
+            var nextSemicolon = text.IndexOf(';', position);
+            var statementEnd = nextSemicolon >= 0 && nextSemicolon < end ? nextSemicolon : end;
+
+            var raw = text[statementStart..statementEnd];
+            var leading = raw.Length - raw.TrimStart().Length;
+            var statement = raw.Trim();
+            var absoluteStart = line.Span.Start + statementStart + leading;
+
+            var isSet = statement.StartsWith("@set", StringComparison.Ordinal)
+                && (statement.Length == 4 || char.IsWhiteSpace(statement[4]));
+
+            if (!isSet)
+            {
+                _diagnostics.Error(
+                    DiagnosticCode.MalformedEffect,
+                    line.Span,
+                    "效果块内只允许 @set 语句。");
+            }
+            else
+            {
+                var rest = statement["@set".Length..].Trim();
+                var parts = rest.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+
+                if (parts.Length != 2 ||
+                    !SyntaxFacts.IsIdentifier(parts[0]) ||
+                    !SyntaxFacts.TryParseBoolean(parts[1], out var value))
+                {
+                    _diagnostics.Error(
+                        DiagnosticCode.MalformedEffect,
+                        line.Span,
+                        "@set 的语法是：@set <布尔变量名> true|false");
+                }
+                else
+                {
+                    var name = parts[0];
+                    if (!_globalVariables.Contains(name))
+                    {
+                        _diagnostics.Error(
+                            DiagnosticCode.UndeclaredVariable,
+                            line.Span,
+                            $"使用了未在 @globals 中声明的变量：{name}");
+                    }
+
+                    var effect = new EffectSyntax(
+                        name,
+                        value,
+                        new TextSpan(absoluteStart, statement.Length));
+
+                    if (effects.Any(existing => existing.Name == name))
+                    {
+                        _diagnostics.Warning(
+                            DiagnosticCode.DuplicateEffectAssignment,
+                            effect.Span,
+                            $"同一效果块内重复赋值：{name}");
+                    }
+
+                    effects.Add(effect);
+                }
+            }
+
+            position = statementEnd + 1;
+        }
+    }
+
+    private void ValidateConditionVariables(BoolExprSyntax expression)
+    {
+        switch (expression)
+        {
+            case BoolRefSyntax reference:
+                if (!_globalVariables.Contains(reference.Name))
+                {
+                    _diagnostics.Error(
+                        DiagnosticCode.UndeclaredConditionVariable,
+                        reference.Span,
+                        $"条件引用了未在 @globals 中声明的变量：{reference.Name}");
+                }
+                break;
+
+            case NotExprSyntax not:
+                ValidateConditionVariables(not.Operand);
+                break;
+
+            case AndExprSyntax and:
+                ValidateConditionVariables(and.Left);
+                ValidateConditionVariables(and.Right);
+                break;
+
+            case OrExprSyntax or:
+                ValidateConditionVariables(or.Left);
+                ValidateConditionVariables(or.Right);
+                break;
+        }
+    }
+
+    private void ValidateExit(string? character, List<ExitBranchSyntax> branches, SourceLine startLine)
+    {
+        if (branches.Count == 0)
+        {
+            _diagnostics.Error(
+                DiagnosticCode.MalformedExitBranch,
+                startLine.Span,
+                "出口块至少需要一条分支。");
+            return;
+        }
+
+        if (!branches.Any(static branch => branch.Condition is null))
+        {
+            _diagnostics.Error(
+                DiagnosticCode.MissingFallback,
+                startLine.Span,
+                "出口块缺少无条件兜底分支。");
+        }
+
+        var choiceMode = character is not null;
+        var hasLabel = branches.Any(static branch => branch.LabelSpan is not null);
+        var hasUnlabeled = branches.Any(static branch => branch.LabelSpan is null);
+
+        if (choiceMode)
+        {
+            foreach (var branch in branches.Where(static branch => branch.LabelSpan is null || string.IsNullOrEmpty(branch.Label)))
+            {
+                _diagnostics.Error(
+                    DiagnosticCode.InvalidBranchLabel,
+                    branch.Span,
+                    "选择模式的分支必须带非空 [文案]。");
+            }
+        }
+        else
+        {
+            foreach (var branch in branches.Where(static branch => branch.LabelSpan is not null))
+            {
+                _diagnostics.Error(
+                    DiagnosticCode.InvalidBranchLabel,
+                    branch.Span,
+                    "自动模式的分支不能带 [文案]。");
+            }
+        }
+
+        if (hasLabel && hasUnlabeled)
+        {
+            _diagnostics.Error(
+                DiagnosticCode.ModeMismatch,
+                startLine.Span,
+                "出口块不能混用带文案和不带文案的分支。");
+        }
+    }
+
+    private void ConsumeAfterShorthand()
+    {
+        var reported = false;
+
+        while (!IsAtEnd)
+        {
+            var line = Current!.Value;
+            var trimmed = line.Text.Trim();
+
+            if (IsDirective(trimmed, "@title"))
+            {
+                break;
+            }
+
+            if (!reported && trimmed.Length > 0 && !trimmed.StartsWith("//", StringComparison.Ordinal))
+            {
+                _diagnostics.Error(
+                    DiagnosticCode.ContentAfterExit,
+                    line.Span,
+                    "简写出口只允许一条分支；后续内容无效。");
+                reported = true;
+            }
+
+            Advance();
+        }
+    }
+
+    private void ConsumeToNextModuleOrEnd()
+    {
+        while (!IsAtEnd)
+        {
+            if (IsDirective(Current!.Value.Text.Trim(), "@title"))
+            {
+                break;
+            }
+
+            Advance();
+        }
+    }
+
     private NarrationSyntax ParseMultilineNarration()
     {
         var openLine = Current!.Value;
@@ -368,8 +913,9 @@ public sealed class Parser
     }
 
     /// <summary>
-    /// 消费一个多行文本块。调用时 Current 指向开头的 [ 或 角色:[ 行。
-    /// 块内所有内容按纯文本处理，只有单独一行 ] 才会结束。
+    /// Consumes a multi-line text block. On entry, Current points at the opening
+    /// [ or character:[ line. All content is treated as plain text; only a line
+    /// consisting solely of ] closes the block.
     /// </summary>
     private string ParseMultilineText(SourceLine openingLine, out int end)
     {
@@ -435,7 +981,7 @@ public sealed class Parser
         var rest = line.Text.Trim()["@set".Length..].Trim();
         var parts = rest.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
 
-        if (parts.Length != 2 || !IsIdentifier(parts[0]) || !TryParseBoolean(parts[1], out var value))
+        if (parts.Length != 2 || !SyntaxFacts.IsIdentifier(parts[0]) || !SyntaxFacts.TryParseBoolean(parts[1], out var value))
         {
             _diagnostics.Error(
                 DiagnosticCode.MalformedDirective,
@@ -453,36 +999,6 @@ public sealed class Parser
         }
 
         return new SetSyntax(parts[0], value, line.Span);
-    }
-
-    private ExitSyntax ParseRawExit()
-    {
-        var startLine = Current!.Value;
-        var lines = new List<SourceLine>();
-
-        while (!IsAtEnd)
-        {
-            var line = Current!.Value;
-            if (IsDirective(line.Text.Trim(), "@title"))
-            {
-                break;
-            }
-
-            lines.Add(line);
-            Advance();
-        }
-
-        // 文件末尾或下一个模块前的空行不属于出口块，去掉尾部空行。
-        while (lines.Count > 0 && string.IsNullOrWhiteSpace(lines[^1].Text))
-        {
-            lines.RemoveAt(lines.Count - 1);
-        }
-
-        var end = lines.Count == 0 ? startLine.Span.End : lines[^1].Span.End;
-
-        return new ExitSyntax(
-            TextSpan.FromBounds(startLine.Span.Start, end),
-            lines.Select(static line => line.Text).ToArray());
     }
 
     private void SkipBlankAndComments()
@@ -520,6 +1036,26 @@ public sealed class Parser
         return char.IsWhiteSpace(next) || next is '(' or ':';
     }
 
+    private static bool IsBranchStart(string trimmed)
+    {
+        if (trimmed.StartsWith("->", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (trimmed.StartsWith("(", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (trimmed.StartsWith("[", StringComparison.Ordinal))
+        {
+            return trimmed.Contains("->", StringComparison.Ordinal);
+        }
+
+        return false;
+    }
+
     private static bool TryGetDialoguePrefix(string text, out string speaker, out string rest)
     {
         speaker = string.Empty;
@@ -532,7 +1068,7 @@ public sealed class Parser
         }
 
         var candidate = text[..colon].Trim();
-        if (!IsIdentifier(candidate))
+        if (!SyntaxFacts.IsIdentifier(candidate))
         {
             return false;
         }
@@ -548,43 +1084,40 @@ public sealed class Parser
         return true;
     }
 
-    private static bool IsIdentifier(string text)
+    private static void SkipWhitespace(string text, ref int position)
     {
-        if (string.IsNullOrEmpty(text))
+        while (position < text.Length && char.IsWhiteSpace(text[position]))
         {
-            return false;
+            position++;
         }
+    }
 
-        if (!char.IsLetter(text[0]) && text[0] != '_')
-        {
-            return false;
-        }
+    private static bool StartsWithAt(string text, int position, string value)
+        => position >= 0 &&
+           position + value.Length <= text.Length &&
+           string.CompareOrdinal(text, position, value, 0, value.Length) == 0;
 
-        for (var i = 1; i < text.Length; i++)
+    private static int FindMatchingParen(string text, int openIndex)
+    {
+        var depth = 0;
+
+        for (var i = openIndex; i < text.Length; i++)
         {
-            if (!char.IsLetterOrDigit(text[i]) && text[i] != '_')
+            if (text[i] == '(')
             {
-                return false;
+                depth++;
+            }
+            else if (text[i] == ')')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return i;
+                }
             }
         }
 
-        return true;
-    }
-
-    private static bool TryParseBoolean(string text, out bool value)
-    {
-        switch (text)
-        {
-            case "true":
-                value = true;
-                return true;
-            case "false":
-                value = false;
-                return true;
-            default:
-                value = false;
-                return false;
-        }
+        return -1;
     }
 
     private static TextSpan SpanAfter(SourceLine line, string keyword, string token)

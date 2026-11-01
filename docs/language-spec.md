@@ -1,5 +1,8 @@
 # Weftline 语言规格
 
+[**中文**](./language-spec.md) | [English](./en/language-spec.md)
+
+
 本文定义 v0 的语义。语法细节见 [grammar.md](./grammar.md)。
 
 ---

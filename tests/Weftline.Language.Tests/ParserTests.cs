@@ -1,4 +1,3 @@
-using Weftline.Language;
 using Weftline.Language.Diagnostics;
 using Weftline.Language.Syntax;
 
@@ -28,7 +27,7 @@ public sealed class ParserTests
 
         @set trust_low true
 
-        @next(萧影):(trust_low)[相信他] -> 医院
+        @next(萧影):(trust_low)[相信他] -> 医院 { @set has_key true }
             ()[沉默] -> 沉默
         """;
 
@@ -57,7 +56,25 @@ public sealed class ParserTests
         Assert.True(set.Value);
 
         Assert.NotNull(module.Exit);
-        Assert.Equal(2, module.Exit!.RawLines.Count);
+        var exit = module.Exit!;
+        Assert.Equal("萧影", exit.Character);
+        Assert.True(exit.IsChoiceMode);
+        Assert.Equal(2, exit.Branches.Count);
+
+        var firstBranch = exit.Branches[0];
+        Assert.Equal("相信他", firstBranch.Label);
+        Assert.Equal("医院", firstBranch.Target);
+        var condition = Assert.IsType<BoolRefSyntax>(firstBranch.Condition);
+        Assert.Equal("trust_low", condition.Name);
+        var effect = Assert.Single(firstBranch.Effects);
+        Assert.Equal("has_key", effect.Name);
+        Assert.True(effect.Value);
+
+        var secondBranch = exit.Branches[1];
+        Assert.Null(secondBranch.Condition);
+        Assert.Equal("沉默", secondBranch.Label);
+        Assert.Equal("沉默", secondBranch.Target);
+        Assert.Empty(secondBranch.Effects);
     }
 
     [Fact]

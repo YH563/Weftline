@@ -1,5 +1,8 @@
 # 诊断
 
+[**中文**](./diagnostics.md) | [English](./en/diagnostics.md)
+
+
 本文定义诊断模型、严重级别与 v0 诊断码。
 
 ---

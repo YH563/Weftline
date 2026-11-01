@@ -1,5 +1,8 @@
 # StoryGraph IR
 
+[**中文**](./ir.md) | [English](./en/ir.md)
+
+
 StoryGraph 是编译器与图视图、HTML 导出之间的中间表示。它是语言的纯投影：不包含格式、注释和缩进。
 
 ---

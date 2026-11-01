@@ -3,7 +3,7 @@ using Weftline.Language.Syntax;
 namespace Weftline.Cli;
 
 /// <summary>
-/// 把 AST 打印成缩进树，方便用眼睛检查解析结果。
+/// Prints the AST as an indented tree for quick inspection.
 /// </summary>
 internal static class AstPrinter
 {
@@ -51,8 +51,21 @@ internal static class AstPrinter
 
             if (module.Exit is { } exit)
             {
-                writer.WriteLine(
-                    $"    exit: {exit.RawLines.Count} raw line(s) — parsed in Step 2");
+                var mode = exit.IsChoiceMode ? $"choice ({exit.Character})" : "auto";
+                writer.WriteLine($"    exit: {mode}");
+
+                foreach (var branch in exit.Branches)
+                {
+                    var label = branch.Label is null ? string.Empty : $"[{branch.Label}] ";
+                    var condition = branch.Condition is null
+                        ? string.Empty
+                        : $"when {FormatCondition(branch.Condition)} ";
+                    var effects = branch.Effects.Count == 0
+                        ? string.Empty
+                        : " { " + string.Join("; ", branch.Effects.Select(static e => $"{e.Name} = {ToLower(e.Value)}")) + " }";
+
+                    writer.WriteLine($"      {label}{condition}-> {branch.Target}{effects}");
+                }
             }
             else
             {
@@ -62,6 +75,17 @@ internal static class AstPrinter
     }
 
     private static string ToLower(bool value) => value ? "true" : "false";
+
+    private static string FormatCondition(BoolExprSyntax expression)
+        => expression switch
+        {
+            BoolLiteralSyntax literal => ToLower(literal.Value),
+            BoolRefSyntax reference => reference.Name,
+            NotExprSyntax not => $"not ({FormatCondition(not.Operand)})",
+            AndExprSyntax and => $"({FormatCondition(and.Left)} and {FormatCondition(and.Right)})",
+            OrExprSyntax or => $"({FormatCondition(or.Left)} or {FormatCondition(or.Right)})",
+            _ => "?",
+        };
 
     private static string Short(string text)
     {

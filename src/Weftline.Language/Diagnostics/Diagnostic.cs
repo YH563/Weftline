@@ -10,8 +10,8 @@ public enum DiagnosticSeverity
 }
 
 /// <summary>
-/// 一条编译诊断：错误码、级别、消息、源码位置。
-/// 编译器遇到用户写错时不会抛异常，而是尽量收集成诊断。
+/// A compiler diagnostic: code, severity, message, and source span.
+/// The compiler does not throw on user errors; it collects diagnostics.
 /// </summary>
 public sealed record Diagnostic(
     string Code,
@@ -23,26 +23,33 @@ public sealed record Diagnostic(
 }
 
 /// <summary>
-/// 诊断的收集器。解析器和后续的校验器都往同一个袋子里写。
+/// Collects diagnostics. The parser and later validation stages write into the same bag.
 /// </summary>
 public sealed class DiagnosticBag : IEnumerable<Diagnostic>
 {
     private readonly List<Diagnostic> _items = [];
 
+    /// <summary>Number of diagnostics.</summary>
     public int Count => _items.Count;
 
+    /// <summary>Whether any diagnostic has error severity.</summary>
     public bool HasErrors => _items.Any(static d => d.Severity == DiagnosticSeverity.Error);
 
-    public IReadOnlyList<Diagnostic> ToList() => _items;
+    /// <summary>Returns a read-only snapshot of the diagnostics.</summary>
+    public IReadOnlyList<Diagnostic> ToList() => _items.ToList();
 
+    /// <summary>Adds a diagnostic.</summary>
     public void Add(Diagnostic diagnostic) => _items.Add(diagnostic);
 
+    /// <summary>Adds an error diagnostic.</summary>
     public void Error(string code, TextSpan span, string message)
         => Add(new Diagnostic(code, DiagnosticSeverity.Error, message, span));
 
+    /// <summary>Adds a warning diagnostic.</summary>
     public void Warning(string code, TextSpan span, string message)
         => Add(new Diagnostic(code, DiagnosticSeverity.Warning, message, span));
 
+    /// <summary>Adds an informational diagnostic.</summary>
     public void Info(string code, TextSpan span, string message)
         => Add(new Diagnostic(code, DiagnosticSeverity.Info, message, span));
 
@@ -52,13 +59,14 @@ public sealed class DiagnosticBag : IEnumerable<Diagnostic>
 }
 
 /// <summary>
-/// Step 1 使用的诊断码。后续步骤会继续往这里追加。
+/// Diagnostic codes.
 /// </summary>
 public static class DiagnosticCode
 {
     public const string UnknownLine = "WFT1001";
     public const string UnterminatedTextBlock = "WFT1002";
     public const string MalformedDirective = "WFT1003";
+    public const string MalformedExitBranch = "WFT1004";
 
     public const string VarOutsideGlobals = "WFT2001";
     public const string MultipleGlobals = "WFT2002";
@@ -71,5 +79,13 @@ public static class DiagnosticCode
     public const string DuplicateCharacter = "WFT2009";
 
     public const string MissingExitBlock = "WFT3001";
+    public const string MissingFallback = "WFT3002";
+    public const string ModeMismatch = "WFT3003";
+    public const string InvalidBranchLabel = "WFT3004";
+    public const string ContentAfterExit = "WFT3005";
+    public const string UndeclaredConditionVariable = "WFT3006";
     public const string UndeclaredVariable = "WFT3007";
+    public const string InvalidCondition = "WFT3008";
+    public const string MalformedEffect = "WFT3009";
+    public const string DuplicateEffectAssignment = "WFT3010";
 }

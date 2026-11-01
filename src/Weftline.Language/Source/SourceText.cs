@@ -1,9 +1,8 @@
 namespace Weftline.Language.Source;
 
 /// <summary>
-/// 源文本：保存完整文本、按行切分的结果，以及偏移量与行列的换算。
-///
-/// 编译器不会修改它。整个前端都把它当作只读的“事实来源”。
+/// Source text. Stores the full text, line splits, and offset/line-position conversions.
+/// It is immutable during compilation.
 /// </summary>
 public sealed class SourceText
 {
@@ -17,17 +16,23 @@ public sealed class SourceText
         _lines = SplitLines(text);
     }
 
+    /// <summary>The full source text.</summary>
     public string Text => _text;
 
+    /// <summary>Source file path, or null for in-memory text.</summary>
     public string? FilePath { get; }
 
+    /// <summary>Lines after splitting; line numbers start at 1.</summary>
     public IReadOnlyList<SourceLine> Lines => _lines;
 
+    /// <summary>Total character count of the source text.</summary>
     public int Length => _text.Length;
 
+    /// <summary>Creates source text from a string.</summary>
     public static SourceText From(string text, string? filePath = null)
         => new(text ?? string.Empty, filePath);
 
+    /// <summary>Returns the source slice for the given span.</summary>
     public string GetText(TextSpan span)
     {
         if (span.Start < 0 || span.End > _text.Length || span.Length < 0)
@@ -38,6 +43,7 @@ public sealed class SourceText
         return _text.Substring(span.Start, span.Length);
     }
 
+    /// <summary>Converts a character offset to a 1-based line/column position.</summary>
     public LinePosition GetLinePosition(int position)
     {
         if (_lines.Length == 0)
@@ -47,8 +53,8 @@ public sealed class SourceText
 
         position = Math.Clamp(position, 0, _text.Length);
 
-        // 找最后一个满足 Span.Start <= position 的行。
-        // 这比按行尾二分更简单，也能正确处理换行边界与 EOF。
+        // Find the last line whose Span.Start is <= position.
+        // This is simpler than searching by line end and handles newline boundaries and EOF.
         var low = 0;
         var high = _lines.Length - 1;
         var found = 0;
@@ -72,6 +78,9 @@ public sealed class SourceText
         return new LinePosition(line.Number, Math.Max(1, character));
     }
 
+    /// <summary>
+    /// Supports \n, \r\n, and \r line breaks. Always keeps a final line so EOF has a stable line number.
+    /// </summary>
     private static SourceLine[] SplitLines(string text)
     {
         var lines = new List<SourceLine>();
@@ -111,7 +120,8 @@ public sealed class SourceText
 }
 
 /// <summary>
-/// 一行源码。Span 不含换行，SpanIncludingLineBreak 含换行。
+/// A source line. Span covers the text without the line break;
+/// SpanIncludingLineBreak also covers the break.
 /// </summary>
 public readonly record struct SourceLine(
     string Text,
@@ -122,7 +132,7 @@ public readonly record struct SourceLine(
     public override string ToString() => $"{Number}: {Text}";
 }
 
-/// <summary>从 1 开始的行列位置。</summary>
+/// <summary>A 1-based line/column position.</summary>
 public readonly record struct LinePosition(int Line, int Character)
 {
     public override string ToString() => $"{Line}:{Character}";

@@ -3,15 +3,15 @@ using Weftline.Language;
 
 if (args.Length != 2 || !string.Equals(args[0], "parse", StringComparison.Ordinal))
 {
-    Console.WriteLine("Weftline Step 1 — 解析器演示");
-    Console.WriteLine("用法: dotnet run --project src/Weftline.Cli -- parse <file.weft>");
+    Console.WriteLine("Weftline parser");
+    Console.WriteLine("Usage: dotnet run --project src/Weftline.Cli -- parse <file.weft>");
     return 1;
 }
 
 var path = args[1];
 if (!File.Exists(path))
 {
-    Console.Error.WriteLine($"找不到文件: {path}");
+    Console.Error.WriteLine($"File not found: {path}");
     return 1;
 }
 

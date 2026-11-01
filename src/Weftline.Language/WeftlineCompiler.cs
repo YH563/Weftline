@@ -5,7 +5,8 @@ using Weftline.Language.Syntax;
 namespace Weftline.Language;
 
 /// <summary>
-/// 一次解析的结果。即使有错误，也尽量返回可用的 AST 和完整的诊断列表。
+/// The result of one parse. Even when there are errors, it returns the best
+/// available AST together with the full diagnostic list.
 /// </summary>
 public sealed class CompilationResult
 {
@@ -19,23 +20,28 @@ public sealed class CompilationResult
         Diagnostics = diagnostics;
     }
 
+    /// <summary>The source text.</summary>
     public SourceText Source { get; }
 
+    /// <summary>The parsed syntax tree; returned even when there are errors.</summary>
     public ScriptFileSyntax Script { get; }
 
+    /// <summary>Diagnostics collected during this parse.</summary>
     public IReadOnlyList<Diagnostic> Diagnostics { get; }
 
+    /// <summary>Whether any diagnostic has error severity.</summary>
     public bool HasErrors => Diagnostics.Any(static d => d.Severity == DiagnosticSeverity.Error);
 }
 
 /// <summary>
-/// 编译器的对外入口。
+/// Public entry point for the compiler.
 ///
-/// Step 1 只做“源文本 -> AST + 诊断”。
-/// Step 2 会在此基础上增加出口分支解析、目标解析与 StoryGraph IR。
+/// Currently provides source parsing: source text -> AST + diagnostics.
+/// Semantic resolution and StoryGraph IR are not included yet.
 /// </summary>
 public static class WeftlineCompiler
 {
+    /// <summary>Parses a source text.</summary>
     public static CompilationResult Parse(string text, string? filePath = null)
     {
         var source = SourceText.From(text, filePath);
@@ -45,6 +51,7 @@ public static class WeftlineCompiler
         return new CompilationResult(source, script, diagnostics.ToList());
     }
 
+    /// <summary>Reads a file and parses it.</summary>
     public static CompilationResult ParseFile(string filePath)
         => Parse(File.ReadAllText(filePath), filePath);
 }

@@ -1,8 +1,10 @@
 # Weftline
 
+**中文** | [English](README.en.md)
+
 剧情 demo / 叙事演示工具：写剧本、看剧情图、导出可在浏览器里直接演示的 HTML。
 
-当前状态：**Step 1 编译器前端已实现**——可解析 globals、模块、内容块并给出诊断；exit 分支与 StoryGraph 留给 Step 2。
+当前状态：**解析器前端已实现**——可解析 globals、模块、内容块、出口分支/条件/效果并给出诊断；StoryGraph 尚未接入。
 
 ## 技术栈
 
