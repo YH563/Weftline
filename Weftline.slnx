@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Weftline.App/Weftline.App.csproj" />
+    <Project Path="src/Weftline.Export/Weftline.Export.csproj" />
+    <Project Path="src/Weftline.Language/Weftline.Language.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Weftline.Language.Tests/Weftline.Language.Tests.csproj" />
+  </Folder>
+</Solution>
