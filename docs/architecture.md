@@ -139,7 +139,97 @@ Binder / Validator ──> StoryGraph IR + Diagnostics
 
 ---
 
-## 5. 构建与兼容性
+## 5. 编辑模型（图 → 源码写回）
+
+### 5.1 原则
+
+- 源文本是唯一文档，AST 节点带 `TextSpan`。
+- v0 不引入 CST；手动连接不需要反编译。
+- GUI 操作是**预定义命令**，每个命令计算一组最小 `TextEdit`。
+- 文本编辑与 GUI 编辑串行作用于同一份 `SourceText`，然后重新解析。
+- Undo/Redo 基于文本编辑栈。
+
+### 5.2 管线
+
+```
+GUI 命令
+  → IEditCommand.Compute(...)
+  → TextEdit[]（Span + 新文本）
+  → 应用到 SourceText
+  → 重新解析
+  → 刷新 StoryGraph / Diagnostics / 图视图
+```
+
+### 5.3 需要的锚点
+
+AST / 符号表至少要提供：
+
+```
+Module.Span
+Module.TitleSpan
+ExitBlock.Span
+ExitBlock.InsertionPoint
+ExitBranch.Span
+ExitBranch.TargetSpan
+ExitBranch.ConditionSpan
+ExitBranch.LabelSpan
+ExitBranch.EffectSpan
+ContentBlock.Span
+SourceText 的行索引
+```
+
+### 5.4 命令与文本操作
+
+| 命令 | 文本操作 |
+|---|---|
+| AddEdge | 在出口块插入点插入一行分支模板 |
+| RemoveEdge | 删除该分支整行（含换行） |
+| RetargetEdge | 替换 `TargetSpan` |
+| EditCondition | 替换/插入 `ConditionSpan` |
+| EditLabel | 替换 `LabelSpan` |
+| AddEffect / RemoveEffect | 修改 `{}` 内的 `@set` |
+| AddModule | 在文档末尾或选中模块后插入模块模板 |
+| DeleteModule | 删除模块整段 `Span` |
+| RenameModule | 替换 `TitleSpan`，并同步所有指向它的目标 |
+| MoveBranch | 暂缓；先删除 + 插入 |
+
+插入模板必须遵守出口块的当前模式（选择 / 自动），并保持兜底。
+
+### 5.5 命令后的不变量
+
+每个命令执行后都要重新校验：
+
+- 模式一致：选择模式全带文案，自动模式全不带；
+- 至少一条无条件分支（兜底）；
+- 每个模块都有出口块；
+- 目标存在，`END` 未被非法使用；
+- 变量在 `@globals` 中已声明；
+- 标题唯一。
+
+违反不变量的命令应被拒绝，或由命令自动修复后再落盘。
+
+### 5.6 注释与空白策略
+
+- 删除分支时删除整行，包括行尾换行。
+- 新增分支使用统一模板。
+- 除被编辑的 Span 外，其余原文与排版保持不变。
+- 移动带注释的分支时，注释归属可能丢失；v0 接受。
+- 如果需要无损保留注释与排版，再引入轻量 CST / trivia。
+
+### 5.7 何时升级到 CST
+
+只有出现以下需求时才升级：
+
+- 增量重解析（大文件编辑性能）；
+- 无损格式化 / pretty-print；
+- 注释保留的复杂重构与移动；
+- 结构化编辑需要逐字节还原源码。
+
+在此之前，AST + Span + SourceText + TextEdit 足够。
+
+---
+
+## 6. 构建与兼容性
 
 - `Directory.Build.props`：启用 nullable、implicit usings、latest LangVersion。
 - `.editorconfig`：统一格式与 C# 风格。
@@ -151,7 +241,7 @@ Binder / Validator ──> StoryGraph IR + Diagnostics
 
 ---
 
-## 6. 测试策略
+## 7. 测试策略
 
 | 层级 | 内容 |
 |---|---|
@@ -168,7 +258,7 @@ M1 的验收标准：
 
 ---
 
-## 7. 当前状态
+## 8. 当前状态
 
 - 解决方案与项目骨架已创建。
 - 语言文档已就位。
