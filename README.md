@@ -2,7 +2,7 @@
 
 剧情 demo / 叙事演示工具：写剧本、看剧情图、导出可在浏览器里直接演示的 HTML。
 
-当前状态：**项目架构与语言文档已就位，尚未开始实现业务代码。**
+当前状态：**Step 1 编译器前端已实现**——可解析 globals、模块、内容块并给出诊断；exit 分支与 StoryGraph 留给 Step 2。
 
 ## 技术栈
 
@@ -18,9 +18,11 @@ src/
   Weftline.Language/        语言核心：解析、诊断、StoryGraph IR（零 UI 依赖）
   Weftline.Export/          StoryGraph -> 单文件 HTML / 资源内嵌
   Weftline.App/             Avalonia UI：编辑器、图视图、资源面板
+  Weftline.Cli/             命令行解析工具，便于手测与学习
 tests/
   Weftline.Language.Tests/  语言核心单元测试
 docs/                       语言与架构文档
+samples/                    可直接用 CLI 运行的示例
 ```
 
 依赖方向：

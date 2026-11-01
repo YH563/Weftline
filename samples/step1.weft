@@ -1,0 +1,20 @@
+@globals
+@var trust_low false
+@var has_key false
+
+@title 相信
+@char 萧影
+@char 影子
+
+[
+雨水模糊了视线。
+]
+
+萧影:[你来了。]
+
+@fig "assets/hospital.png"
+
+@set trust_low true
+
+@next(萧影):(trust_low)[相信他] -> 医院
+    ()[沉默] -> 沉默

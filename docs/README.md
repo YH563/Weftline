@@ -41,6 +41,7 @@ Weftline 是**剧情 demo / 叙事演示工具**，不是游戏引擎，也不�
 | 文档 | 内容 |
 |---|---|
 | [architecture.md](./architecture.md) | 项目分层、职责、数据流与测试策略 |
+| [compiler-walkthrough.md](./compiler-walkthrough.md) | Step 1 编译器入门：SourceText、Parser、AST、诊断 |
 | [grammar.md](./grammar.md) | 词法、EBNF 语法、解析约定 |
 | [language-spec.md](./language-spec.md) | 模块、globals、内容块、出口、状态、执行语义 |
 | [ir.md](./ir.md) | StoryGraph IR 与图结构导出格式 |
