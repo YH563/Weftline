@@ -4,18 +4,22 @@ using Weftline.Language.Source;
 namespace Weftline.Language.Syntax;
 
 /// <summary>
-/// Recursive-descent parser for boolean conditions.
+/// 布尔条件的递归下降解析器。
 ///
-/// Grammar:
+/// 文法：
 ///   expr    := or
 ///   or      := and ("or" and)*
 ///   and     := unary ("and" unary)*
 ///   unary   := "not" unary | primary
 ///   primary := "(" expr ")" | identifier | "true" | "false"
 ///
-/// The outer Parser strips the condition's outer parentheses, so this parser
-/// works on the inner text. offset is the absolute source position of that
-/// text and is used to produce precise diagnostics.
+/// 外层的 Parser 会去掉条件最外层的括号，因此这里处理的是内部文本。
+/// offset 是该文本在源码中的绝对位置，用于产生精确诊断。
+///
+/// Recursive-descent parser for boolean conditions.
+/// The grammar is shown above. The outer Parser strips the condition's outer
+/// parentheses, so this parser works on the inner text. offset is the absolute
+/// source position of that text and is used to produce precise diagnostics.
 /// </summary>
 internal static class ConditionParser
 {

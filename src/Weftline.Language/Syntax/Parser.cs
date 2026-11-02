@@ -4,6 +4,11 @@ using Weftline.Language.Source;
 namespace Weftline.Language.Syntax;
 
 /// <summary>
+/// Weftline 的面向行递归下降解析器。
+///
+/// 解析器不构建完整的 token 流。每一行是一个行级单元：空行、注释、指令、
+/// 文本围栏或普通行。当前解析器状态决定如何消费该行。
+///
 /// Line-oriented recursive-descent parser for Weftline.
 ///
 /// The parser does not build a full token stream. Instead, each line is a
@@ -24,7 +29,10 @@ public sealed class Parser
         _diagnostics = diagnostics;
     }
 
-    /// <summary>Parses the entire source text and returns the syntax tree.</summary>
+    /// <summary>
+    /// 解析整个源码文本并返回语法树。
+    /// Parses the entire source text and returns the syntax tree.
+    /// </summary>
     public static ScriptFileSyntax Parse(SourceText source, DiagnosticBag diagnostics)
         => new Parser(source, diagnostics).ParseFile();
 
@@ -334,6 +342,8 @@ public sealed class Parser
     }
 
     /// <summary>
+    /// 解析 @next 出口块。支持完整形式和
+    /// @next -> 目标 的简写形式。
     /// Parses an @next exit block. Supports the full form and the
     /// @next -> target shorthand.
     /// </summary>
@@ -473,6 +483,7 @@ public sealed class Parser
     }
 
     /// <summary>
+    /// 解析一条出口分支。返回前会消费当前行（以及可能的多行效果块）。
     /// Parses one exit branch. Consumes the current line (and any multi-line
     /// effect block) before returning.
     /// </summary>
@@ -913,6 +924,8 @@ public sealed class Parser
     }
 
     /// <summary>
+    /// 消费一个多行文本块。进入时 Current 指向起始的 [ 或 character:[ 行。
+    /// 所有内容都按纯文本处理；只有仅包含 ] 的行才会关闭文本块。
     /// Consumes a multi-line text block. On entry, Current points at the opening
     /// [ or character:[ line. All content is treated as plain text; only a line
     /// consisting solely of ] closes the block.

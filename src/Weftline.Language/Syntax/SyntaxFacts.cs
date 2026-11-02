@@ -1,6 +1,8 @@
 namespace Weftline.Language.Syntax;
 
 /// <summary>
+/// 小型语法辅助：标识符检查和布尔字面量解析。
+/// 集中在一处，让 Parser 和 ConditionParser 共用同一套规则。
 /// Small syntax helpers: identifier checks and boolean literal parsing.
 /// Kept in one place so Parser and ConditionParser share the same rules.
 /// </summary>

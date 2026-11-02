@@ -7,6 +7,7 @@ using Weftline.App.ViewModels;
 namespace Weftline.App;
 
 /// <summary>
+/// 给定视图模型，尽可能返回对应的视图。
 /// Given a view model, returns the corresponding view if possible.
 /// </summary>
 [RequiresUnreferencedCode(

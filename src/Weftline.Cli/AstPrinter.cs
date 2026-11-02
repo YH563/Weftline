@@ -3,6 +3,7 @@ using Weftline.Language.Syntax;
 namespace Weftline.Cli;
 
 /// <summary>
+/// 以缩进树的形式打印 AST，便于快速检查。
 /// Prints the AST as an indented tree for quick inspection.
 /// </summary>
 internal static class AstPrinter

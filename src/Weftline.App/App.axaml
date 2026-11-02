@@ -3,7 +3,8 @@
              x:Class="Weftline.App.App"
              xmlns:local="using:Weftline.App"
              RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             <!-- "Default" 跟随系统主题。"Dark" 或 "Light" 是其他可选值。
+                  "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
     <Application.DataTemplates>
         <local:ViewLocator />
