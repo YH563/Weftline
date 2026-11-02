@@ -1,93 +1,70 @@
-# Diagnostics
+# Diagnostic Codes and Common Errors
 
 [中文](../diagnostics.md) | **English**
 
-This document defines the diagnostic model, severities, and v0 diagnostic codes.
+The editor shows a diagnostic code at the problem location. This page lists the codes story authors most often encounter, what they mean, and how to fix them.
 
-## 1. Diagnostic model
+---
 
-```ts
-Diagnostic {
-  code: string;         // e.g. WFT3004
-  severity: "error" | "warning" | "info";
-  message: string;
-  span: TextSpan;       // file and character offsets
-  related?: TextSpan[]; // related locations
-  quickFix?: QuickFix;  // optional quick fix
-}
-```
+## 1. Lexing and syntax
 
-- `span` points to an exact source range.
-- The parser recovers from syntax errors so the editor can still provide completion and navigation.
-- Project-level diagnostics (target resolution, reachability) are produced after module parsing.
-
-## 2. Codes
-
-### WFT1xxx: lexical and syntax
-
-| Code | Severity | Meaning |
+| Code | Meaning | Common fix |
 |---|---|---|
-| WFT1001 | error | Unrecognized character or directive |
-| WFT1002 | error | Unterminated text block |
-| WFT1003 | error | Malformed directive |
-| WFT1004 | error | Malformed exit branch |
-| WFT1005 | error | Title contains `{` or `}` |
+| WFT1001 | Unrecognized character or directive | Check the `@` directive or put text inside `[]` |
+| WFT1002 | Unterminated text block | Add the closing `]` |
+| WFT1003 | Malformed directive | Check the arguments, e.g. `@var 信任 false` |
+| WFT1004 | Malformed exit branch | Check `(condition)[label] -> target` |
+| WFT1005 | Title contains `{` or `}` | Remove `{` / `}` from `@title` |
+| WFT1006 | Unterminated `{}` reference | Add `}` on the same line |
 
-### WFT2xxx: modules and declarations
+## 2. Declarations and modules
 
-| Code | Severity | Meaning |
+| Code | Meaning | Common fix |
 |---|---|---|
-| WFT2001 | error | `@var` appears outside `@globals` |
-| WFT2002 | error | Multiple `@globals` blocks |
-| WFT2003 | error | `@globals` is not at the file header or in a globals file |
-| WFT2004 | error | Duplicate global variable |
-| WFT2005 | error | Duplicate module title |
-| WFT2006 | error | Header directive after content |
-| WFT2007 | error | Empty `@title` |
-| WFT2008 | error | Dialogue or exit references an undeclared character |
-| WFT2009 | error | Duplicate character in one module |
+| WFT2001 | Symbol declaration in the wrong place | Put `@vars` / `@chars` / `@items` / `@scenes` before modules |
+| WFT2004 | Duplicate global variable | Remove the duplicate `@var` |
+| WFT2005 | Duplicate module title | Rename the duplicate `@title` |
+| WFT2006 | Module header directive after content | Move `@scene` before the content |
+| WFT2007 | Empty `@title` / `@project` / `@doc` | Provide a title or name |
+| WFT2008 | Dialogue or exit references an undeclared character | Add `@char` under `@chars` in `.weft` |
+| WFT2009 | Duplicate character | Remove the duplicate `@char` |
+| WFT2010 | Duplicate item | Remove the duplicate `@item` |
+| WFT2011 | Symbol name clashes across kinds | Give the variable/character/item/scene a unique name |
+| WFT2012 | `@set` in `.wstory` | Remove it; variable initial values belong in `.weft` `@var` |
+| WFT2013 | `@set` in content | Put variable changes only in exit branch effects `{ @set ... }` |
+| WFT2014 | `{name}` references an undeclared character or item | Declare it at the top of `.weft`, or fix the name |
+| WFT2015 | Duplicate scene | Remove the duplicate `@scene` |
+| WFT2016 | Invalid scene name | Use a valid identifier such as `医院` |
 
-### WFT3xxx: content and exits
+## 3. Content and exits
 
-| Code | Severity | Meaning |
+| Code | Meaning | Common fix |
 |---|---|---|
-| WFT3001 | error | Module is missing an exit block |
-| WFT3002 | error | Exit block has no unconditional fallback |
-| WFT3003 | error | Exit block mixes choice and automatic branches |
-| WFT3004 | error | Choice branch lacks a label, or automatic branch has one |
-| WFT3005 | error | Content after the exit block |
-| WFT3006 | error | Condition references an undeclared variable |
-| WFT3007 | error | `@set` references an undeclared variable |
-| WFT3008 | error | Boolean expression syntax error |
-| WFT3009 | error | Non-`@set` statement inside an effect block |
-| WFT3010 | warning | Duplicate assignment in one effect block; last write wins |
+| WFT3001 | Module is missing an exit block | Add `@next -> END` or another exit at the end |
+| WFT3002 | Exit is missing a fallback | Add an unconditional branch, or write one as `()` |
+| WFT3003 | Choice and automatic modes mixed | Choice branches all have `[label]`; automatic branches have none |
+| WFT3004 | Label does not match the mode | Add `[label]` in choice mode; remove it in automatic mode |
+| WFT3005 | Content after the exit block | Move the content before `@next` |
+| WFT3006 | Condition references an undeclared variable | Add `@var` under `@vars` in `.weft` |
+| WFT3007 | `@set` references an undeclared variable | Add `@var` under `@vars` in `.weft` |
+| WFT3008 | Boolean expression syntax error | Check `not` / `and` / `or` and parentheses |
+| WFT3009 | Non-`@set` statement in an effect block | Effect blocks only allow `@set` |
+| WFT3010 | Repeated assignment in one effect block | Later wins; consider removing the duplicate |
 
-### WFT4xxx: project and graph
+## 4. Project and graph (planned)
 
-| Code | Severity | Meaning |
+| Code | Meaning | Common fix |
 |---|---|---|
-| WFT4001 | error | `@next` target module not found |
-| WFT4002 | error | Illegal definition or use of `END` |
-| WFT4003 | error | Project is empty, no module to preview |
-| WFT4004 | warning | Module is unreachable from the default entry |
-| WFT4005 | warning | A path cannot reach `END` |
-| WFT4006 | warning | External target in isolated single-module mode |
-| WFT4007 | warning | Image asset not found |
-| WFT4008 | info | Global variable declared but never used |
+| WFT4001 | Target module not found | Create it or fix the target name |
+| WFT4002 | Invalid `END` definition or use | Do not define `@title END`; terminate with `@next -> END` |
+| WFT4004 | Module unreachable from the entry | Check whether an exit points to it |
+| WFT4005 | A path cannot reach `END` | Check dead ends and fallbacks |
+| WFT4007 | Image asset not found | Fix the `@fig` path or import the asset |
 
-## 3. Quick fixes
+---
 
-| Situation | Quick fix |
-|---|---|
-| Undeclared variable | Add `@var` to `@globals`, creating it if needed |
-| Target module missing | Create the target module, or change the target |
-| Undeclared character | Add `@char` to the module header |
-| Missing fallback | Add an unconditional branch at the end |
-| Missing choice label | Insert a `[label]` placeholder |
-| Missing image | Open the asset importer |
+## 5. Single-module playback
 
-## 4. Isolated single-module mode
-
-- Missing external targets: `WFT4006` warning; does not block preview or export.
-- Missing external variables: still `WFT3006`, because variables must resolve against the unique `@globals` table.
-- Without `@globals`: the variable table is empty; modules that do not use state are unaffected.
+- Missing external targets end the demo or show a stub; they do not block.
+- Missing external variables are still errors; declare them in `.weft`.
+- With no variable declarations, the variable table is empty; modules that use no variables are unaffected.

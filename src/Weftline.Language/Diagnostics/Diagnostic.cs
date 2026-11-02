@@ -92,6 +92,8 @@ public static class DiagnosticCode
     public const string UnterminatedTextBlock = "WFT1002";
     public const string MalformedDirective = "WFT1003";
     public const string MalformedExitBranch = "WFT1004";
+    public const string InvalidTitleCharacter = "WFT1005";
+    public const string UnterminatedReference = "WFT1006";
 
     public const string VarOutsideGlobals = "WFT2001";
     public const string MultipleGlobals = "WFT2002";
@@ -102,6 +104,13 @@ public static class DiagnosticCode
     public const string EmptyTitle = "WFT2007";
     public const string UndeclaredCharacter = "WFT2008";
     public const string DuplicateCharacter = "WFT2009";
+    public const string DuplicateItem = "WFT2010";
+    public const string DuplicateSymbol = "WFT2011";
+    public const string SetInProjectFile = "WFT2012";
+    public const string SetInContent = "WFT2013";
+    public const string UndeclaredReference = "WFT2014";
+    public const string DuplicateScene = "WFT2015";
+    public const string MalformedScene = "WFT2016";
 
     public const string MissingExitBlock = "WFT3001";
     public const string MissingFallback = "WFT3002";
@@ -113,4 +122,13 @@ public static class DiagnosticCode
     public const string InvalidCondition = "WFT3008";
     public const string MalformedEffect = "WFT3009";
     public const string DuplicateEffectAssignment = "WFT3010";
+
+    public const string TargetNotFound = "WFT4001";
+    public const string InvalidEnd = "WFT4002";
+    public const string EmptyProject = "WFT4003";
+    public const string UnreachableModule = "WFT4004";
+    public const string PathCannotReachEnd = "WFT4005";
+    public const string ExternalTargetInIsolation = "WFT4006";
+    public const string MissingAsset = "WFT4007";
+    public const string UnusedGlobalVariable = "WFT4008";
 }

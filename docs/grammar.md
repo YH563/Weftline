@@ -2,49 +2,57 @@
 
 [**中文**](./grammar.md) | [English](./en/grammar.md)
 
-
 本文定义 v0 的词法与语法。语义见 [language-spec.md](./language-spec.md)。
 
 ---
 
 ## 1. 词法约定
 
-### 1.1 行与空白
+### 1.1 行与缩进
 
 - 语法以**行**为基本单位。
-- 缩进仅用于可读性，**不参与语义**。编辑器会对出口分支自动缩进。
+- 缩进只用于显示，4 空格一级，不参与解析。
 - 空行允许出现在任何结构之间。
-- 除正文块内部外，行尾空白忽略。
+- 行尾空白忽略。
+- 文本块每行首尾空白会被去掉。
 
 ### 1.2 关键字
 
-所有指令均以 `@` 开头，且只有以下七个：
+所有指令均以 `@` 开头：
 
-```
-@globals
+```text
+@project
+@summary
+@doc
+@vars
 @var
-@title
+@chars
 @char
+@items
+@item
+@scenes
+@scene
+@title
 @fig
-@set
 @next
+@set
 ```
 
 `END` 是保留的终点标识，不是关键字。
 
 ### 1.3 标识符
 
-用于角色名、变量名：
+用于角色名、道具名、场景名、变量名：
 
-```
+```text
 Identifier := (Unicode Letter | "_") (Unicode Letter | Digit | "_")*
 ```
 
-允许中文标识符，例如 `萧影`、`影子`。
+允许中文标识符，例如 `萧影`、`医院钥匙`。
 
 ### 1.4 布尔值
 
-```
+```text
 BoolLiteral := "true" | "false"
 ```
 
@@ -52,85 +60,92 @@ BoolLiteral := "true" | "false"
 
 用于 `@fig` 路径。使用双引号包裹，支持以下转义：
 
-```
+```text
 \"   双引号
 \\   反斜杠
 ```
 
-```
-String := '"' (Char | '\"' | '\\')* '"'
-```
-
 ### 1.6 注释
 
-```
+```text
 // 这是注释
 ```
 
 - 仅在**结构层**生效。
 - 正文块内部，`//` 是普通文本。
 
-### 1.7 正文块
+### 1.7 正文块与引用
 
-```
-[ 第一行
-  第二行
-]
+```text
+[雨水模糊了视线。]
+萧影:[你来了。]
 ```
 
-- 多行块以单独一行的 `[` 开始，以单独一行的 `]` 结束。
-- 块内所有内容按纯文本处理，不解析任何关键字。
-- 单行形式：`[文本]`，遇到第一个 `]` 结束，文本内需用 `\]` 转义。
-- 对话单行形式：`角色:[文本]`。
+多行时括号贴正文，不单独占行：
+
+```text
+[雨水模糊了视线，
+他抬起头。]
+```
+
+- 正文块内的 `{Identifier}` 是引用，只允许引用角色或道具。
+- `{{` 表示字面量 `{`，`}}` 表示字面量 `}`。
+- `{}` 不跨行，不支持嵌套。
 
 ### 1.8 标题与目标文本
 
-- `TitleText`：`@title` 后的整行文本，去除首尾空白。
+- `TitleText`：`@title` / `@project` / `@doc` 后的整行文本，去除首尾空白。
 - `TargetText`：`->` 之后、`{` 之前或行尾的整段文本，去除首尾空白。
-- 标题和目标**可以包含空格**，但不能包含 `{` 或 `}`。
+- 标题和目标可以包含空格，但不能包含 `{` 或 `}`。
 
 ---
 
 ## 2. EBNF
 
-```ebnf
-File            ::= GlobalsBlock? Module* EOF
+### 2.1 `.weft` 模块脚本
 
-GlobalsBlock    ::= "@globals" NEWLINE VarDecl+
+```ebnf
+WeftFile        ::= DeclarationGroup* Module*
+
+DeclarationGroup ::= VarGroup | CharGroup | ItemGroup | SceneGroup
+VarGroup        ::= "@vars" NEWLINE VarDecl+
+CharGroup       ::= "@chars" NEWLINE CharDecl+
+ItemGroup       ::= "@items" NEWLINE ItemDecl+
+SceneGroup      ::= "@scenes" NEWLINE SceneDecl+
+
 VarDecl         ::= "@var" Identifier BoolLiteral NEWLINE
+CharDecl        ::= "@char" Identifier NEWLINE
+ItemDecl        ::= "@item" Identifier NEWLINE
+SceneDecl       ::= "@scene" Identifier NEWLINE
 
 Module          ::= "@title" TitleText NEWLINE
-                    CharDecl*
+                    ModuleScene?
                     Content*
                     ExitBlock
-
-CharDecl        ::= "@char" Identifier NEWLINE
+ModuleScene     ::= "@scene" Identifier NEWLINE
 
 Content         ::= NarrationBlock
                   | DialogueBlock
                   | FigureDirective
-                  | SetDirective
-                  | Comment
 
-NarrationBlock  ::= InlineText | BlockText
-
-DialogueBlock   ::= Identifier ":" (InlineText | BlockText)
-
-InlineText      ::= "[" TextChars "]"
-BlockText       ::= "[" NEWLINE RawLine* CloseLine
-CloseLine       ::= "]" NEWLINE
-
+NarrationBlock  ::= TextBlock
+DialogueBlock   ::= Identifier ":" TextBlock
 FigureDirective ::= "@fig" String NEWLINE
-SetDirective    ::= "@set" Identifier BoolLiteral NEWLINE
-Comment         ::= "//" ... NEWLINE
+
+TextBlock       ::= InlineText | MultiLineText
+InlineText      ::= "[" TextSegment* "]"
+MultiLineText   ::= "[" TextSegment* NEWLINE
+                    ( TextSegment* NEWLINE )*
+                    TextSegment* "]"
+TextSegment     ::= Text | Reference
+Reference       ::= "{" Identifier "}"
 
 ExitBlock       ::= FullExit | ShortExit
-FullExit        ::= "@next" CharGroup? ":" BranchBody Branch*
+FullExit        ::= "@next" CharGroup? ":" Branch+
 ShortExit       ::= "@next" "->" Target EffectBlock? NEWLINE
 
 CharGroup       ::= "(" Identifier? ")"
-Branch          ::= BranchBody
-BranchBody      ::= Condition? Label? "->" Target EffectBlock? NEWLINE
+Branch          ::= Condition? Label? "->" Target EffectBlock? NEWLINE
 
 Condition       ::= "(" BoolExpr? ")"
 Label           ::= "[" LabelText "]"
@@ -149,69 +164,90 @@ UnaryExpr       ::= "not" UnaryExpr
                   | BoolLiteral
 ```
 
+### 2.2 `.wstory` 项目总览
+
+```ebnf
+WStoryFile      ::= "@project" TitleText NEWLINE
+                    WStoryItem*
+
+WStoryItem      ::= Summary | DocGroup | CharGroup | ItemGroup | SceneGroup | VarGroup
+
+Summary         ::= "@summary" TextBlock NEWLINE
+
+DocGroup        ::= "@docs" NEWLINE DocDecl+
+DocDecl         ::= "@doc" TitleText TextBlock NEWLINE
+
+CharGroup       ::= "@chars" NEWLINE WStoryCharDecl+
+WStoryCharDecl  ::= "@char" Identifier TextBlock? NEWLINE
+
+ItemGroup       ::= "@items" NEWLINE WStoryItemDecl+
+WStoryItemDecl  ::= "@item" Identifier TextBlock? NEWLINE
+
+SceneGroup      ::= "@scenes" NEWLINE WStorySceneDecl+
+WStorySceneDecl ::= "@scene" Identifier TextBlock? NEWLINE
+
+VarGroup        ::= "@vars" NEWLINE WStoryVarDecl+
+WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
+```
+
 ---
 
 ## 3. 解析约定
 
-### 3.1 模块边界
+### 3.1 文件角色
+
+- `.weft`：顶部声明分组 + 模块。
+- `.wstory`：项目信息 + 描述 + 分组声明。
+- `.weft` 是符号声明的唯一来源。
+- `.wstory` 的声明由工具生成；描述手写。
+
+### 3.2 模块边界
 
 - 每个 `@title` 开始一个新模块。
-- **出现新的 `@title` 时，上一个模块结束。**
+- 出现新的 `@title` 时，上一个模块结束。
 - 文件结束（EOF）结束最后一个模块。
-- 文件开头到第一个 `@title` 之间，只允许 `@globals` 和注释。
 
-### 3.2 模块头
+### 3.3 模块头
 
-```
+```text
 @title <title>
-@char <name>
-@char <name>
-...
+@scene <scene>
 ```
 
-- `@char` 只能出现在 `@title` 之后、任何内容块或出口块之前。
-- 头部出现 `@char` 之外的指令视为内容/出口，按对应规则解析。
-- 头部之后不再允许 `@char`。
+- `@scene` 可选，只能出现在内容之前。
+- 一个模块最多一个 `@scene`。
+- 模块头不再声明角色、道具、变量或场景。
 
-### 3.3 正文块
+### 3.4 正文块
 
-- `[` 单独一行 → 多行正文开始；直到单独一行的 `]` 结束。
-- `角色:[` 单独一行 → 多行对话开始；同上。
-- `[文本]` 或 `角色:[文本]` 在同一行 → 单行正文/对话。
-- 多行块内部的 `]` 只要不是单独一行，都按普通文本处理。
+- `[文本]` 在同一行 → 单行正文。
+- `角色:[文本]` 在同一行 → 单行对话。
+- `[第一行` 换行 `第二行]` → 多行正文；只有出现在行内的 `]` 才结束。
+- 多行块每一行首尾空白会被去掉。
+- `{名字}` 在正文块内解析为引用。
 
-### 3.4 出口块
+### 3.5 出口块
 
-出口块从第一行 `@next` 开始，直到下一个 `@title` 或 EOF。
+完整形式：
 
-**完整形式**：
-
-```
+```text
 @next(角色):(条件)[文案] -> 目标 { @set ... }
     (条件)[文案] -> 目标
     ()[文案] -> 目标
 ```
 
-**简写形式**（单一无条件自动分支）：
+简写形式：
 
-```
+```text
 @next -> 目标
+@next -> 目标 { @set ... }
 ```
 
 - 完整形式中，`@next(角色):` 或 `@next():` 的冒号是必需的。
-- 后续分支行省略 `@next`。
-- 第一个分支与 `@next(...):` 在同一行。
-- 简写 `@next -> 目标` 等价于 `@next(): -> 目标`，用于线性续接和终止。
-- `EffectBlock` 可以同行，也可以换行。
-- `@next` 只能出现在模块末尾；出口块内部只允许分支行与注释。
-- `@next` 之后再次出现正文块或 `@set` → 语法错误。
-
-### 3.5 条件
-
-- 条件是括号包裹的布尔表达式：`(trust_low)`、`(a and not b)`。
-- 条件可以省略；`()` 等价于无条件。
-- 运算符优先级：`not` > `and` > `or`。
-- 括号用于显式分组。
+- 后续分支行省略 `@next`；缩进仅为显示。
+- 简写等价于单一无条件自动分支。
+- 效果块可以同行，也可以换行。
+- `@set` 只允许出现在分支效果中。
 
 ### 3.6 模式约束
 
@@ -227,71 +263,55 @@ UnaryExpr       ::= "not" UnaryExpr
 
 每个出口块至少包含一条**无条件分支**（省略条件，或条件写作 `()`）。
 
-- 选择模式：保证玩家至少总能看到一个选项。
-- 自动模式：保证路由总能落到某处，避免死胡同。
-
 ---
 
-## 4. 完整语法示例
+## 4. 完整 `.weft` 示例
 
-```
-@globals
-@var trust_low false
-@var has_key false
+```text
+@vars
+    @var trust_low false
+    @var has_key false
+
+@chars
+    @char 萧影
+    @char 影子
+
+@items
+    @item 医院钥匙
+
+@scenes
+    @scene 医院
 
 @title 相信
-@char 萧影
-@char 影子
-
-[
-雨水模糊了视线……
-]
-
-萧影:[你来了。]
-
-@fig "assets/hospital.png"
-
-@set trust_low true
-
-@next(萧影):(trust_low)[相信他] -> 医院 {
-    @set has_key true
-}
+    @scene 医院
+    [雨水模糊了视线，{萧影}在泥泞中奔跑。]
+    萧影:[你来了。]
+    影子:[别回头。]
+    @fig "assets/hospital.png"
+@next(萧影):(trust_low)[相信他] -> 医院 { @set has_key true }
     ()[沉默] -> 沉默
+```
 
-@title 医院
-@char 萧影
+## 5. 完整 `.wstory` 示例
 
-[
-两人走进医院。
-]
+```text
+@project 雨夜
+    @summary [一个关于信任的故事。]
 
-@next():(has_key) -> 地下层
-    () -> 走廊
+    @docs
+        @doc 世界规则 [医院在雨夜不关门。]
 
-@title 地下层
-@char 萧影
+    @chars
+        @char 萧影 [主角。]
+        @char 影子 [萧影的旧识。]
 
-[
-萧影找到了钥匙。
-]
+    @items
+        @item 医院钥匙 [医院地下室的钥匙。]
 
-@next -> END
+    @scenes
+        @scene 医院 [雨夜里的医院。]
 
-@title 走廊
-@char 萧影
-
-[
-走廊空无一人。
-]
-
-@next -> END
-
-@title 沉默
-@char 萧影
-
-[
-萧影没有说话。
-]
-
-@next -> END
+    @vars
+        @var trust_low false [萧影是否信任影子。]
+        @var has_key false [是否拿到了医院钥匙。]
 ```

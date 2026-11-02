@@ -2,125 +2,150 @@
 
 [中文](../grammar.md) | **English**
 
-This document defines the v0 lexical and syntactic rules. Semantics are in [language-spec.md](./language-spec.md).
+This document defines v0 lexing and syntax. See [language-spec.md](./language-spec.md) for semantics.
 
-## 1. Lexical rules
+---
 
-### 1.1 Lines and whitespace
+## 1. Lexical conventions
 
-- The grammar is line-oriented.
-- Indentation is cosmetic and has no semantic meaning. The editor auto-indents exit branches.
-- Blank lines may appear between structures.
-- Trailing whitespace is ignored outside text blocks.
+### 1.1 Lines and indentation
+
+- Lines are the basic unit.
+- Indentation is display-only: 4 spaces per level, ignored by the parser.
+- Blank lines are allowed between structures.
+- Trailing whitespace is ignored.
+- Leading/trailing whitespace is trimmed from each text-block line.
 
 ### 1.2 Keywords
 
-All directives start with `@`. There are only seven:
+All directives start with `@`:
 
-```
-@globals
+```text
+@project
+@summary
+@doc
+@vars
 @var
-@title
+@chars
 @char
+@items
+@item
+@scenes
+@scene
+@title
 @fig
-@set
 @next
+@set
 ```
 
-`END` is a reserved module ID, not a keyword.
+`END` is a reserved terminal identifier, not a keyword.
 
 ### 1.3 Identifiers
 
-Used for character and variable names:
+Used for character, item, scene, and variable names:
 
-```
+```text
 Identifier := (Unicode Letter | "_") (Unicode Letter | Digit | "_")*
 ```
 
-Unicode identifiers are allowed, including Chinese names.
+Chinese identifiers such as `萧影` and `医院钥匙` are allowed.
 
 ### 1.4 Booleans
 
-```
+```text
 BoolLiteral := "true" | "false"
 ```
 
 ### 1.5 Strings
 
-Used for `@fig` paths. Strings are double-quoted and support:
+Used for `@fig` paths. Double-quoted, with these escapes:
 
-```
+```text
 \"   double quote
 \\   backslash
 ```
 
 ### 1.6 Comments
 
-```
-// comment
+```text
+// this is a comment
 ```
 
-- Only at the structural level.
+- Only effective at the structural level.
 - Inside text blocks, `//` is plain text.
 
-### 1.7 Text blocks
+### 1.7 Text blocks and references
 
+```text
+[雨水模糊了视线。]
+萧影:[你来了。]
 ```
-[ first line
-  second line
-]
+
+Multi-line, with brackets attached to text:
+
+```text
+[雨水模糊了视线，
+他抬起头。]
 ```
 
-- A multi-line block opens with a line containing only `[` and closes with a line containing only `]`.
-- Everything inside is plain text; keywords are not parsed.
-- Inline form: `[text]`; the first `]` closes it. Escape `\]` if needed.
-- Inline dialogue: `character:[text]`.
+- `{Identifier}` inside a text block references a character or item.
+- `{{` means a literal `{`; `}}` means a literal `}`.
+- `{}` does not span lines and does not nest.
 
-### 1.8 Titles and targets
+### 1.8 Titles and target text
 
-- `TitleText`: the rest of the `@title` line, trimmed.
-- `TargetText`: the text after `->` up to `{` or the end of the line, trimmed.
-- Titles and targets may contain spaces, but not `{` or `}`.
+- `TitleText`: the rest of a `@title` / `@project` / `@doc` line, trimmed.
+- `TargetText`: the text after `->`, before `{` or end of line, trimmed.
+- Titles and targets may contain spaces but not `{` or `}`.
+
+---
 
 ## 2. EBNF
 
-```ebnf
-File            ::= GlobalsBlock? Module* EOF
+### 2.1 `.weft` module scripts
 
-GlobalsBlock    ::= "@globals" NEWLINE VarDecl+
+```ebnf
+WeftFile        ::= DeclarationGroup* Module*
+
+DeclarationGroup ::= VarGroup | CharGroup | ItemGroup | SceneGroup
+VarGroup        ::= "@vars" NEWLINE VarDecl+
+CharGroup       ::= "@chars" NEWLINE CharDecl+
+ItemGroup       ::= "@items" NEWLINE ItemDecl+
+SceneGroup      ::= "@scenes" NEWLINE SceneDecl+
+
 VarDecl         ::= "@var" Identifier BoolLiteral NEWLINE
+CharDecl        ::= "@char" Identifier NEWLINE
+ItemDecl        ::= "@item" Identifier NEWLINE
+SceneDecl       ::= "@scene" Identifier NEWLINE
 
 Module          ::= "@title" TitleText NEWLINE
-                    CharDecl*
+                    ModuleScene?
                     Content*
                     ExitBlock
-
-CharDecl        ::= "@char" Identifier NEWLINE
+ModuleScene     ::= "@scene" Identifier NEWLINE
 
 Content         ::= NarrationBlock
                   | DialogueBlock
                   | FigureDirective
-                  | SetDirective
-                  | Comment
 
-NarrationBlock  ::= InlineText | BlockText
-DialogueBlock   ::= Identifier ":" (InlineText | BlockText)
-
-InlineText      ::= "[" TextChars "]"
-BlockText       ::= "[" NEWLINE RawLine* CloseLine
-CloseLine       ::= "]" NEWLINE
-
+NarrationBlock  ::= TextBlock
+DialogueBlock   ::= Identifier ":" TextBlock
 FigureDirective ::= "@fig" String NEWLINE
-SetDirective    ::= "@set" Identifier BoolLiteral NEWLINE
-Comment         ::= "//" ... NEWLINE
+
+TextBlock       ::= InlineText | MultiLineText
+InlineText      ::= "[" TextSegment* "]"
+MultiLineText   ::= "[" TextSegment* NEWLINE
+                    ( TextSegment* NEWLINE )*
+                    TextSegment* "]"
+TextSegment     ::= Text | Reference
+Reference       ::= "{" Identifier "}"
 
 ExitBlock       ::= FullExit | ShortExit
-FullExit        ::= "@next" CharGroup? ":" BranchBody Branch*
+FullExit        ::= "@next" CharGroup? ":" Branch+
 ShortExit       ::= "@next" "->" Target EffectBlock? NEWLINE
 
 CharGroup       ::= "(" Identifier? ")"
-Branch          ::= BranchBody
-BranchBody      ::= Condition? Label? "->" Target EffectBlock? NEWLINE
+Branch          ::= Condition? Label? "->" Target EffectBlock? NEWLINE
 
 Condition       ::= "(" BoolExpr? ")"
 Label           ::= "[" LabelText "]"
@@ -139,35 +164,73 @@ UnaryExpr       ::= "not" UnaryExpr
                   | BoolLiteral
 ```
 
-## 3. Parsing rules
+### 2.2 `.wstory` project overview
 
-### 3.1 Module boundaries
+```ebnf
+WStoryFile      ::= "@project" TitleText NEWLINE
+                    WStoryItem*
 
-- Every `@title` starts a new module.
+WStoryItem      ::= Summary | DocGroup | CharGroup | ItemGroup | SceneGroup | VarGroup
+
+Summary         ::= "@summary" TextBlock NEWLINE
+
+DocGroup        ::= "@docs" NEWLINE DocDecl+
+DocDecl         ::= "@doc" TitleText TextBlock NEWLINE
+
+CharGroup       ::= "@chars" NEWLINE WStoryCharDecl+
+WStoryCharDecl  ::= "@char" Identifier TextBlock? NEWLINE
+
+ItemGroup       ::= "@items" NEWLINE WStoryItemDecl+
+WStoryItemDecl  ::= "@item" Identifier TextBlock? NEWLINE
+
+SceneGroup      ::= "@scenes" NEWLINE WStorySceneDecl+
+WStorySceneDecl ::= "@scene" Identifier TextBlock? NEWLINE
+
+VarGroup        ::= "@vars" NEWLINE WStoryVarDecl+
+WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
+```
+
+---
+
+## 3. Parsing conventions
+
+### 3.1 File roles
+
+- `.weft`: top-level declaration groups + modules.
+- `.wstory`: project info + descriptions + grouped declarations.
+- `.weft` is the only declaration source.
+- `.wstory` declarations are generated; descriptions are hand-written.
+
+### 3.2 Module boundaries
+
+- Each `@title` starts a new module.
 - A new `@title` ends the previous module.
 - EOF ends the last module.
-- Before the first `@title`, only `@globals` and comments are allowed.
 
-### 3.2 Module header
+### 3.3 Module header
 
-- `@char` may appear only after `@title` and before any content or exit block.
-- `@char` is not allowed after content has started.
+```text
+@title <title>
+@scene <scene>
+```
 
-### 3.3 Text blocks
+- `@scene` is optional and must appear before content.
+- A module has at most one `@scene`.
+- Module headers do not declare characters, items, variables, or scenes.
 
-- A line containing only `[` starts a multi-line narration block.
-- A line containing only `character:[` starts a multi-line dialogue block.
-- A line containing only `]` closes either block.
-- Inline `[text]` and `character:[text]` are also accepted.
-- Inside a multi-line block, `]` is text unless it is alone on the line.
+### 3.4 Text blocks
 
-### 3.4 Exit block
+- `[text]` on one line is inline narration.
+- `character:[text]` on one line is inline dialogue.
+- `[first line` newline `second line]` is a multi-line block; only a `]` inside a line closes it.
+- Each line's leading/trailing whitespace is trimmed.
+- `{name}` inside a text block is parsed as a reference.
 
-An exit block starts at the first `@next` line and ends at the next `@title` or EOF.
+### 3.5 Exit blocks
 
 Full form:
 
-```
+```text
 @next(character):(condition)[label] -> target { @set ... }
     (condition)[label] -> target
     ()[label] -> target
@@ -175,82 +238,80 @@ Full form:
 
 Shorthand:
 
-```
+```text
 @next -> target
+@next -> target { @set ... }
 ```
 
-- In the full form, the colon after `@next(...)` or `@next()` is required.
-- Subsequent branch lines omit `@next`.
-- The first branch is on the same line as the header.
-- `@next -> target` is equivalent to `@next(): -> target`.
-- The effect block may be inline or multi-line.
-- `@next` must be the last part of a module; only branch lines and comments may follow it.
-
-### 3.5 Conditions
-
-- Conditions are parenthesized boolean expressions.
-- Conditions may be omitted.
-- Precedence: `not` > `and` > `or`.
-- Parentheses group.
+- In the full form, the colon after `@next(character):` or `@next():` is required.
+- Subsequent branch lines omit `@next`; indentation is display-only.
+- Shorthand is a single unconditional automatic branch.
+- Effect blocks may be inline or multi-line.
+- `@set` is only allowed inside branch effects.
 
 ### 3.6 Mode constraints
 
-| Header | Mode | Requirement |
+| `@next` header | Mode | Branch requirement |
 |---|---|---|
-| `@next(character):` | Choice | Every branch must have `[label]`. |
-| `@next():` | Automatic | Branches must not have `[label]`. |
-| `@next -> target` | Automatic (single) | No label, no condition. |
+| `@next(character):` | choice | every branch must have `[label]` |
+| `@next():` | automatic | branches must not have `[label]` |
+| `@next -> target` | automatic (single) | no label, no condition |
 
-Mixing labeled and unlabeled branches in one block is an error.
+Labels and unlabeled branches cannot be mixed in one exit block.
 
 ### 3.7 Fallback
 
-Every exit block must contain at least one **unconditional branch** (no condition, or `()`).
+Every exit block needs at least one **unconditional branch** (condition omitted or written as `()`).
 
-- Choice mode: at least one option is always visible.
-- Automatic mode: routing never dead-ends.
+---
 
-## 4. Example
+## 4. Complete `.weft` example
 
+```text
+@vars
+    @var trust_low false
+    @var has_key false
+
+@chars
+    @char 萧影
+    @char 影子
+
+@items
+    @item 医院钥匙
+
+@scenes
+    @scene 医院
+
+@title 相信
+    @scene 医院
+    [雨水模糊了视线，{萧影}在泥泞中奔跑。]
+    萧影:[你来了。]
+    影子:[别回头。]
+    @fig "assets/hospital.png"
+@next(萧影):(trust_low)[相信他] -> 医院 { @set has_key true }
+    ()[沉默] -> 沉默
 ```
-@globals
-@var trust_low false
-@var has_key false
 
-@title believe
-@char xiaoying
-@char shadow
+## 5. Complete `.wstory` example
 
-[
-Rain blurred the view.
-]
+```text
+@project 雨夜
+    @summary [一个关于信任的故事。]
 
-xiaoying:[You came.]
+    @docs
+        @doc 世界规则 [医院在雨夜不关门。]
 
-@fig "assets/hospital.png"
+    @chars
+        @char 萧影 [主角。]
+        @char 影子 [萧影的旧识。]
 
-@set trust_low true
+    @items
+        @item 医院钥匙 [医院地下室的钥匙。]
 
-@next(xiaoying):(trust_low)[Believe him] -> hospital {
-    @set has_key true
-}
-    ()[Stay silent] -> silence
+    @scenes
+        @scene 医院 [雨夜里的医院。]
 
-@title hospital
-@char xiaoying
-
-@next(): (has_key) -> basement
-    () -> corridor
-
-@title basement
-@char xiaoying
-@next -> END
-
-@title corridor
-@char xiaoying
-@next -> END
-
-@title silence
-@char xiaoying
-@next -> END
+    @vars
+        @var trust_low false [萧影是否信任影子。]
+        @var has_key false [是否拿到了医院钥匙。]
 ```

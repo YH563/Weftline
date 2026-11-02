@@ -1,3 +1,4 @@
+using System.Text;
 using Weftline.Language.Diagnostics;
 using Weftline.Language.Source;
 
@@ -6,20 +7,19 @@ namespace Weftline.Language.Syntax;
 /// <summary>
 /// Weftline 的面向行递归下降解析器。
 ///
-/// 解析器不构建完整的 token 流。每一行是一个行级单元：空行、注释、指令、
-/// 文本围栏或普通行。当前解析器状态决定如何消费该行。
+/// 解析器只负责语法与结构，不做符号解析；变量、角色、道具和正文引用的
+/// 解析由 Binder 负责。`.weft` 与 `.wstory` 共用行级工具，但入口分开。
 ///
 /// Line-oriented recursive-descent parser for Weftline.
 ///
-/// The parser does not build a full token stream. Instead, each line is a
-/// line-level unit: blank line, comment, directive, text fence, or ordinary
-/// line. The current parser state decides how that line is consumed.
+/// The parser only handles syntax and structure. Symbol resolution belongs to
+/// the Binder. `.weft` and `.wstory` share line helpers but have separate entry
+/// points.
 /// </summary>
-public sealed class Parser
+public sealed partial class Parser
 {
     private readonly SourceText _source;
     private readonly DiagnosticBag _diagnostics;
-    private readonly HashSet<string> _globalVariables = new(StringComparer.Ordinal);
     private readonly HashSet<string> _moduleTitles = new(StringComparer.Ordinal);
     private int _index;
 
@@ -30,11 +30,41 @@ public sealed class Parser
     }
 
     /// <summary>
-    /// 解析整个源码文本并返回语法树。
-    /// Parses the entire source text and returns the syntax tree.
+    /// 根据文件名或内容自动选择 `.weft` 或 `.wstory` 解析。
+    /// Automatically parses as `.weft` or `.wstory` based on file name or content.
     /// </summary>
     public static ScriptFileSyntax Parse(SourceText source, DiagnosticBag diagnostics)
-        => new Parser(source, diagnostics).ParseFile();
+    {
+        var parser = new Parser(source, diagnostics);
+        return parser.IsWStoryFile() ? parser.ParseWStoryFile() : parser.ParseWeftFile();
+    }
+
+    public static WeftFileSyntax ParseWeft(SourceText source, DiagnosticBag diagnostics)
+        => new Parser(source, diagnostics).ParseWeftFile();
+
+    public static WStoryFileSyntax ParseWStory(SourceText source, DiagnosticBag diagnostics)
+        => new Parser(source, diagnostics).ParseWStoryFile();
+
+    private bool IsWStoryFile()
+    {
+        if (_source.FilePath?.EndsWith(".wstory", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return true;
+        }
+
+        foreach (var line in _source.Lines)
+        {
+            var trimmed = line.Text.Trim();
+            if (trimmed.Length == 0 || trimmed.StartsWith("//", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            return IsDirective(trimmed, "@project");
+        }
+
+        return false;
+    }
 
     private SourceLine? Current => _index < _source.Lines.Count ? _source.Lines[_index] : null;
 
@@ -42,18 +72,80 @@ public sealed class Parser
 
     private string CurrentTrimmed => Current?.Text.Trim() ?? string.Empty;
 
-    private ScriptFileSyntax ParseFile()
+    private WeftFileSyntax ParseWeftFile()
     {
-        GlobalsSyntax? globals = null;
-        var modules = new List<ModuleSyntax>();
+        var variables = new List<WeftVariableSyntax>();
+        var characters = new List<WeftCharacterSyntax>();
+        var items = new List<WeftItemSyntax>();
+        var scenes = new List<WeftSceneSyntax>();
 
-        SkipBlankAndComments();
-
-        if (Current is { } first && IsDirective(first.Text.Trim(), "@globals"))
+        while (true)
         {
-            globals = ParseGlobals();
             SkipBlankAndComments();
+            if (IsAtEnd)
+            {
+                break;
+            }
+
+            var line = Current!.Value;
+            var trimmed = line.Text.Trim();
+
+            if (IsDirective(trimmed, "@vars"))
+            {
+                Advance();
+                ParseWeftVariables(variables);
+                continue;
+            }
+
+            if (IsDirective(trimmed, "@chars"))
+            {
+                Advance();
+                ParseWeftNames(trimmed, "@char", characters, static (name, span) => new WeftCharacterSyntax(name, span));
+                continue;
+            }
+
+            if (IsDirective(trimmed, "@items"))
+            {
+                Advance();
+                ParseWeftNames(trimmed, "@item", items, static (name, span) => new WeftItemSyntax(name, span));
+                continue;
+            }
+
+            if (IsDirective(trimmed, "@scenes"))
+            {
+                Advance();
+                ParseWeftNames(trimmed, "@scene", scenes, static (name, span) => new WeftSceneSyntax(name, span));
+                continue;
+            }
+
+            if (IsDirective(trimmed, "@var"))
+            {
+                ParseWeftVariableLine(line, trimmed, variables);
+                continue;
+            }
+
+            if (IsDirective(trimmed, "@char"))
+            {
+                ParseWeftNameLine(line, trimmed, "@char", characters, static (name, span) => new WeftCharacterSyntax(name, span));
+                continue;
+            }
+
+            if (IsDirective(trimmed, "@item"))
+            {
+                ParseWeftNameLine(line, trimmed, "@item", items, static (name, span) => new WeftItemSyntax(name, span));
+                continue;
+            }
+
+            if (IsDirective(trimmed, "@scene"))
+            {
+                ParseWeftNameLine(line, trimmed, "@scene", scenes, static (name, span) => new WeftSceneSyntax(name, span));
+                continue;
+            }
+
+            break;
         }
+
+        var modules = new List<ModuleSyntax>();
 
         while (!IsAtEnd)
         {
@@ -69,106 +161,131 @@ public sealed class Parser
             if (IsDirective(trimmed, "@title"))
             {
                 modules.Add(ParseModule());
+                continue;
             }
-            else if (IsDirective(trimmed, "@globals"))
-            {
-                var code = globals is null
-                    ? DiagnosticCode.GlobalsNotAtFileHeader
-                    : DiagnosticCode.MultipleGlobals;
 
-                _diagnostics.Error(code, line.Span, "@globals 必须唯一，并且只能出现在文件最顶部。");
-                ParseGlobals();
-            }
-            else if (IsDirective(trimmed, "@var"))
+            if (IsDirective(trimmed, "@globals") ||
+                IsDirective(trimmed, "@vars") ||
+                IsDirective(trimmed, "@chars") ||
+                IsDirective(trimmed, "@items") ||
+                IsDirective(trimmed, "@scenes") ||
+                IsDirective(trimmed, "@var") ||
+                IsDirective(trimmed, "@char") ||
+                IsDirective(trimmed, "@item") ||
+                IsDirective(trimmed, "@scene"))
             {
                 _diagnostics.Error(
                     DiagnosticCode.VarOutsideGlobals,
                     line.Span,
-                    "@var 只能出现在 @globals 块内。");
+                    "符号声明必须放在模块之前的顶部分组里。");
                 Advance();
-            }
-            else
-            {
-                _diagnostics.Error(
-                    DiagnosticCode.UnknownLine,
-                    line.Span,
-                    "无法识别的顶层行；模块必须以 @title 开始。");
-                Advance();
+                continue;
             }
 
-            SkipBlankAndComments();
-        }
-
-        return new ScriptFileSyntax(globals, modules, new TextSpan(0, _source.Length));
-    }
-
-    private GlobalsSyntax ParseGlobals()
-    {
-        var startLine = Current!.Value;
-
-        if (!string.Equals(startLine.Text.Trim(), "@globals", StringComparison.Ordinal))
-        {
-            _diagnostics.Error(
-                DiagnosticCode.MalformedDirective,
-                startLine.Span,
-                "@globals 后面不能再写其他内容。");
-        }
-
-        Advance();
-
-        var variables = new List<GlobalVariableSyntax>();
-        var end = startLine.Span.End;
-
-        while (true)
-        {
-            SkipBlankAndComments();
-            if (IsAtEnd || !IsDirective(CurrentTrimmed, "@var"))
-            {
-                break;
-            }
-
-            var line = Current!.Value;
-            Advance();
-            end = line.Span.End;
-
-            var rest = line.Text.Trim()["@var".Length..].Trim();
-            var parts = rest.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-
-            if (parts.Length != 2 || !SyntaxFacts.IsIdentifier(parts[0]) || !SyntaxFacts.TryParseBoolean(parts[1], out var value))
+            if (IsDirective(trimmed, "@project") ||
+                IsDirective(trimmed, "@summary") ||
+                IsDirective(trimmed, "@doc"))
             {
                 _diagnostics.Error(
                     DiagnosticCode.MalformedDirective,
                     line.Span,
-                    "@var 的语法是：@var <布尔变量名> true|false");
+                    "项目指令只能出现在 .wstory 文件中。");
+                Advance();
                 continue;
             }
 
-            var name = parts[0];
-            var nameSpan = SpanAfter(line, "@var", name);
-
-            if (!_globalVariables.Add(name))
-            {
-                _diagnostics.Error(
-                    DiagnosticCode.DuplicateGlobalVariable,
-                    nameSpan,
-                    $"全局变量重复声明：{name}");
-                continue;
-            }
-
-            variables.Add(new GlobalVariableSyntax(name, value, line.Span));
-        }
-
-        if (variables.Count == 0)
-        {
             _diagnostics.Error(
-                DiagnosticCode.MalformedDirective,
-                startLine.Span,
-                "@globals 至少需要声明一个 @var。");
+                DiagnosticCode.UnknownLine,
+                line.Span,
+                "无法识别的行；模块必须以 @title 开始。");
+            Advance();
         }
 
-        return new GlobalsSyntax(
+        return new WeftFileSyntax(
             variables,
-            TextSpan.FromBounds(startLine.Span.Start, end));
+            characters,
+            items,
+            scenes,
+            modules,
+            new TextSpan(0, _source.Length));
+    }
+
+    private void ParseWeftVariables(List<WeftVariableSyntax> variables)
+    {
+        while (true)
+        {
+            SkipBlankAndComments();
+            if (IsAtEnd)
+            {
+                return;
+            }
+
+            var line = Current!.Value;
+            var trimmed = line.Text.Trim();
+            if (!IsDirective(trimmed, "@var"))
+            {
+                return;
+            }
+
+            ParseWeftVariableLine(line, trimmed, variables);
+        }
+    }
+
+    private void ParseWeftVariableLine(
+        SourceLine line,
+        string trimmed,
+        List<WeftVariableSyntax> variables)
+    {
+        Advance();
+
+        if (!TryParseAssignment(trimmed, "@var", line, out var name, out var value))
+        {
+            return;
+        }
+
+        variables.Add(new WeftVariableSyntax(name, value, line.Span));
+    }
+
+    private void ParseWeftNames<T>(
+        string groupLine,
+        string keyword,
+        List<T> target,
+        Func<string, TextSpan, T> factory)
+    {
+        while (true)
+        {
+            SkipBlankAndComments();
+            if (IsAtEnd)
+            {
+                return;
+            }
+
+            var line = Current!.Value;
+            var trimmed = line.Text.Trim();
+            if (!IsDirective(trimmed, keyword))
+            {
+                return;
+            }
+
+            ParseWeftNameLine(line, trimmed, keyword, target, factory);
+        }
+    }
+
+    private void ParseWeftNameLine<T>(
+        SourceLine line,
+        string trimmed,
+        string keyword,
+        List<T> target,
+        Func<string, TextSpan, T> factory)
+    {
+        Advance();
+
+        if (!TryParseSingleName(trimmed, keyword, line, out var name))
+        {
+            return;
+        }
+
+        target.Add(factory(name, line.Span));
     }
 
     private ModuleSyntax ParseModule()
@@ -181,24 +298,14 @@ public sealed class Parser
             ? trimmedTitleLine["@title".Length..].Trim()
             : string.Empty;
 
-        if (title.Length == 0)
-        {
-            _diagnostics.Error(DiagnosticCode.EmptyTitle, titleLine.Span, "@title 不能为空。");
-        }
-        else if (!_moduleTitles.Add(title))
-        {
-            _diagnostics.Error(
-                DiagnosticCode.DuplicateModuleTitle,
-                titleLine.Span,
-                $"模块标题重复：{title}");
-        }
+        ValidateTitle(title, titleLine);
 
         var titleSpan = title.Length == 0
             ? titleLine.Span
             : SpanAfter(titleLine, "@title", title);
 
-        var characters = new List<CharacterSyntax>();
-        var characterNames = new HashSet<string>(StringComparer.Ordinal);
+        string? scene = null;
+        TextSpan? sceneSpan = null;
         var content = new List<ContentSyntax>();
         var seenContent = false;
         var moduleEnd = titleLine.Span.End;
@@ -227,48 +334,67 @@ public sealed class Parser
                 break;
             }
 
-            if (IsDirective(trimmed, "@char"))
+            if (IsDirective(trimmed, "@scene"))
             {
                 if (seenContent)
                 {
                     _diagnostics.Error(
                         DiagnosticCode.HeaderAfterContent,
                         line.Span,
-                        "@char 只能出现在模块内容之前。");
+                        "@scene 只能出现在模块内容之前。");
                 }
 
                 Advance();
                 moduleEnd = line.Span.End;
 
-                var name = trimmed["@char".Length..].Trim();
+                var name = trimmed["@scene".Length..].Trim();
                 if (!SyntaxFacts.IsIdentifier(name))
                 {
                     _diagnostics.Error(
-                        DiagnosticCode.MalformedDirective,
+                        DiagnosticCode.MalformedScene,
                         line.Span,
-                        "@char 的语法是：@char <角色名>");
-                    continue;
+                        "@scene 的语法是：@scene <场景名>");
                 }
-
-                if (!characterNames.Add(name))
+                else if (scene is not null)
                 {
                     _diagnostics.Error(
-                        DiagnosticCode.DuplicateCharacter,
+                        DiagnosticCode.DuplicateScene,
                         line.Span,
-                        $"角色重复声明：{name}");
-                    continue;
+                        $"模块内重复声明场景：{name}");
+                }
+                else
+                {
+                    scene = name;
+                    sceneSpan = SpanAfter(line, "@scene", name);
                 }
 
-                characters.Add(new CharacterSyntax(name, line.Span));
                 continue;
             }
 
-            if (IsDirective(trimmed, "@globals") || IsDirective(trimmed, "@var"))
+            if (IsDirective(trimmed, "@char") ||
+                IsDirective(trimmed, "@item") ||
+                IsDirective(trimmed, "@var") ||
+                IsDirective(trimmed, "@globals") ||
+                IsDirective(trimmed, "@vars") ||
+                IsDirective(trimmed, "@chars") ||
+                IsDirective(trimmed, "@items") ||
+                IsDirective(trimmed, "@scenes"))
             {
                 _diagnostics.Error(
                     DiagnosticCode.VarOutsideGlobals,
                     line.Span,
-                    "@globals / @var 不能出现在模块内。");
+                    "符号声明必须放在模块之前的顶部分组里。");
+                Advance();
+                moduleEnd = line.Span.End;
+                continue;
+            }
+
+            if (IsDirective(trimmed, "@set"))
+            {
+                _diagnostics.Error(
+                    DiagnosticCode.SetInContent,
+                    line.Span,
+                    "正文不支持 @set；变量只能在出口分支效果中修改。");
                 Advance();
                 moduleEnd = line.Span.End;
                 continue;
@@ -277,36 +403,17 @@ public sealed class Parser
             seenContent = true;
             ContentSyntax? parsed = null;
 
-            if (trimmed == "[")
+            if (trimmed.StartsWith("[", StringComparison.Ordinal))
             {
-                parsed = ParseMultilineNarration();
-            }
-            else if (trimmed.StartsWith("[", StringComparison.Ordinal) &&
-                     trimmed.EndsWith("]", StringComparison.Ordinal))
-            {
-                var text = trimmed[1..^1].Trim();
-                parsed = new NarrationSyntax(text, line.Span);
-                Advance();
+                parsed = ParseNarration();
             }
             else if (IsDirective(trimmed, "@fig"))
             {
                 parsed = ParseFigure();
             }
-            else if (IsDirective(trimmed, "@set"))
+            else if (TryGetDialoguePrefix(line.Text, out var speaker, out _))
             {
-                parsed = ParseSet();
-            }
-            else if (TryGetDialoguePrefix(line.Text, out var speaker, out var rest))
-            {
-                if (!characterNames.Contains(speaker))
-                {
-                    _diagnostics.Error(
-                        DiagnosticCode.UndeclaredCharacter,
-                        line.Span,
-                        $"对话引用了未在本模块声明的角色：{speaker}");
-                }
-
-                parsed = ParseDialogue(line, speaker, rest);
+                parsed = ParseDialogue(line, speaker);
             }
             else
             {
@@ -335,10 +442,288 @@ public sealed class Parser
         return new ModuleSyntax(
             title,
             titleSpan,
-            characters,
+            scene,
+            sceneSpan,
             content,
             exit,
             TextSpan.FromBounds(titleLine.Span.Start, moduleEnd));
+    }
+
+    private void ValidateTitle(string title, SourceLine titleLine)
+    {
+        if (title.Length == 0)
+        {
+            _diagnostics.Error(DiagnosticCode.EmptyTitle, titleLine.Span, "@title 不能为空。");
+            return;
+        }
+
+        if (title.Contains('{') || title.Contains('}'))
+        {
+            _diagnostics.Error(
+                DiagnosticCode.InvalidTitleCharacter,
+                titleLine.Span,
+                "@title 不能包含 { 或 }。");
+        }
+
+        if (string.Equals(title, "END", StringComparison.Ordinal))
+        {
+            _diagnostics.Error(
+                DiagnosticCode.InvalidEnd,
+                titleLine.Span,
+                "END 是保留的终止模块，不能作为 @title 定义。");
+        }
+
+        if (!_moduleTitles.Add(title))
+        {
+            _diagnostics.Error(
+                DiagnosticCode.DuplicateModuleTitle,
+                titleLine.Span,
+                $"模块标题重复：{title}");
+        }
+    }
+
+    private NarrationSyntax ParseNarration()
+    {
+        var openingLine = Current!.Value;
+        var open = openingLine.Text.IndexOf('[', StringComparison.Ordinal);
+        var segments = ParseTextBlockSegments(openingLine, open, out var end);
+        return new NarrationSyntax(segments, TextSpan.FromBounds(openingLine.Span.Start, end));
+    }
+
+    private DialogueSyntax ParseDialogue(SourceLine openingLine, string speaker)
+    {
+        var colon = openingLine.Text.IndexOf(':');
+        var open = openingLine.Text.IndexOf('[', colon + 1);
+        var segments = ParseTextBlockSegments(openingLine, open, out var end);
+        return new DialogueSyntax(
+            speaker,
+            segments,
+            TextSpan.FromBounds(openingLine.Span.Start, end));
+    }
+
+    private IReadOnlyList<TextSegmentSyntax> ParseTextBlockSegments(
+        SourceLine openingLine,
+        int openBracket,
+        out int end)
+    {
+        var text = openingLine.Text;
+        var segments = new List<TextSegmentSyntax>();
+        var close = text.IndexOf(']', openBracket + 1);
+
+        if (close >= 0)
+        {
+            var contentStart = openBracket + 1;
+            segments.AddRange(ParseSegments(
+                text[contentStart..close],
+                openingLine.Span.Start + contentStart,
+                trim: true));
+            end = openingLine.Span.End;
+            Advance();
+            return segments;
+        }
+
+        var firstStart = openBracket + 1;
+        var firstRaw = text[firstStart..];
+        var firstLeading = firstRaw.Length - firstRaw.TrimStart().Length;
+        segments.AddRange(ParseSegments(
+            firstRaw.Trim(),
+            openingLine.Span.Start + firstStart + firstLeading,
+            trim: false));
+        end = openingLine.Span.End;
+        Advance();
+
+        var closed = false;
+
+        while (!IsAtEnd)
+        {
+            var line = Current!.Value;
+            var lineText = line.Text;
+            var closeIndex = lineText.IndexOf(']');
+
+            if (closeIndex >= 0)
+            {
+                var raw = lineText[..closeIndex];
+                var leading = raw.Length - raw.TrimStart().Length;
+                segments.Add(new TextLiteralSyntax("\n", TextSpan.Empty(line.Span.Start)));
+                segments.AddRange(ParseSegments(
+                    raw.Trim(),
+                    line.Span.Start + leading,
+                    trim: false));
+                end = line.Span.Start + closeIndex + 1;
+                closed = true;
+                Advance();
+                break;
+            }
+
+            var lineRaw = lineText;
+            var lineLeading = lineRaw.Length - lineRaw.TrimStart().Length;
+            segments.Add(new TextLiteralSyntax("\n", TextSpan.Empty(line.Span.Start)));
+            segments.AddRange(ParseSegments(lineRaw.Trim(), line.Span.Start + lineLeading, trim: false));
+            end = line.Span.End;
+            Advance();
+        }
+
+        if (!closed)
+        {
+            _diagnostics.Error(
+                DiagnosticCode.UnterminatedTextBlock,
+                openingLine.Span,
+                "文本块缺少闭合的 ]。");
+            end = LastLineEnd();
+        }
+
+        TrimSegments(segments);
+        return segments;
+    }
+
+    private List<TextSegmentSyntax> ParseSegments(string text, int absoluteStart, bool trim)
+    {
+        var segments = new List<TextSegmentSyntax>();
+        var literal = new StringBuilder();
+        var literalStart = 0;
+        var position = 0;
+
+        void Flush(int endPosition)
+        {
+            if (literal.Length == 0)
+            {
+                return;
+            }
+
+            segments.Add(new TextLiteralSyntax(
+                literal.ToString(),
+                TextSpan.FromBounds(absoluteStart + literalStart, absoluteStart + endPosition)));
+            literal.Clear();
+            literalStart = endPosition;
+        }
+
+        while (position < text.Length)
+        {
+            var current = text[position];
+
+            if (current == '{')
+            {
+                if (position + 1 < text.Length && text[position + 1] == '{')
+                {
+                    literal.Append('{');
+                    position += 2;
+                    continue;
+                }
+
+                Flush(position);
+
+                var close = text.IndexOf('}', position + 1);
+                var newline = text.IndexOf('\n', position + 1);
+                if (close < 0 || (newline >= 0 && newline < close))
+                {
+                    _diagnostics.Error(
+                        DiagnosticCode.UnterminatedReference,
+                        new TextSpan(absoluteStart + position, 1),
+                        "{ 引用没有在同一行闭合。");
+                    literalStart = position;
+                    literal.Append('{');
+                    position++;
+                    continue;
+                }
+
+                var raw = text[(position + 1)..close];
+                var name = raw.Trim();
+                var leading = raw.Length - raw.TrimStart().Length;
+
+                if (!SyntaxFacts.IsIdentifier(name))
+                {
+                    _diagnostics.Error(
+                        DiagnosticCode.MalformedDirective,
+                        TextSpan.FromBounds(absoluteStart + position, absoluteStart + close + 1),
+                        "引用必须是合法的符号名，例如 {萧影}。");
+                    segments.Add(new TextLiteralSyntax(
+                        text[position..(close + 1)],
+                        TextSpan.FromBounds(absoluteStart + position, absoluteStart + close + 1)));
+                }
+                else
+                {
+                    segments.Add(new TextReferenceSyntax(
+                        name,
+                        new TextSpan(absoluteStart + position + 1 + leading, name.Length)));
+                }
+
+                position = close + 1;
+                literalStart = position;
+                continue;
+            }
+
+            if (current == '}')
+            {
+                if (position + 1 < text.Length && text[position + 1] == '}')
+                {
+                    literal.Append('}');
+                    position += 2;
+                    continue;
+                }
+
+                literal.Append('}');
+                position++;
+                continue;
+            }
+
+            literal.Append(current);
+            position++;
+        }
+
+        Flush(text.Length);
+
+        if (trim)
+        {
+            TrimSegments(segments);
+        }
+
+        return segments;
+    }
+
+    private static void TrimSegments(List<TextSegmentSyntax> segments)
+    {
+        if (segments.Count == 0)
+        {
+            return;
+        }
+
+        if (segments[0] is TextLiteralSyntax first)
+        {
+            var text = first.Text.TrimStart();
+            if (text.Length == 0)
+            {
+                segments.RemoveAt(0);
+            }
+            else
+            {
+                var removed = first.Text.Length - text.Length;
+                segments[0] = new TextLiteralSyntax(
+                    text,
+                    new TextSpan(first.Span.Start + removed, Math.Max(0, first.Span.Length - removed)));
+            }
+        }
+
+        if (segments.Count == 0)
+        {
+            return;
+        }
+
+        var lastIndex = segments.Count - 1;
+        if (segments[lastIndex] is TextLiteralSyntax last)
+        {
+            var text = last.Text.TrimEnd();
+            if (text.Length == 0)
+            {
+                segments.RemoveAt(lastIndex);
+            }
+            else
+            {
+                var removed = last.Text.Length - text.Length;
+                segments[lastIndex] = new TextLiteralSyntax(
+                    text,
+                    new TextSpan(last.Span.Start, Math.Max(0, last.Span.Length - removed)));
+            }
+        }
     }
 
     /// <summary>
@@ -521,10 +906,6 @@ public sealed class Parser
             if (!string.IsNullOrWhiteSpace(inner))
             {
                 condition = ConditionParser.Parse(inner, line.Span.Start + innerStart, _diagnostics);
-                if (condition is not null)
-                {
-                    ValidateConditionVariables(condition);
-                }
             }
 
             position = close + 1;
@@ -738,14 +1119,6 @@ public sealed class Parser
                 else
                 {
                     var name = parts[0];
-                    if (!_globalVariables.Contains(name))
-                    {
-                        _diagnostics.Error(
-                            DiagnosticCode.UndeclaredVariable,
-                            line.Span,
-                            $"使用了未在 @globals 中声明的变量：{name}");
-                    }
-
                     var effect = new EffectSyntax(
                         name,
                         value,
@@ -764,36 +1137,6 @@ public sealed class Parser
             }
 
             position = statementEnd + 1;
-        }
-    }
-
-    private void ValidateConditionVariables(BoolExprSyntax expression)
-    {
-        switch (expression)
-        {
-            case BoolRefSyntax reference:
-                if (!_globalVariables.Contains(reference.Name))
-                {
-                    _diagnostics.Error(
-                        DiagnosticCode.UndeclaredConditionVariable,
-                        reference.Span,
-                        $"条件引用了未在 @globals 中声明的变量：{reference.Name}");
-                }
-                break;
-
-            case NotExprSyntax not:
-                ValidateConditionVariables(not.Operand);
-                break;
-
-            case AndExprSyntax and:
-                ValidateConditionVariables(and.Left);
-                ValidateConditionVariables(and.Right);
-                break;
-
-            case OrExprSyntax or:
-                ValidateConditionVariables(or.Left);
-                ValidateConditionVariables(or.Right);
-                break;
         }
     }
 
@@ -890,83 +1233,6 @@ public sealed class Parser
         }
     }
 
-    private NarrationSyntax ParseMultilineNarration()
-    {
-        var openLine = Current!.Value;
-        var text = ParseMultilineText(openLine, out var end);
-        return new NarrationSyntax(text, TextSpan.FromBounds(openLine.Span.Start, end));
-    }
-
-    private DialogueSyntax ParseDialogue(SourceLine openingLine, string speaker, string rest)
-    {
-        if (rest == "[")
-        {
-            var text = ParseMultilineText(openingLine, out var end);
-            return new DialogueSyntax(
-                speaker,
-                text,
-                TextSpan.FromBounds(openingLine.Span.Start, end));
-        }
-
-        if (rest.Length >= 2 && rest[0] == '[' && rest[^1] == ']')
-        {
-            var text = rest[1..^1].Trim();
-            Advance();
-            return new DialogueSyntax(speaker, text, openingLine.Span);
-        }
-
-        _diagnostics.Error(
-            DiagnosticCode.MalformedDirective,
-            openingLine.Span,
-            "对话格式应为：角色:[文本] 或 角色:[ 换行 ... ]");
-        Advance();
-        return new DialogueSyntax(speaker, string.Empty, openingLine.Span);
-    }
-
-    /// <summary>
-    /// 消费一个多行文本块。进入时 Current 指向起始的 [ 或 character:[ 行。
-    /// 所有内容都按纯文本处理；只有仅包含 ] 的行才会关闭文本块。
-    /// Consumes a multi-line text block. On entry, Current points at the opening
-    /// [ or character:[ line. All content is treated as plain text; only a line
-    /// consisting solely of ] closes the block.
-    /// </summary>
-    private string ParseMultilineText(SourceLine openingLine, out int end)
-    {
-        Advance();
-
-        var lines = new List<string>();
-        var closed = false;
-
-        while (!IsAtEnd)
-        {
-            var line = Current!.Value;
-            if (line.Text.Trim() == "]")
-            {
-                closed = true;
-                Advance();
-                break;
-            }
-
-            lines.Add(line.Text);
-            Advance();
-        }
-
-        if (!closed)
-        {
-            _diagnostics.Error(
-                DiagnosticCode.UnterminatedTextBlock,
-                openingLine.Span,
-                "文本块缺少单独一行的 ] 作为结束。");
-            end = LastLineEnd();
-        }
-        else
-        {
-            end = _source.Lines[_index - 1].Span.End;
-        }
-
-        return string.Join("\n", lines);
-    }
-
     private FigureSyntax? ParseFigure()
     {
         var line = Current!.Value;
@@ -986,32 +1252,53 @@ public sealed class Parser
         return new FigureSyntax(path, line.Span);
     }
 
-    private SetSyntax? ParseSet()
+    private bool TryParseAssignment(
+        string trimmed,
+        string keyword,
+        SourceLine line,
+        out string name,
+        out bool value)
     {
-        var line = Current!.Value;
-        Advance();
+        name = string.Empty;
+        value = false;
 
-        var rest = line.Text.Trim()["@set".Length..].Trim();
+        var rest = trimmed[keyword.Length..].Trim();
         var parts = rest.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
 
-        if (parts.Length != 2 || !SyntaxFacts.IsIdentifier(parts[0]) || !SyntaxFacts.TryParseBoolean(parts[1], out var value))
+        if (parts.Length != 2 ||
+            !SyntaxFacts.IsIdentifier(parts[0]) ||
+            !SyntaxFacts.TryParseBoolean(parts[1], out value))
         {
             _diagnostics.Error(
                 DiagnosticCode.MalformedDirective,
                 line.Span,
-                "@set 的语法是：@set <布尔变量名> true|false");
-            return null;
+                $"{keyword} 的语法是：{keyword} <布尔变量名> true|false");
+            return false;
         }
 
-        if (!_globalVariables.Contains(parts[0]))
+        name = parts[0];
+        return true;
+    }
+
+    private bool TryParseSingleName(
+        string trimmed,
+        string keyword,
+        SourceLine line,
+        out string name)
+    {
+        name = trimmed[keyword.Length..].Trim();
+
+        if (!SyntaxFacts.IsIdentifier(name))
         {
             _diagnostics.Error(
-                DiagnosticCode.UndeclaredVariable,
+                DiagnosticCode.MalformedDirective,
                 line.Span,
-                $"使用了未在 @globals 中声明的变量：{parts[0]}");
+                $"{keyword} 的语法是：{keyword} <名称>");
+            name = string.Empty;
+            return false;
         }
 
-        return new SetSyntax(parts[0], value, line.Span);
+        return true;
     }
 
     private void SkipBlankAndComments()
@@ -1046,7 +1333,7 @@ public sealed class Parser
         }
 
         var next = trimmed[keyword.Length];
-        return char.IsWhiteSpace(next) || next is '(' or ':';
+        return char.IsWhiteSpace(next) || next is '(' or ':' or '[';
     }
 
     private static bool IsBranchStart(string trimmed)

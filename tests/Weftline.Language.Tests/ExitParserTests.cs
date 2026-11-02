@@ -10,29 +10,26 @@ public sealed class ExitParserTests
     public void ParsesAutoExitWithConditionAndFallback()
     {
         const string source = """
-        @globals
-        @var has_key false
+        @vars
+            @var has_key false
 
         @title 医院
-        @char 萧影
-
         @next():(has_key) -> 地下层
             () -> 走廊
 
         @title 地下层
-        @char 萧影
         @next -> END
 
         @title 走廊
-        @char 萧影
         @next -> END
         """;
 
-        var result = WeftlineCompiler.Parse(source);
+        var result = WeftlineCompiler.Parse(source, "test.weft");
 
         Assert.Empty(result.Diagnostics);
+        var file = Assert.IsType<WeftFileSyntax>(result.Script);
 
-        var hospital = Assert.Single(result.Script.Modules, m => m.Title == "医院");
+        var hospital = Assert.Single(file.Modules, m => m.Title == "医院");
         var exit = Assert.IsType<ExitSyntax>(hospital.Exit);
 
         Assert.Null(exit.Character);
@@ -40,8 +37,7 @@ public sealed class ExitParserTests
         Assert.Equal(2, exit.Branches.Count);
 
         var first = exit.Branches[0];
-        var condition = Assert.IsType<BoolRefSyntax>(first.Condition);
-        Assert.Equal("has_key", condition.Name);
+        Assert.Equal("has_key", Assert.IsType<BoolRefSyntax>(first.Condition).Name);
         Assert.Equal("地下层", first.Target);
         Assert.Null(first.Label);
 
@@ -56,16 +52,14 @@ public sealed class ExitParserTests
     {
         const string source = """
         @title 开场
-        @char 萧影
         @next -> END
         """;
 
-        var result = WeftlineCompiler.Parse(source);
+        var result = WeftlineCompiler.Parse(source, "test.weft");
 
         Assert.Empty(result.Diagnostics);
-
-        var module = Assert.Single(result.Script.Modules);
-        var exit = Assert.IsType<ExitSyntax>(module.Exit);
+        var file = Assert.IsType<WeftFileSyntax>(result.Script);
+        var exit = Assert.IsType<ExitSyntax>(Assert.Single(file.Modules).Exit);
 
         Assert.Null(exit.Character);
         Assert.False(exit.IsChoiceMode);
@@ -79,30 +73,49 @@ public sealed class ExitParserTests
     }
 
     [Fact]
+    public void ParsesShorthandExitWithEffects()
+    {
+        const string source = """
+        @vars
+            @var a false
+
+        @title 开场
+        @next -> END { @set a true }
+        """;
+
+        var result = WeftlineCompiler.Parse(source, "test.weft");
+
+        Assert.Empty(result.Diagnostics);
+        var file = Assert.IsType<WeftFileSyntax>(result.Script);
+        var branch = Assert.IsType<ExitSyntax>(Assert.Single(file.Modules).Exit).Branches[0];
+        var effect = Assert.Single(branch.Effects);
+        Assert.Equal("a", effect.Name);
+        Assert.True(effect.Value);
+    }
+
+    [Fact]
     public void ParsesConditionPrecedence()
     {
         const string source = """
-        @globals
-        @var a false
-        @var b false
-        @var c false
+        @vars
+            @var a false
+            @var b false
+            @var c false
 
         @title 测试
-        @char 萧影
-
         @next():(a and not b or c) -> 结束
             () -> END
 
         @title 结束
-        @char 萧影
         @next -> END
         """;
 
-        var result = WeftlineCompiler.Parse(source);
+        var result = WeftlineCompiler.Parse(source, "test.weft");
 
         Assert.Empty(result.Diagnostics);
+        var file = Assert.IsType<WeftFileSyntax>(result.Script);
 
-        var module = Assert.Single(result.Script.Modules, m => m.Title == "测试");
+        var module = Assert.Single(file.Modules, m => m.Title == "测试");
         var branch = Assert.IsType<ExitSyntax>(module.Exit).Branches[0];
         var or = Assert.IsType<OrExprSyntax>(branch.Condition);
 
@@ -118,36 +131,33 @@ public sealed class ExitParserTests
     public void ParsesInlineAndMultilineEffects()
     {
         const string source = """
-        @globals
-        @var a false
-        @var b false
+        @vars
+            @var a false
+            @var b false
 
         @title 开场
-        @char 萧影
-
         @next(萧影):[继续] -> 结局 { @set a true }
             ()[结束] -> END
 
         @title 结局
-        @char 萧影
-
         @next(萧影):[继续] -> END {
             @set a true
             @set b true
         }
         """;
 
-        var result = WeftlineCompiler.Parse(source);
+        var result = WeftlineCompiler.Parse(source, "test.weft");
 
         Assert.Empty(result.Diagnostics);
+        var file = Assert.IsType<WeftFileSyntax>(result.Script);
 
-        var opening = Assert.Single(result.Script.Modules, m => m.Title == "开场");
+        var opening = Assert.Single(file.Modules, m => m.Title == "开场");
         var firstEffects = Assert.IsType<ExitSyntax>(opening.Exit).Branches[0].Effects;
         var inlineEffect = Assert.Single(firstEffects);
         Assert.Equal("a", inlineEffect.Name);
         Assert.True(inlineEffect.Value);
 
-        var ending = Assert.Single(result.Script.Modules, m => m.Title == "结局");
+        var ending = Assert.Single(file.Modules, m => m.Title == "结局");
         var multilineEffects = Assert.IsType<ExitSyntax>(ending.Exit).Branches[0].Effects;
         Assert.Equal(2, multilineEffects.Count);
         Assert.Equal("a", multilineEffects[0].Name);
@@ -161,21 +171,19 @@ public sealed class ExitParserTests
     {
         const string source = """
         @title 开场
-        @char 萧影
-
         @next(萧影):[继续] -> 第一章 雨夜
             ()[结束] -> END
 
         @title 第一章 雨夜
-        @char 萧影
         @next -> END
         """;
 
-        var result = WeftlineCompiler.Parse(source);
+        var result = WeftlineCompiler.Parse(source, "test.weft");
 
         Assert.Empty(result.Diagnostics);
+        var file = Assert.IsType<WeftFileSyntax>(result.Script);
 
-        var opening = Assert.Single(result.Script.Modules, m => m.Title == "开场");
+        var opening = Assert.Single(file.Modules, m => m.Title == "开场");
         var branch = Assert.IsType<ExitSyntax>(opening.Exit).Branches[0];
         Assert.Equal("第一章 雨夜", branch.Target);
     }
@@ -184,18 +192,16 @@ public sealed class ExitParserTests
     public void ReportsMissingFallback()
     {
         const string source = """
-        @globals
-        @var a false
-        @var b false
+        @vars
+            @var a false
+            @var b false
 
         @title 测试
-        @char 萧影
-
         @next():(a) -> A
             (b) -> B
         """;
 
-        var result = WeftlineCompiler.Parse(source);
+        var result = WeftlineCompiler.Parse(source, "test.weft");
 
         Assert.Contains(
             result.Diagnostics,
@@ -207,21 +213,14 @@ public sealed class ExitParserTests
     {
         const string source = """
         @title 测试
-        @char 萧影
-
         @next(萧影):[有文案] -> A
             -> B
         """;
 
-        var result = WeftlineCompiler.Parse(source);
+        var result = WeftlineCompiler.Parse(source, "test.weft");
 
-        Assert.Contains(
-            result.Diagnostics,
-            d => d.Code == DiagnosticCode.ModeMismatch);
-
-        Assert.Contains(
-            result.Diagnostics,
-            d => d.Code == DiagnosticCode.InvalidBranchLabel);
+        Assert.Contains(result.Diagnostics, d => d.Code == DiagnosticCode.ModeMismatch);
+        Assert.Contains(result.Diagnostics, d => d.Code == DiagnosticCode.InvalidBranchLabel);
     }
 
     [Fact]
@@ -229,12 +228,11 @@ public sealed class ExitParserTests
     {
         const string source = """
         @title 开场
-        @char 萧影
         @next -> END
-        [多余内容]
+            [多余内容]
         """;
 
-        var result = WeftlineCompiler.Parse(source);
+        var result = WeftlineCompiler.Parse(source, "test.weft");
 
         Assert.Contains(
             result.Diagnostics,
@@ -245,17 +243,15 @@ public sealed class ExitParserTests
     public void ReportsMalformedCondition()
     {
         const string source = """
-        @globals
-        @var a false
+        @vars
+            @var a false
 
         @title 测试
-        @char 萧影
-
         @next():(a and) -> END
             () -> END
         """;
 
-        var result = WeftlineCompiler.Parse(source);
+        var result = WeftlineCompiler.Parse(source, "test.weft");
 
         Assert.Contains(
             result.Diagnostics,
@@ -263,55 +259,18 @@ public sealed class ExitParserTests
     }
 
     [Fact]
-    public void ReportsUndeclaredConditionVariable()
-    {
-        const string source = """
-        @title 测试
-        @char 萧影
-
-        @next():(missing) -> END
-            () -> END
-        """;
-
-        var result = WeftlineCompiler.Parse(source);
-
-        Assert.Contains(
-            result.Diagnostics,
-            d => d.Code == DiagnosticCode.UndeclaredConditionVariable);
-    }
-
-    [Fact]
-    public void ReportsUndeclaredVariableInEffect()
-    {
-        const string source = """
-        @title 测试
-        @char 萧影
-
-        @next(萧影):[继续] -> END { @set missing true }
-        """;
-
-        var result = WeftlineCompiler.Parse(source);
-
-        Assert.Contains(
-            result.Diagnostics,
-            d => d.Code == DiagnosticCode.UndeclaredVariable);
-    }
-
-    [Fact]
     public void ReportsUnterminatedEffectBlock()
     {
         const string source = """
-        @globals
-        @var a false
+        @vars
+            @var a false
 
         @title 测试
-        @char 萧影
-
         @next(萧影):[继续] -> END {
             @set a true
         """;
 
-        var result = WeftlineCompiler.Parse(source);
+        var result = WeftlineCompiler.Parse(source, "test.weft");
 
         Assert.Contains(
             result.Diagnostics,
@@ -323,11 +282,10 @@ public sealed class ExitParserTests
     {
         const string source = """
         @title 测试
-        @char 萧影
         @next():[文案] -> END
         """;
 
-        var result = WeftlineCompiler.Parse(source);
+        var result = WeftlineCompiler.Parse(source, "test.weft");
 
         Assert.Contains(
             result.Diagnostics,
@@ -339,11 +297,10 @@ public sealed class ExitParserTests
     {
         const string source = """
         @title 测试
-        @char 萧影
         @next(萧影):[] -> END
         """;
 
-        var result = WeftlineCompiler.Parse(source);
+        var result = WeftlineCompiler.Parse(source, "test.weft");
 
         Assert.Contains(
             result.Diagnostics,

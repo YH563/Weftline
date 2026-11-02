@@ -1,3 +1,4 @@
+using Weftline.Language.Binding;
 using Weftline.Language.Diagnostics;
 using Weftline.Language.Source;
 using Weftline.Language.Syntax;
@@ -61,8 +62,8 @@ public sealed class CompilationResult
 public static class WeftlineCompiler
 {
     /// <summary>
-    /// 解析源码文本。
-    /// Parses a source text.
+    /// 解析源码文本，只做语法与结构检查。
+    /// Parses a source text and performs syntax/structure checks only.
     /// </summary>
     public static CompilationResult Parse(string text, string? filePath = null)
     {
@@ -74,9 +75,35 @@ public static class WeftlineCompiler
     }
 
     /// <summary>
-    /// 读取文件并解析。
-    /// Reads a file and parses it.
+    /// 解析并绑定符号：语法检查 + 全局符号解析。
+    /// Parses and binds symbols: syntax checks plus global symbol resolution.
+    /// </summary>
+    public static CompilationResult Compile(string text, string? filePath = null)
+    {
+        var parsed = Parse(text, filePath);
+        var diagnostics = new DiagnosticBag();
+
+        foreach (var diagnostic in parsed.Diagnostics)
+        {
+            diagnostics.Add(diagnostic);
+        }
+
+        Binder.Bind(parsed.Script, diagnostics);
+
+        return new CompilationResult(parsed.Source, parsed.Script, diagnostics.ToList());
+    }
+
+    /// <summary>
+    /// 读取文件并解析，只做语法检查。
+    /// Reads a file and parses it with syntax checks only.
     /// </summary>
     public static CompilationResult ParseFile(string filePath)
         => Parse(File.ReadAllText(filePath), filePath);
+
+    /// <summary>
+    /// 读取文件并编译：解析 + 符号绑定。
+    /// Reads a file and compiles it: parse plus symbol binding.
+    /// </summary>
+    public static CompilationResult CompileFile(string filePath)
+        => Compile(File.ReadAllText(filePath), filePath);
 }

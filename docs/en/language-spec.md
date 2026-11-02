@@ -2,196 +2,245 @@
 
 [中文](../language-spec.md) | **English**
 
-This document defines the v0 semantics. See [grammar.md](./grammar.md) for the concrete syntax.
+This document defines v0 semantics. See [grammar.md](./grammar.md) for syntax.
+
+---
 
 ## 1. Overview
 
-Weftline organizes a story as **modules**:
+Weftline organizes a script into **modules**:
 
-- A module is a linear narrative segment.
-- The end of a module is an **exit block** that declares where the story can go next.
+- A module is one **linear story segment**.
+- A module ends with an **exit block** that declares where it can go.
 - Modules connect through exits to form the story graph.
-- `END` is the single terminal module.
-- Global state is optional and only introduced when conditions or persistence are needed.
+- `END` is the only terminal module.
+- Global state is optional boolean variables.
 
 Graph model:
 
-```
+```text
 Module = node
 Exit   = edge
-END    = unique sink
+END    = the only sink
 ```
 
-## 2. Files, modules, and globals
+---
 
-### 2.1 Files
+## 2. Project and files
 
-- A file can contain any number of modules.
-- Before the first `@title`, only `@globals` and comments are allowed.
+### 2.1 Project
 
-### 2.2 Modules
+A flat folder is one story:
 
-```
-@title believe
-@char xiaoying
-@char shadow
-
-[
-Text...
-]
-
-@next(xiaoying):[Believe him] -> hospital
-    ()[Stay silent] -> silence
+```text
+my-story/
+  project.wstory     project overview: project info + generated declarations + hand-written descriptions
+  chapter1.weft      module script: top-level declarations + modules
+  chapter2.weft
+  assets/            image assets
+  .weftline/         index cache, recommended gitignore
 ```
 
-- `@title` starts a module.
-- **The module ID is the `@title` text**, trimmed.
-- Module IDs must be unique across the project.
-- IDs may contain spaces but not `{` or `}`.
-- A new `@title` ends the previous module.
+- All `.weft` files in the folder belong to one story.
+- No subdirectories and no cross-folder imports.
+- `.weft` is the only declaration source.
+- `.wstory` is a generated overview; declarations are generated, descriptions are hand-written and preserved.
 
-### 2.3 Globals
+### 2.2 `.weft` top-level declarations
 
-- `@globals` is the **single** global variable declaration block in the project.
-- It may appear:
-  - at the top of a story file, before the first `@title`; or
-  - in a dedicated globals file (detected by content: it contains `@globals` and no `@title`).
-- `@var` is only allowed inside `@globals`.
+```text
+@vars
+    @var 信任 false
+    @var 有钥匙 false
 
-```
-@globals
-@var trust_low false
-@var has_key false
+@chars
+    @char 萧影
+    @char 影子
+
+@items
+    @item 医院钥匙
+
+@scenes
+    @scene 医院
 ```
 
 Rules:
 
-- Variables are boolean only.
-- At most one `@globals` block per project.
-- A variable is declared exactly once.
-- Without `@globals`, the variable table is empty; modules without state still work.
+- All symbol declarations appear in top-level groups before modules.
+- Groups are `@vars` / `@chars` / `@items` / `@scenes`.
+- Variables must provide an initial value; `@var 信任` without a value is an error.
+- Declarations do not carry descriptions.
+- Symbol names are unique across the project, including across kinds.
+- Missing symbols are errors; the tool does not auto-create declarations.
 
-### 2.4 Characters
+### 2.3 `.wstory` project overview
 
-- `@char` declares a character used by the current module.
-- Character scope is the module.
-- Dialogue speakers and the character in `@next(character)` must be declared in the current module.
-- Different modules may declare the same character independently.
+```text
+@project 雨夜
+    @summary [一个关于信任的故事。]
 
-## 3. Content blocks
+    @docs
+        @doc 世界规则 [医院在雨夜不关门。]
 
-Content blocks execute in source order.
+    @chars
+        @char 萧影 [主角。]
+        @char 影子 [萧影的旧识。]
 
-### 3.1 Narration
+    @items
+        @item 医院钥匙 [医院地下室的钥匙。]
 
-```
-[
-Rain blurred the view.
-]
-```
+    @scenes
+        @scene 医院 [雨夜里的医院。]
 
-- The block is plain text; no keywords are parsed inside.
-- Inline form: `[Rain blurred the view.]`
-
-### 3.2 Dialogue
-
-```
-xiaoying:[
-You came.
-I waited.
-]
+    @vars
+        @var 信任 false [萧影是否信任影子。]
+        @var 有钥匙 false [是否拿到了医院钥匙。]
 ```
 
-- Inline form: `xiaoying:[You came.]`
-- The speaker must be declared via `@char` in the current module.
-- The block is still plain text.
-- Always write the speaker, even in a single-character scene, so voice, portraits, localization, and search have structured data.
+Rules:
 
-### 3.3 Figures
+- `@project` is top-level; groups are indented one level; entries one more (display only).
+- `@summary` is a single line.
+- Declarations (names and variable initial values) are generated from `.weft`.
+- Descriptions are hand-written and preserved by the generator.
+- `.wstory` must not contain `@set` or modules.
+- Hand-editing declarations is overwritten by the next generation; descriptions are not.
 
+---
+
+## 3. Symbols
+
+### 3.1 Characters, items, and scenes
+
+- Characters are used by dialogue speakers and `@next(character)`.
+- Items are metadata; text can reference them with `{item}`.
+- A scene is an optional module grouping tag and does not create a graph node.
+- A module has at most one `@scene`.
+- A scene can span multiple modules; a module cannot change scenes internally.
+
+### 3.2 Variables
+
+- Boolean only.
+- Declarations must provide an initial value.
+- Runtime changes only happen in exit branch effects.
+- Text content does not support `@set`.
+- There are no entry overrides.
+
+| Layer | Location | When it applies |
+|---|---|---|
+| Initial value | `.weft` top-level `@var` | Story start |
+| Runtime change | Exit branch effect | After the branch is selected |
+
+---
+
+## 4. Content blocks
+
+Content blocks execute linearly in source order.
+
+### 4.1 Narration
+
+```text
+[雨水模糊了视线。]
 ```
+
+Multi-line, with brackets attached to text:
+
+```text
+[雨水模糊了视线，
+他抬起头。]
+```
+
+### 4.2 Dialogue
+
+```text
+萧影:[你来了。]
+```
+
+Multi-line:
+
+```text
+萧影:[你来了。
+我等了很久。]
+```
+
+- The speaker must be a declared global character.
+
+### 4.3 Text references
+
+```text
+[{萧影}推开门，手里攥着{医院钥匙}。]
+```
+
+- `{name}` only references declared characters or items.
+- Variables cannot be referenced.
+- Export shows the name only.
+- The editor can jump from a reference to the description in `.wstory`.
+- `{{` and `}}` are literal escapes.
+- `{}` does not span lines and does not nest.
+
+### 4.4 Images
+
+```text
 @fig "assets/hospital.png"
 ```
 
 - Inserts an image at the current content position.
-- The path is a quoted string relative to project assets.
-- Supported formats: PNG, JPEG, WebP, GIF, SVG.
-- A figure is node content, not a graph node.
-- v0 embeds images as base64 in exports.
+- The path is relative to project assets and must be double-quoted.
 
-### 3.4 State updates
+### 4.5 Comments
 
-```
-@set trust_low true
+```text
+// this is a comment
 ```
 
-- Updates a global boolean variable.
-- The variable must be declared in `@globals`.
-- Executes immediately in source order.
-
-### 3.5 Comments
-
-```
-// comment
-```
-
-- Only at the structural level.
+- Only effective at the structural level.
 - Inside text blocks, `//` is plain text.
 
-## 4. Exit blocks
+---
 
-The exit block is the module's **branch interface** and its end boundary.
+## 5. Exit blocks
 
-### 4.1 Full form
+### 5.1 Full form
 
-```
+```text
 @next(character):(condition)[label] -> target {
-    @set has_key true
+    @set name true
 }
     (condition)[label] -> target
     ()[label] -> target
 ```
 
-### 4.2 Shorthand
+### 5.2 Shorthand
 
-```
+```text
 @next -> target
+@next -> target { @set name true }
 ```
 
-A single unconditional automatic branch, equivalent to:
+### 5.3 Modes
 
-```
-@next(): -> target
-```
-
-### 4.3 Modes
-
-The mode is determined by whether the `@next` header specifies a character. Modes cannot be mixed inside one block.
-
-| Header | Mode | Requirement |
+| Header | Mode | Branch requirement |
 |---|---|---|
-| `@next(character):` | Choice | Every branch must have `[label]`. |
-| `@next():` | Automatic | Branches must not have `[label]`. |
-| `@next -> target` | Automatic (single branch) | No label, no condition. |
+| `@next(character):` | choice | every branch must have a non-empty `[label]` |
+| `@next():` | automatic | branches must not have `[label]` |
+| `@next -> target` | automatic (single) | no label, no condition |
 
-### 4.4 Choice mode
+### 5.4 Choice mode
 
-- Branches whose condition is true are shown to the player.
-- Branches whose condition is false are hidden and cannot be selected.
-- At least one unconditional branch is required as a fallback, so at least one option is always visible.
+- All branches whose condition is true are shown.
+- False branches are hidden.
+- The player chooses one visible branch.
+- At least one unconditional fallback branch is required.
 
-### 4.5 Automatic mode
+### 5.5 Automatic mode
 
-- Branches are checked in source order; the first true branch is taken.
-- False branches are skipped.
-- At least one unconditional branch is required as a fallback, so routing never dead-ends.
+- Evaluate conditions in source order and take the first true branch.
+- At least one unconditional fallback branch is required.
 - Conditions need not be mutually exclusive; order defines priority.
 
-### 4.6 Conditions
+### 5.6 Conditions
 
-Conditions are boolean expressions in parentheses:
-
-```
+```text
 (trust_low)
 (a and not b)
 ((a or b) and c)
@@ -199,122 +248,109 @@ Conditions are boolean expressions in parentheses:
 
 - Variables come from the global variable table.
 - Operators: `and`, `or`, `not`.
-- Parentheses group.
 - Precedence: `not` > `and` > `or`.
-- `()` means unconditional.
-- No comparisons, arithmetic, or function calls.
+- No comparisons, arithmetic, or functions.
 
-### 4.7 Branch effects
+### 5.7 Branch effects
 
-```
--> hospital {
+```text
+-> 医院 {
     @set has_key true
     @set trust_low false
 }
 ```
 
-Inline form:
+Or inline:
 
+```text
+-> 医院 { @set has_key true; @set trust_low false }
 ```
--> hospital { @set has_key true; @set trust_low false }
-```
 
-- Only `@set` and comments are allowed inside the block.
-- Effects run after the branch is selected and before the target module is entered.
-- Conditions are evaluated against the state **before** effects run.
-- Duplicate assignments in one effect block overwrite in order and produce a warning.
+- Effect blocks only allow `@set` and comments.
+- Order: evaluate condition → select branch → apply `@set` → enter target module.
+- Conditions use the state **before** effects.
+- Reassigning the same variable in one block: later wins, with a warning.
 
-### 4.8 Exit constraints
+### 5.8 Exit constraints
 
-- Every module **must** have an exit block.
+- Every module must have an exit block.
 - The exit block must be the last part of the module.
-- No narration, dialogue, `@fig`, or `@set` may follow it.
 - Terminal modules use `@next -> END`.
-- Multi-level conditions are not supported; use boolean expressions, ordered routing, or more modules.
+- No multi-level conditions; express complexity with booleans, ordered routing, or module splitting.
 
-## 5. State and execution
+---
 
-- Global boolean variables only.
-- A single declaration point: `@globals`.
-- Without `@globals`, state is empty.
+## 6. Execution model
+
 - Single cursor: exactly one current module at a time.
 - Content blocks execute in order.
-- At the exit block:
-  - Choice mode waits for the player.
-  - Automatic mode takes the first true branch.
-- After a branch is selected, run its effects, then enter the target module.
-- Last write wins.
-- Given a path and player choices, execution is deterministic.
+- At an exit block:
+  - choice mode: wait for the player;
+  - automatic mode: take the first true branch in order.
+- After a branch is selected, apply its effects, then enter the target module.
+- Given a path and choices, execution is deterministic.
 
-## 6. Entry and single-module processing
+---
 
-The language has **no entry declaration**.
+## 7. Entry and single-module handling
 
-### 6.1 Project preview
+The language has **no** entry declaration.
 
-- Default entry: the **first module** in project order.
-- Project order = file order + module order within each file.
-- The UI can start from any module.
+- Default entry = the first module in the project.
+- Project order = file order + module order inside each file.
+- The tool UI can start playback from any module.
+- Full export uses the initial values from `.weft` `@var`.
+- In single-module export, external targets become end or stubs.
 
-### 6.2 Single-module processing
+### END
 
-| Mode | Behavior |
+- `END` is a reserved module ID provided by the compiler.
+- It is the only terminal point; it cannot be defined and has no exits.
+- Terminal modules must explicitly point to it: `@next -> END`.
+
+---
+
+## 8. Graph mapping
+
+| Text | Graph |
 |---|---|
-| Isolated compile | Load globals (if any) + the current module; unresolved external targets produce warnings, not blockers. |
-| Preview from module | Load the whole project, start at the selected module, and follow exits. |
-| Export module | Export only the selected module; external exits become demo ends or stubs. |
+| `@title` | node (ID = title) |
+| `@scene` | node grouping tag |
+| content blocks | node content |
+| each `@next` branch | one outgoing edge |
+| `(character)` | edge attribute (block-level) |
+| `(condition)` | edge condition |
+| `[label]` | edge label (choice mode) |
+| `@set` in `{}` | edge effect |
+| `END` | the only sink |
 
-### 6.3 External variables
+---
 
-- All variable references resolve against the unique `@globals` table.
-- Missing variables are errors with a quick fix to add them.
-- In isolated mode the rule is the same; without a globals block the table is empty.
+## 9. Non-goals and deferred features
 
-### 6.4 END
+### 9.1 Non-goals
 
-- `END` is a reserved module ID, built into the compiler.
-- It is the only terminal; it cannot be defined and has no exits.
-- Terminal modules explicitly point to it: `@next -> END`.
-
-## 7. Graph mapping
-
-| Source | Graph |
-|---|---|
-| `@title` | Node (ID = title) |
-| Content blocks | Node content |
-| Each `@next` branch | Outgoing edge |
-| Block character | Edge attribute |
-| Condition | Edge condition |
-| Label | Edge label (choice mode) |
-| `@set` inside `{}` | Edge effects |
-| `END` | Unique sink |
-
-The entry is not part of the graph; it is the start selected for preview or export.
-
-## 8. Non-goals and v0 exclusions
-
-### 8.1 Non-goals
-
-- Visual-novel production: sprites, expressions, BGM, SFX, save/load, backlog, localization, voice.
+- Visual novel production: portraits, expressions, BGM, sound, saves, backlog, localization, voice.
 - RPG quests, stats, inventory.
-- Real-time engine triggers, cutscenes, QTE.
-- Large production pipelines and multi-user collaboration.
+- Real-time triggers, cutscenes, QTE inside an engine.
+- Large-project pipelines and multi-user collaboration.
 
-### 8.2 Deferred from v0
+### 9.2 Deferred in v0
 
-- Chapters (`@chapter` tags may be added later).
-- Numeric state and comparisons.
-- Multi-level / nested conditions.
-- Multiple characters per exit block; per-branch characters.
-- Multiple entries.
-- Event contracts and data-flow analysis.
-- True concurrency, schedulers, vertical alignment.
-- Engine export (Unity / Godot).
+- Chapters (possibly `@chapter` later)
+- Numeric state and comparisons
+- Multi-level / nested conditions
+- Multiple entry declarations
+- Event contracts, data-flow analysis
+- True concurrency, schedulers
+- Engine export (Unity / Godot)
 
-## 9. Review points
+---
 
-1. Mode rule: character present = choice mode; no character = automatic mode.
-2. `@title` as module ID.
-3. Terminal modules use `@next -> END`.
-4. Globals are declared only in the single `@globals` block.
-5. Chapters are not modeled in v0.
+## 10. Review points
+
+1. Text `{}` references characters/items only, never variables.
+2. `.weft` is the only declaration source; `.wstory` is a generated overview.
+3. Variable declarations must include an initial value; runtime writes happen only in branch effects.
+4. Scenes are only module tags, never graph nodes.
+5. Indentation is display-only and does not affect parsing.

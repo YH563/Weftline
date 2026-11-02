@@ -3,55 +3,129 @@ using Weftline.Language.Source;
 namespace Weftline.Language.Syntax;
 
 /// <summary>
-/// 一个源码文件的语法树。
-/// 包含文件级全局变量、模块、模块内容块和出口分支。
-/// The syntax tree for one source file.
-/// Contains file-level globals, modules, their content blocks, and exit branches.
+/// 一个源码文件的语法树。文件分为模块脚本 `.weft` 和项目总览 `.wstory`。
+/// The syntax tree for one source file. Files are either `.weft` module scripts
+/// or `.wstory` project overviews.
 /// </summary>
-public sealed record ScriptFileSyntax(
-    GlobalsSyntax? Globals,
+public abstract record ScriptFileSyntax(TextSpan Span);
+
+/// <summary>
+/// 一个 `.weft` 模块脚本文件。文件顶部按分组声明变量、角色、道具和场景，
+/// 后面是若干模块。声明是项目符号的真实来源。
+/// A `.weft` module script file. Symbol declarations are grouped at the top,
+/// followed by modules. These declarations are the source of truth for symbols.
+/// </summary>
+public sealed record WeftFileSyntax(
+    IReadOnlyList<WeftVariableSyntax> Variables,
+    IReadOnlyList<WeftCharacterSyntax> Characters,
+    IReadOnlyList<WeftItemSyntax> Items,
+    IReadOnlyList<WeftSceneSyntax> Scenes,
     IReadOnlyList<ModuleSyntax> Modules,
-    TextSpan Span);
+    TextSpan Span) : ScriptFileSyntax(Span);
 
 /// <summary>
-/// 文件顶部的全局布尔变量声明。
-/// Global boolean variable declarations at the top of a file.
+/// 一条变量声明。变量必须带初始值。
+/// A variable declaration. Variables must provide an initial value.
 /// </summary>
-public sealed record GlobalsSyntax(
-    IReadOnlyList<GlobalVariableSyntax> Variables,
-    TextSpan Span);
-
-/// <summary>
-/// 一条全局布尔变量声明。
-/// A global boolean variable declaration.
-/// </summary>
-public sealed record GlobalVariableSyntax(
+public sealed record WeftVariableSyntax(
     string Name,
     bool Value,
     TextSpan Span);
 
 /// <summary>
-/// 一个模块。目前以标题作为模块 ID。
+/// 一条角色声明。
+/// A character declaration.
+/// </summary>
+public sealed record WeftCharacterSyntax(
+    string Name,
+    TextSpan Span);
+
+/// <summary>
+/// 一条道具声明。
+/// An item declaration.
+/// </summary>
+public sealed record WeftItemSyntax(
+    string Name,
+    TextSpan Span);
+
+/// <summary>
+/// 一条场景声明。
+/// A scene declaration.
+/// </summary>
+public sealed record WeftSceneSyntax(
+    string Name,
+    TextSpan Span);
+
+/// <summary>
+/// 一个 `.wstory` 项目总览文件。声明由 `.weft` 汇总生成，描述由作者手写。
+/// A `.wstory` project overview file. Declarations are generated from `.weft`
+/// files; descriptions are authored by hand.
+/// </summary>
+public sealed record WStoryFileSyntax(
+    string ProjectName,
+    TextSpan ProjectNameSpan,
+    TextBlockSyntax? Summary,
+    IReadOnlyList<DocSyntax> Docs,
+    IReadOnlyList<WStoryCharacterSyntax> Characters,
+    IReadOnlyList<WStoryItemSyntax> Items,
+    IReadOnlyList<WStorySceneSyntax> Scenes,
+    IReadOnlyList<WStoryVariableSyntax> Variables,
+    TextSpan Span) : ScriptFileSyntax(Span);
+
+/// <summary>
+/// 一条 @doc 设定文档。
+/// A @doc world-setting document.
+/// </summary>
+public sealed record DocSyntax(
+    string Title,
+    TextSpan TitleSpan,
+    TextBlockSyntax Body,
+    TextSpan Span);
+
+/// <summary>
+/// 纯文本块，用于描述、概要和设定文档。
+/// A plain text block used by descriptions, summaries, and docs.
+/// </summary>
+public sealed record TextBlockSyntax(
+    string Text,
+    TextSpan Span);
+
+public sealed record WStoryVariableSyntax(
+    string Name,
+    bool Value,
+    TextBlockSyntax? Description,
+    TextSpan Span);
+
+public sealed record WStoryCharacterSyntax(
+    string Name,
+    TextBlockSyntax? Description,
+    TextSpan Span);
+
+public sealed record WStoryItemSyntax(
+    string Name,
+    TextBlockSyntax? Description,
+    TextSpan Span);
+
+public sealed record WStorySceneSyntax(
+    string Name,
+    TextBlockSyntax? Description,
+    TextSpan Span);
+
+/// <summary>
+/// 一个模块。目前以标题作为模块 ID。模块是图的唯一节点。
 /// Exit 可能为 null：存在语法错误时，解析器仍返回可用的部分语法树，
 /// 让编辑器可以继续工作。
-/// A module. Its ID is currently the title.
+/// A module. Its ID is currently the title. A module is the only graph node.
 /// Exit may be null: on syntax errors the parser still returns a usable partial
 /// tree so the editor can continue working.
 /// </summary>
 public sealed record ModuleSyntax(
     string Title,
     TextSpan TitleSpan,
-    IReadOnlyList<CharacterSyntax> Characters,
+    string? Scene,
+    TextSpan? SceneSpan,
     IReadOnlyList<ContentSyntax> Content,
     ExitSyntax? Exit,
-    TextSpan Span);
-
-/// <summary>
-/// 在模块中声明的角色。
-/// A character declared in a module.
-/// </summary>
-public sealed record CharacterSyntax(
-    string Name,
     TextSpan Span);
 
 /// <summary>
@@ -61,21 +135,59 @@ public sealed record CharacterSyntax(
 public abstract record ContentSyntax(TextSpan Span);
 
 /// <summary>
-/// 旁白：[] 中的纯文本。
-/// Narration: plain text inside [].
+/// 正文文本段。正文由字面量片段和 {名字} 引用片段组成。
+/// A text segment. Text is made of literal segments and {name} reference segments.
 /// </summary>
-public sealed record NarrationSyntax(
-    string Text,
-    TextSpan Span) : ContentSyntax(Span);
+public abstract record TextSegmentSyntax(TextSpan Span)
+{
+    public static string GetText(IReadOnlyList<TextSegmentSyntax> segments)
+        => string.Concat(segments.Select(
+            static segment => segment switch
+            {
+                TextLiteralSyntax literal => literal.Text,
+                TextReferenceSyntax reference => reference.Name,
+                _ => string.Empty,
+            }));
+}
 
 /// <summary>
-/// 对话：character:[] 中的纯文本，带有结构化的说话者。
-/// Dialogue: plain text inside character:[] with a structured speaker.
+/// 正文中的纯文本片段。
+/// A literal text segment.
+/// </summary>
+public sealed record TextLiteralSyntax(
+    string Text,
+    TextSpan Span) : TextSegmentSyntax(Span);
+
+/// <summary>
+/// 正文中的 {名字} 引用，只允许引用角色或道具。
+/// A {name} reference that may only refer to a character or an item.
+/// </summary>
+public sealed record TextReferenceSyntax(
+    string Name,
+    TextSpan Span) : TextSegmentSyntax(Span);
+
+/// <summary>
+/// 旁白：[] 中的文本。
+/// Narration: text inside [].
+/// </summary>
+public sealed record NarrationSyntax(
+    IReadOnlyList<TextSegmentSyntax> Segments,
+    TextSpan Span) : ContentSyntax(Span)
+{
+    public string Text => TextSegmentSyntax.GetText(Segments);
+}
+
+/// <summary>
+/// 对话：character:[] 中的文本，带有结构化的说话者。
+/// Dialogue: text inside character:[] with a structured speaker.
 /// </summary>
 public sealed record DialogueSyntax(
     string Speaker,
-    string Text,
-    TextSpan Span) : ContentSyntax(Span);
+    IReadOnlyList<TextSegmentSyntax> Segments,
+    TextSpan Span) : ContentSyntax(Span)
+{
+    public string Text => TextSegmentSyntax.GetText(Segments);
+}
 
 /// <summary>
 /// 插图：@fig "path"。
@@ -83,15 +195,6 @@ public sealed record DialogueSyntax(
 /// </summary>
 public sealed record FigureSyntax(
     string Path,
-    TextSpan Span) : ContentSyntax(Span);
-
-/// <summary>
-/// 状态更新：@set name true|false。
-/// State update: @set name true|false.
-/// </summary>
-public sealed record SetSyntax(
-    string Name,
-    bool Value,
     TextSpan Span) : ContentSyntax(Span);
 
 /// <summary>

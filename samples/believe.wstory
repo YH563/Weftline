@@ -1,0 +1,20 @@
+@project 雨夜
+    @summary [一个关于信任的故事。]
+
+    @docs
+        @doc 世界规则 [医院在雨夜不关门。]
+
+    @chars
+        @char 萧影 [主角。]
+        @char 影子 [萧影的旧识。]
+
+    @items
+        @item 医院钥匙 [医院地下室的钥匙。]
+
+    @scenes
+        @scene 街道 [雨夜的街道。]
+        @scene 医院 [雨夜里的医院。]
+
+    @vars
+        @var trust_low false [萧影是否信任影子。]
+        @var has_key false [是否拿到了医院钥匙。]

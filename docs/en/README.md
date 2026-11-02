@@ -1,79 +1,107 @@
-# Weftline Documentation
+# Weftline Script Language Documentation
 
 [中文](../README.md) | **English**
 
-**Status: v0 draft for review**
+Weftline is a text format and tool for game scripts. It aims for three things:
 
-Weftline is a text format and tool for game scripts. It aims at three things:
-
-1. Writing feels like writing a script, not writing a program.
+1. Writing feels like writing a script, not like programming.
 2. The story structure maps directly to a graph.
-3. A playable HTML demo can be exported with one action.
+3. A playable HTML demo can be exported with one command.
+
+Current stage: the language core is usable; the desktop editor, graph view, and HTML export are still in development.
+
+---
 
 ## Positioning
 
-Weftline is a **narrative demo tool**, not a game engine or a commercial narrative production pipeline.
+Weftline is a **story demo / narrative demonstration tool**, not a game engine and not a commercial script production pipeline.
 
 It is responsible for:
 
-- writing playable story demos quickly;
-- visualizing the story structure;
-- exporting a self-contained HTML demo that can be shared with anyone.
+- quickly writing a playable story demo;
+- visualizing story structure;
+- recording and demonstrating story routes;
+- exporting a zero-install HTML demo.
 
-It is not responsible for:
+Non-goals: portraits, audio, saves, localization, voice, RPG stats/inventory, real-time engine logic, large-scale collaboration pipelines.
 
-- visual-novel production features (sprites, BGM, save/load, backlog, localization, voice);
-- RPG quests, stats, inventory;
-- real-time triggers, cutscenes, QTE inside an engine;
-- large-scale production pipelines or team collaboration.
+---
 
-Those belong to downstream engines or dedicated tools.
+## File types
 
-## Document index
-
-| Document | Contents |
+| Extension | Role |
 |---|---|
-| [architecture.md](./architecture.md) | Layers, responsibilities, data flow, editing model |
-| [grammar.md](./grammar.md) | Lexing, EBNF, parsing rules |
-| [language-spec.md](./language-spec.md) | Modules, globals, content, exits, state, execution |
-| [ir.md](./ir.md) | StoryGraph IR and graph export format |
-| [diagnostics.md](./diagnostics.md) | Diagnostic codes and quick fixes |
-| [examples.md](./examples.md) | Complete examples and walkthrough |
-| [compiler-walkthrough.md](./compiler-walkthrough.md) | Parser front-end walkthrough |
+| `.weft` | Module script: top-level symbol declarations + modules |
+| `.wstory` | Project overview: project info + declarations generated from `.weft` + hand-written descriptions |
 
-Chinese versions live under [docs/](../README.md).
+- `.weft` is the only declaration source.
+- `.wstory` is not a declaration entry point; declarations are generated, descriptions are hand-written and preserved.
+- All `.weft` files in one flat folder belong to the same story.
+
+---
 
 ## Design principles
 
-- **Prose first**: text lives inside `[]`; the block is opaque and is not scanned for keywords.
-- **A module is a graph node**: one module is a linear story segment ending at an exit block.
-- **The exit is the branch interface**: choices and conditions live only there.
-- **State is optional**: stories without `@globals` still parse, preview, and export.
-- **All keywords use `@`**: only `@`-prefixed names are directives.
-- **No multi-level conditions**: flat exits + boolean expressions + more modules.
-- **Single-cursor runtime**: no concurrency, no scheduler.
+- **Prose first**: text lives in `[]` and is mostly plain text.
+- **Modules are graph nodes**: a module is one linear segment ending at an exit.
+- **Exits are the branching interface**: `@next` declares all exits.
+- **Declarations at the top of `.weft`**: variables, characters, items, and scenes are grouped.
+- **Explicit text references**: characters and items in text are marked with `{name}`.
+- **State is optional**: a project without variables still works.
+- **Indentation is display-only**: 4 spaces per level; the parser ignores it.
+- **No multi-level conditions**: flat exit blocks + boolean expressions + module splitting.
+
+---
 
 ## Minimal example
 
-```
-@title opening
-@char xiaoying
+`.weft`:
 
-[
-Rain blurred the view.
-]
+```text
+@chars
+    @char 萧影
 
-xiaoying:[You came.]
+@scenes
+    @scene 街道
 
+@title 开场
+    @scene 街道
+    [雨水模糊了视线，{萧影}站在街口。]
+    萧影:[你来了。]
 @next -> END
 ```
 
-No globals, no branches, and it is still a complete demo.
+`.wstory`:
 
-## Review points
+```text
+@project 雨夜
+    @summary [一个关于信任的故事。]
 
-1. **Mode rule**: `@next(character):` means choice mode; `@next():` means automatic mode.
-2. **Module ID**: the `@title` text is the module ID; no separate `@id` yet.
-3. **Entry**: there is no entry declaration; the project starts at the first module, and a single-module demo starts at that module.
-4. **Chapters**: not modeled in v0; a future `@chapter` tag may group modules.
-5. **Images**: `@fig "path"` is supported and embedded in exports.
+    @chars
+        @char 萧影 [主角。]
+
+    @scenes
+        @scene 街道 [雨夜的街道。]
+```
+
+---
+
+## Documentation index
+
+| Document | Contents |
+|---|---|
+| [language-spec.md](./language-spec.md) | Project structure, symbols, scenes, state, execution semantics |
+| [grammar.md](./grammar.md) | Lexing, EBNF, parsing conventions |
+| [examples.md](./examples.md) | Complete examples and walkthrough |
+| [diagnostics.md](./diagnostics.md) | Diagnostic codes and common errors |
+
+---
+
+## Key conventions
+
+1. **Text references**: `{}` only refers to characters or items, never variables.
+2. **Module ID**: the `@title` text is the ID; no separate `@id` yet.
+3. **Entry**: no entry declaration; the default is the first module.
+4. **Scenes**: an optional module tag, not a graph node; chapters are deferred.
+5. **Variables**: boolean only; declarations must provide an initial value; runtime changes only in branch effects.
+6. **Images**: v0 supports `@fig "path"`, embedded on export.

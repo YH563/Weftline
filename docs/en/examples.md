@@ -2,193 +2,213 @@
 
 [中文](../examples.md) | **English**
 
-This document contains a minimal demo and a complete example with conditions, effects, and images.
+Two examples: a minimal demo without variables, and a complete example with conditions, effects, images, references, and automatic routing.
 
-## 1. Minimal demo (no globals)
+---
 
-```
-@title opening
-@char xiaoying
+## 1. Minimal demo (no variables)
 
-[
-Rain blurred the view.
-]
+`.weft`:
 
-xiaoying:[You came.]
+```text
+@chars
+    @char 萧影
 
-@next(xiaoying):[Continue] -> hospital
-    ()[Turn back] -> leave
+@scenes
+    @scene 街道
+    @scene 医院
 
-@title hospital
-@char xiaoying
+@title 开场
+    @scene 街道
+    [雨水模糊了视线。]
+    萧影:[你来了。]
+@next(萧影):[继续] -> 医院
+    ()[回头] -> 回头
 
-[
-They walked into the hospital.
-]
-
+@title 医院
+    @scene 医院
+    [两人走进医院。]
 @next -> END
 
-@title leave
-@char xiaoying
-
-[
-Xiaoying turned and left.
-]
-
+@title 回头
+    @scene 街道
+    [萧影转身离开。]
 @next -> END
 ```
 
-Key points:
+`.wstory`:
 
-- No `@globals`, no state.
-- Branching is expressed by target modules.
-- Both terminal modules use `@next -> END`.
-- The project starts at the first module, `opening`.
+```text
+@project 雨夜
+    @summary [一个关于信任的故事。]
+
+    @chars
+        @char 萧影 [主角。]
+
+    @scenes
+        @scene 街道 [雨夜的街道。]
+        @scene 医院 [雨夜里的医院。]
+```
+
+---
 
 ## 2. Complete example
 
+### 2.1 project.wstory
+
+```text
+@project 雨夜
+    @summary [一个关于信任的故事。]
+
+    @docs
+        @doc 世界规则 [医院在雨夜不关门。]
+
+    @chars
+        @char 萧影 [主角。]
+        @char 影子 [萧影的旧识。]
+
+    @items
+        @item 医院钥匙 [医院地下室的钥匙。]
+
+    @scenes
+        @scene 医院 [雨夜里的医院。]
+
+    @vars
+        @var trust_low false [萧影是否信任影子。]
+        @var has_key false [是否拿到了医院钥匙。]
 ```
-@globals
-@var trust_low false
-@var has_key false
 
-@title believe
-@char xiaoying
-@char shadow
+### 2.2 chapter1.weft
 
-[
-Rain blurred the view.
-]
+```text
+@vars
+    @var trust_low false
+    @var has_key false
 
-xiaoying:[You came.]
+@chars
+    @char 萧影
+    @char 影子
 
-shadow:[Do not look back.]
+@items
+    @item 医院钥匙
 
-@fig "assets/hospital.png"
+@scenes
+    @scene 医院
 
-@set trust_low true
+@title 序
+    @scene 医院
+    [雨夜，{萧影}走向医院。]
+@next -> 相信 { @set trust_low true }
 
-@next(xiaoying):(trust_low)[Believe him] -> hospital {
-    @set has_key true
-}
-    ()[Stay silent] -> silence
+@title 相信
+    @scene 医院
+    [雨水模糊了视线，{萧影}在泥泞中奔跑。]
+    萧影:[你来了。]
+    影子:[别回头。]
+    @fig "assets/hospital.png"
+@next(萧影):(trust_low)[相信他] -> 医院 { @set has_key true }
+    ()[沉默] -> 沉默
 
-@title hospital
-@char xiaoying
+@title 医院
+    @scene 医院
+    [两人走进医院。]
+@next():(has_key) -> 地下层
+    () -> 走廊
 
-[
-They walked into the hospital.
-]
-
-@next():(has_key) -> basement
-    () -> corridor
-
-@title basement
-@char xiaoying
-
-[
-Xiaoying found the key.
-]
-
+@title 地下层
+    @scene 医院
+    [萧影找到了{医院钥匙}。]
 @next -> END
 
-@title corridor
-@char xiaoying
-
-[
-The corridor was empty.
-]
-
+@title 走廊
+    @scene 医院
+    [走廊空无一人。]
 @next -> END
 
-@title silence
-@char xiaoying
-
-[
-Xiaoying said nothing.
-]
-
+@title 沉默
+    @scene 医院
+    [萧影没有说话。]
 @next -> END
 ```
 
-## 3. Graph
+---
 
-```
-            +---------+
-            | believe |
-            +---------+
-              |     |
-   [Believe]  |     | [Stay silent]
-              v     v
-        +---------+ +---------+
-        | hospital| | silence |
-        +---------+ +---------+
-           |   |
- (has_key) |   | ()
-           v   v
-    +---------+ +---------+
-    | basement| | corridor|
-    +---------+ +---------+
-           \     /
-            v   v
-           +-----+
-           | END |
-           +-----+
+## 3. Graph structure
+
+```text
+            +--------+
+            |  序    |
+            +--------+
+                 |  @set trust_low true
+                 v
+            +--------+
+            |  相信  |
+            +--------+
+              |    |
+     [相信他] |    | [沉默]
+              v    v
+          +------+ +------+
+          | 医院 | | 沉默 |
+          +------+ +------+
+            |  |
+   (has_key) |  | ()
+            v  v
+      +--------+ +------+
+      | 地下层 | | 走廊 |
+      +--------+ +------+
+            \      /
+             \    /
+              v  v
+             +-----+
+             | END |
+             +-----+
 ```
 
-- `believe` is choice mode: both branches have labels, and the second is the unconditional fallback.
-- `hospital` is automatic mode: conditions are checked in order; `has_key` goes to `basement`, otherwise `corridor`.
+- `序` sets `trust_low` through a branch effect.
+- `相信` is choice mode: both options have labels, and the second is the unconditional fallback.
+- `医院` is automatic mode: if `has_key` is true, go to `地下层`; otherwise `走廊`.
 - `END` is the only terminal.
+
+---
 
 ## 4. Walkthrough
 
-### Path A: choose "Believe him"
+### Path A: choose "相信他"
 
-1. Enter `believe`.
-2. Show narration, dialogue, and image.
-3. Execute `@set trust_low true`.
-4. Exit evaluation:
-   - `(trust_low)[Believe him]` is true and visible.
-   - `()[Stay silent]` is unconditional and visible.
-5. The player selects "Believe him".
-6. Execute `@set has_key true`.
-7. Enter `hospital`.
-8. `hospital` routes automatically:
-   - `(has_key)` is true → enter `basement`.
-9. `basement` → `END`.
+1. Enter `序`, apply `@set trust_low true`.
+2. Enter `相信`, show narration, dialogue, and image.
+3. Evaluate exits:
+   - `(trust_low)[相信他]` is true, shown.
+   - `()[沉默]` is unconditional, shown.
+4. The player chooses "相信他".
+5. Apply `@set has_key true`.
+6. Enter `医院`.
+7. `医院` routes automatically: `has_key` is true → `地下层`.
+8. `地下层` → `END`.
 
-### Path B: choose "Stay silent"
+### Path B: choose "沉默"
 
-1. Enter `believe`.
-2. `trust_low` becomes `true`.
-3. The player selects "Stay silent".
-4. Enter `silence`.
-5. `silence` → `END`.
+1. Enter `序`, set `trust_low`.
+2. Enter `相信`, choose "沉默".
+3. Enter `沉默` → `END`.
 
-### Path C: `has_key` is false (debug override)
+### Path C: `has_key` is false
 
-1. Start at `believe` and choose "Believe him".
-2. In the preview debug panel, override `has_key` to `false`.
-3. `hospital` sees `(has_key)` false and routes to `corridor`.
-4. `corridor` → `END`.
+1. Start from `相信` and choose "相信他".
+2. If `has_key` is still `false`, enter `医院` and go to `走廊`.
+3. `走廊` → `END`.
 
-## 5. Single-module preview
+---
 
-- Start at `believe`: the full example can be played because all target modules are loaded.
-- Start at `hospital`: begins there, using `has_key = false` by default, so it goes to `corridor`.
-- Export `believe` in isolation: external targets become demo ends or stubs.
+## 5. Covered language features
 
-## 6. Language features covered
-
-- `@globals` and global boolean variables
-- `@title` module boundaries
-- `@char` character declarations
-- Narration blocks `[]`
-- Dialogue blocks `character:[]`
+- `.weft` top-level `@vars` / `@chars` / `@items` / `@scenes` groups
+- `.wstory` project info, summary, docs, descriptions
+- `@title` module boundaries and `@scene` scene tags
+- Inline `[]` narration and `character:[]` dialogue
+- Text references `{name}`
 - `@fig` image insertion
-- `@set` state updates
 - Choice-mode exits (character, condition, label, fallback)
 - Automatic-mode exits (condition + fallback)
 - Branch effect blocks `{}`
 - `@next -> END` termination
-- Unconditional fallback branches
