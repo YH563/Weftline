@@ -23,6 +23,8 @@ All directives start with `@`:
 ```text
 @project
 @summary
+@chapters
+@chapter
 @doc
 @vars
 @var
@@ -33,6 +35,7 @@ All directives start with `@`:
 @scenes
 @scene
 @title
+@module
 @fig
 @next
 @set
@@ -105,7 +108,9 @@ Multi-line, with brackets attached to text:
 ### 2.1 `.weft` module scripts
 
 ```ebnf
-WeftFile        ::= DeclarationGroup* Module*
+WeftFile        ::= "@title" TitleText NEWLINE
+                    DeclarationGroup*
+                    Module*
 
 DeclarationGroup ::= VarGroup | CharGroup | ItemGroup | SceneGroup
 VarGroup        ::= "@vars" NEWLINE VarDecl+
@@ -118,7 +123,7 @@ CharDecl        ::= "@char" Identifier NEWLINE
 ItemDecl        ::= "@item" Identifier NEWLINE
 SceneDecl       ::= "@scene" Identifier NEWLINE
 
-Module          ::= "@title" TitleText NEWLINE
+Module          ::= "@module" Identifier NEWLINE
                     ModuleScene?
                     Content*
                     ExitBlock
@@ -170,9 +175,12 @@ UnaryExpr       ::= "not" UnaryExpr
 WStoryFile      ::= "@project" TitleText NEWLINE
                     WStoryItem*
 
-WStoryItem      ::= Summary | DocGroup | CharGroup | ItemGroup | SceneGroup | VarGroup
+WStoryItem      ::= Summary | ChapterGroup | DocGroup | CharGroup | ItemGroup | SceneGroup | VarGroup
 
 Summary         ::= "@summary" TextBlock NEWLINE
+
+ChapterGroup    ::= "@chapters" NEWLINE ChapterDecl+
+ChapterDecl     ::= "@chapter" TitleText TextBlock? NEWLINE
 
 DocGroup        ::= "@docs" NEWLINE DocDecl+
 DocDecl         ::= "@doc" TitleText TextBlock NEWLINE
@@ -196,24 +204,27 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 
 ### 3.1 File roles
 
-- `.weft`: top-level declaration groups + modules.
+- `.weft`: chapter title + top-level declaration groups + modules.
 - `.wstory`: project info + descriptions + grouped declarations.
 - `.weft` is the only declaration source.
 - `.wstory` declarations are generated; descriptions are hand-written.
 
-### 3.2 Module boundaries
+### 3.2 Chapter and module boundaries
 
-- Each `@title` starts a new module.
-- A new `@title` ends the previous module.
+- The first line of a `.weft` file must be `@title <chapter>`.
+- Each `@module <module-id>` starts a new module.
+- A new `@module` ends the previous module.
 - EOF ends the last module.
+- A `.weft` file has exactly one `@title`.
 
 ### 3.3 Module header
 
 ```text
-@title <title>
+@module <module-id>
 @scene <scene>
 ```
 
+- Module IDs must be identifiers and are unique across the project.
 - `@scene` is optional and must appear before content.
 - A module has at most one `@scene`.
 - Module headers do not declare characters, items, variables, or scenes.
@@ -268,6 +279,8 @@ Every exit block needs at least one **unconditional branch** (condition omitted 
 ## 4. Complete `.weft` example
 
 ```text
+@title 第一章 雨夜
+
 @vars
     @var trust_low false
     @var has_key false
@@ -282,7 +295,7 @@ Every exit block needs at least one **unconditional branch** (condition omitted 
 @scenes
     @scene 医院
 
-@title 相信
+@module 相信
     @scene 医院
     [雨水模糊了视线，{萧影}在泥泞中奔跑。]
     萧影:[你来了。]
@@ -297,6 +310,9 @@ Every exit block needs at least one **unconditional branch** (condition omitted 
 ```text
 @project 雨夜
     @summary [一个关于信任的故事。]
+
+    @chapters
+        @chapter 第一章 雨夜 [开篇。]
 
     @docs
         @doc 世界规则 [医院在雨夜不关门。]

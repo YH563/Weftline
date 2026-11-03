@@ -31,9 +31,10 @@ Non-goals: portraits, audio, saves, localization, voice, RPG stats/inventory, re
 
 | Extension | Role |
 |---|---|
-| `.weft` | Module script: top-level symbol declarations + modules |
-| `.wstory` | Project overview: project info + declarations generated from `.weft` + hand-written descriptions |
+| `.weft` | Chapter script: chapter title + top-level symbol declarations + modules |
+| `.wstory` | Project overview: project info + chapters + declarations generated from `.weft` + hand-written descriptions |
 
+- One `.weft` file is one chapter.
 - `.weft` is the only declaration source.
 - `.wstory` is not a declaration entry point; declarations are generated, descriptions are hand-written and preserved.
 - All `.weft` files in one flat folder belong to the same story.
@@ -58,13 +59,15 @@ Non-goals: portraits, audio, saves, localization, voice, RPG stats/inventory, re
 `.weft`:
 
 ```text
+@title 第一章 街道
+
 @chars
     @char 萧影
 
 @scenes
     @scene 街道
 
-@title 开场
+@module 开场
     @scene 街道
     [雨水模糊了视线，{萧影}站在街口。]
     萧影:[你来了。]
@@ -76,6 +79,9 @@ Non-goals: portraits, audio, saves, localization, voice, RPG stats/inventory, re
 ```text
 @project 雨夜
     @summary [一个关于信任的故事。]
+
+    @chapters
+        @chapter 第一章 街道 [雨夜的开端。]
 
     @chars
         @char 萧影 [主角。]
@@ -100,8 +106,9 @@ Non-goals: portraits, audio, saves, localization, voice, RPG stats/inventory, re
 ## Key conventions
 
 1. **Text references**: `{}` only refers to characters or items, never variables.
-2. **Module ID**: the `@title` text is the ID; no separate `@id` yet.
-3. **Entry**: no entry declaration; the default is the first module.
-4. **Scenes**: an optional module tag, not a graph node; chapters are deferred.
-5. **Variables**: boolean only; declarations must provide an initial value; runtime changes only in branch effects.
-6. **Images**: v0 supports `@fig "path"`, embedded on export.
+2. **Chapters**: the `@title` on the first line of a `.weft` file is the chapter title; chapters are groups, not graph nodes.
+3. **Module ID**: `@module` is the module ID; IDs are unique across the project.
+4. **Entry**: no entry declaration; the default is the first module of the first file.
+5. **Scenes**: an optional module tag, not a graph node.
+6. **Variables**: boolean only; declarations must provide an initial value; runtime changes only in branch effects.
+7. **Images**: v0 supports `@fig "path"`, embedded on export.

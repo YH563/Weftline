@@ -9,6 +9,7 @@ public sealed class WStoryGeneratorTests
     public void GeneratesFromWeftAndPreservesDescriptions()
     {
         const string weftSource = """
+        @title 第49章
         @vars
             @var trust_low false
             @var has_key false
@@ -23,7 +24,7 @@ public sealed class WStoryGeneratorTests
         @scenes
             @scene 医院
 
-        @title 相信
+        @module 相信
             [正文。]
         @next -> END
         """;
@@ -31,6 +32,9 @@ public sealed class WStoryGeneratorTests
         const string existingSource = """
         @project 雨夜
             @summary [一个关于信任的故事。]
+
+            @chapters
+                @chapter 第49章 [章节描述。]
 
             @chars
                 @char 萧影 [主角。]
@@ -47,6 +51,7 @@ public sealed class WStoryGeneratorTests
         var generated = WStoryGenerator.Generate([weft], existing, "fallback");
 
         Assert.Contains("@project 雨夜", generated, StringComparison.Ordinal);
+        Assert.Contains("@chapter 第49章 [章节描述。]", generated, StringComparison.Ordinal);
         Assert.Contains("@char 萧影 [主角。]", generated, StringComparison.Ordinal);
         Assert.Contains("@char 影子 []", generated, StringComparison.Ordinal);
         Assert.Contains("@var trust_low false [萧影是否信任影子。]", generated, StringComparison.Ordinal);
@@ -61,6 +66,7 @@ public sealed class WStoryGeneratorTests
     public void GenerationIsIdempotent()
     {
         const string weftSource = """
+        @title 第50章
         @vars
             @var a false
 
@@ -91,6 +97,7 @@ public sealed class WStoryGeneratorTests
     public void PreservesSummaryAndDocs()
     {
         const string weftSource = """
+        @title 第51章
         @chars
             @char 萧影
         """;

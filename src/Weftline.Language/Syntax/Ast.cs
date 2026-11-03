@@ -10,12 +10,15 @@ namespace Weftline.Language.Syntax;
 public abstract record ScriptFileSyntax(TextSpan Span);
 
 /// <summary>
-/// 一个 `.weft` 模块脚本文件。文件顶部按分组声明变量、角色、道具和场景，
+/// 一个 `.weft` 模块脚本文件。文件第一行是章节标题，接着按分组声明符号，
 /// 后面是若干模块。声明是项目符号的真实来源。
-/// A `.weft` module script file. Symbol declarations are grouped at the top,
-/// followed by modules. These declarations are the source of truth for symbols.
+/// A `.weft` module script file. The first line is the chapter title, followed
+/// by grouped symbol declarations and then modules. These declarations are the
+/// source of truth for symbols.
 /// </summary>
 public sealed record WeftFileSyntax(
+    string Title,
+    TextSpan TitleSpan,
     IReadOnlyList<WeftVariableSyntax> Variables,
     IReadOnlyList<WeftCharacterSyntax> Characters,
     IReadOnlyList<WeftItemSyntax> Items,
@@ -65,12 +68,23 @@ public sealed record WStoryFileSyntax(
     string ProjectName,
     TextSpan ProjectNameSpan,
     TextBlockSyntax? Summary,
+    IReadOnlyList<WStoryChapterSyntax> Chapters,
     IReadOnlyList<DocSyntax> Docs,
     IReadOnlyList<WStoryCharacterSyntax> Characters,
     IReadOnlyList<WStoryItemSyntax> Items,
     IReadOnlyList<WStorySceneSyntax> Scenes,
     IReadOnlyList<WStoryVariableSyntax> Variables,
     TextSpan Span) : ScriptFileSyntax(Span);
+
+/// <summary>
+/// 一条章节描述。
+/// A chapter description.
+/// </summary>
+public sealed record WStoryChapterSyntax(
+    string Title,
+    TextSpan TitleSpan,
+    TextBlockSyntax? Description,
+    TextSpan Span);
 
 /// <summary>
 /// 一条 @doc 设定文档。

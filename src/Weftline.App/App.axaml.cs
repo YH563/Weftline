@@ -1,6 +1,7 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Weftline.App.Services;
 using Weftline.App.ViewModels;
 using Weftline.App.Views;
 
@@ -17,9 +18,11 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            ThemeService.Initialize();
+
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainViewModel(),
+                DataContext = new MainWindowViewModel(),
             };
         }
 

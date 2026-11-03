@@ -34,21 +34,24 @@ A flat folder is one story:
 
 ```text
 my-story/
-  project.wstory     project overview: project info + generated declarations + hand-written descriptions
-  chapter1.weft      module script: top-level declarations + modules
+  project.wstory     project overview: project info + chapters + generated declarations + hand-written descriptions
+  chapter1.weft      chapter script: chapter title + top-level declarations + modules
   chapter2.weft
   assets/            image assets
   .weftline/         index cache, recommended gitignore
 ```
 
+- One `.weft` file is one chapter.
 - All `.weft` files in the folder belong to one story.
 - No subdirectories and no cross-folder imports.
 - `.weft` is the only declaration source.
 - `.wstory` is a generated overview; declarations are generated, descriptions are hand-written and preserved.
 
-### 2.2 `.weft` top-level declarations
+### 2.2 `.weft` chapter and top-level declarations
 
 ```text
+@title 第一章 雨夜
+
 @vars
     @var 信任 false
     @var 有钥匙 false
@@ -62,11 +65,22 @@ my-story/
 
 @scenes
     @scene 医院
+
+@module 序
+    @scene 医院
+    [雨夜，{萧影}走向医院。]
+@next -> 相信
+
+@module 相信
+    @scene 医院
+    [雨水模糊了视线。]
+@next -> END
 ```
 
 Rules:
 
-- All symbol declarations appear in top-level groups before modules.
+- The first line of a `.weft` file must be `@title <chapter>`.
+- All symbol declarations appear in top-level groups after the chapter title and before modules.
 - Groups are `@vars` / `@chars` / `@items` / `@scenes`.
 - Variables must provide an initial value; `@var 信任` without a value is an error.
 - Declarations do not carry descriptions.
@@ -78,6 +92,9 @@ Rules:
 ```text
 @project 雨夜
     @summary [一个关于信任的故事。]
+
+    @chapters
+        @chapter 第一章 雨夜 [开篇。]
 
     @docs
         @doc 世界规则 [医院在雨夜不关门。]
@@ -101,6 +118,7 @@ Rules:
 
 - `@project` is top-level; groups are indented one level; entries one more (display only).
 - `@summary` is a single line.
+- `@chapters` lists chapters; chapter titles come from `@title` in `.weft`, descriptions are hand-written and preserved.
 - Declarations (names and variable initial values) are generated from `.weft`.
 - Descriptions are hand-written and preserved by the generator.
 - `.wstory` must not contain `@set` or modules.
@@ -296,8 +314,8 @@ Or inline:
 
 The language has **no** entry declaration.
 
-- Default entry = the first module in the project.
-- Project order = file order + module order inside each file.
+- Default entry = the first module of the first file.
+- Project order = chapter file order + module order inside each file.
 - The tool UI can start playback from any module.
 - Full export uses the initial values from `.weft` `@var`.
 - In single-module export, external targets become end or stubs.
@@ -314,7 +332,8 @@ The language has **no** entry declaration.
 
 | Text | Graph |
 |---|---|
-| `@title` | node (ID = title) |
+| `@title` | chapter grouping tag (not a node) |
+| `@module` | node (ID = module ID) |
 | `@scene` | node grouping tag |
 | content blocks | node content |
 | each `@next` branch | one outgoing edge |
@@ -323,6 +342,8 @@ The language has **no** entry declaration.
 | `[label]` | edge label (choice mode) |
 | `@set` in `{}` | edge effect |
 | `END` | the only sink |
+
+Chapters are not graph nodes; a collapsed view may render a chapter as a container, and chapter-level edges are derived from cross-chapter module edges.
 
 ---
 
@@ -337,7 +358,6 @@ The language has **no** entry declaration.
 
 ### 9.2 Deferred in v0
 
-- Chapters (possibly `@chapter` later)
 - Numeric state and comparisons
 - Multi-level / nested conditions
 - Multiple entry declarations
@@ -353,4 +373,5 @@ The language has **no** entry declaration.
 2. `.weft` is the only declaration source; `.wstory` is a generated overview.
 3. Variable declarations must include an initial value; runtime writes happen only in branch effects.
 4. Scenes are only module tags, never graph nodes.
-5. Indentation is display-only and does not affect parsing.
+5. Chapters are file-level groups, not graph nodes; modules are the only graph nodes.
+6. Indentation is display-only and does not affect parsing.

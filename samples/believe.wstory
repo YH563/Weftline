@@ -1,6 +1,9 @@
 @project 雨夜
     @summary [一个关于信任的故事。]
 
+    @chapters
+        @chapter 第一章 雨夜 [萧影在雨夜走向医院。]
+
     @docs
         @doc 世界规则 [医院在雨夜不关门。]
 

@@ -8,6 +8,7 @@ public sealed class BinderTests
     public void ResolvesDeclaredSymbols()
     {
         const string source = """
+        @title 第28章
         @vars
             @var a false
 
@@ -20,7 +21,7 @@ public sealed class BinderTests
         @scenes
             @scene 医院
 
-        @title 测试
+        @module 测试
             @scene 医院
             [{萧影}拿着{钥匙}。]
             萧影:[你好。]
@@ -37,7 +38,8 @@ public sealed class BinderTests
     public void ReportsUndeclaredCharacterInDialogue()
     {
         const string source = """
-        @title 测试
+        @title 第29章
+        @module 测试
             萧影:[你好。]
         @next -> END
         """;
@@ -53,7 +55,8 @@ public sealed class BinderTests
     public void ReportsUndeclaredExitCharacter()
     {
         const string source = """
-        @title 测试
+        @title 第30章
+        @module 测试
         @next(萧影):[继续] -> END
         """;
 
@@ -68,10 +71,11 @@ public sealed class BinderTests
     public void ReportsUndeclaredTextReference()
     {
         const string source = """
+        @title 第31章
         @chars
             @char 萧影
 
-        @title 测试
+        @module 测试
             [{钥匙}。]
         @next -> END
         """;
@@ -87,7 +91,8 @@ public sealed class BinderTests
     public void ReportsUndeclaredConditionVariable()
     {
         const string source = """
-        @title 测试
+        @title 第32章
+        @module 测试
         @next():(missing) -> END
             () -> END
         """;
@@ -103,7 +108,8 @@ public sealed class BinderTests
     public void ReportsUndeclaredVariableInEffect()
     {
         const string source = """
-        @title 测试
+        @title 第33章
+        @module 测试
         @next(萧影):[继续] -> END { @set missing true }
         """;
 
@@ -118,6 +124,7 @@ public sealed class BinderTests
     public void ReportsDuplicateWeftDeclarations()
     {
         const string source = """
+        @title 第34章
         @vars
             @var a false
             @var a true
@@ -147,6 +154,7 @@ public sealed class BinderTests
     public void ReportsCrossKindDuplicateSymbol()
     {
         const string source = """
+        @title 第35章
         @chars
             @char 同名
 

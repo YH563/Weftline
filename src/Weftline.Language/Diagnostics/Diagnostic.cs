@@ -111,6 +111,9 @@ public static class DiagnosticCode
     public const string UndeclaredReference = "WFT2014";
     public const string DuplicateScene = "WFT2015";
     public const string MalformedScene = "WFT2016";
+    public const string MissingChapterTitle = "WFT2017";
+    public const string MultipleChapterTitle = "WFT2018";
+    public const string DuplicateChapterTitle = "WFT2019";
 
     public const string MissingExitBlock = "WFT3001";
     public const string MissingFallback = "WFT3002";

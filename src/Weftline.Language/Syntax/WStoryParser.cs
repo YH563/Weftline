@@ -20,6 +20,7 @@ public sealed partial class Parser
                 string.Empty,
                 new TextSpan(0, 0),
                 null,
+                Array.Empty<WStoryChapterSyntax>(),
                 Array.Empty<DocSyntax>(),
                 Array.Empty<WStoryCharacterSyntax>(),
                 Array.Empty<WStoryItemSyntax>(),
@@ -46,6 +47,7 @@ public sealed partial class Parser
             : SpanAfter(projectLine, "@project", name);
 
         TextBlockSyntax? summary = null;
+        var chapters = new List<WStoryChapterSyntax>();
         var docs = new List<DocSyntax>();
         var characters = new List<WStoryCharacterSyntax>();
         var items = new List<WStoryItemSyntax>();
@@ -67,6 +69,13 @@ public sealed partial class Parser
             {
                 Advance();
                 summary = ParseSummary(line);
+                continue;
+            }
+
+            if (IsDirective(current, "@chapters"))
+            {
+                Advance();
+                ParseChapters(chapters);
                 continue;
             }
 
@@ -117,12 +126,13 @@ public sealed partial class Parser
 
             if (IsDirective(current, "@title") ||
                 IsDirective(current, "@next") ||
+                IsDirective(current, "@chapter") ||
                 current.StartsWith("[", StringComparison.Ordinal))
             {
                 _diagnostics.Error(
                     DiagnosticCode.MalformedDirective,
                     line.Span,
-                    ".wstory 只能包含 @project、@summary、@docs、@chars、@items、@scenes 和 @vars。");
+                    ".wstory 只能包含 @project、@summary、@chapters、@docs、@chars、@items、@scenes 和 @vars。");
                 Advance();
                 continue;
             }
@@ -138,6 +148,7 @@ public sealed partial class Parser
             name,
             nameSpan,
             summary,
+            chapters,
             docs,
             characters,
             items,
@@ -160,6 +171,63 @@ public sealed partial class Parser
         }
 
         return ParsePlainTextBlockFrom(line, bracket);
+    }
+
+    private void ParseChapters(List<WStoryChapterSyntax> chapters)
+    {
+        while (true)
+        {
+            SkipBlankAndComments();
+            if (IsAtEnd)
+            {
+                return;
+            }
+
+            var line = Current!.Value;
+            var trimmed = line.Text.Trim();
+            if (!IsDirective(trimmed, "@chapter"))
+            {
+                return;
+            }
+
+            var bracket = line.Text.IndexOf('[', StringComparison.Ordinal);
+            var declarationEnd = bracket >= 0
+                ? trimmed.IndexOf('[', StringComparison.Ordinal)
+                : trimmed.Length;
+
+            var title = declarationEnd > "@chapter".Length
+                ? trimmed["@chapter".Length..declarationEnd].Trim()
+                : string.Empty;
+
+            var titleSpan = title.Length == 0
+                ? line.Span
+                : SpanAfter(line, "@chapter", title);
+
+            TextBlockSyntax? description = null;
+            int end;
+
+            if (bracket >= 0)
+            {
+                description = ParsePlainTextBlockFrom(line, bracket);
+                end = description.Span.End;
+            }
+            else
+            {
+                Advance();
+                end = line.Span.End;
+            }
+
+            if (title.Length == 0)
+            {
+                _diagnostics.Error(DiagnosticCode.EmptyTitle, line.Span, "@chapter 需要一个标题。");
+            }
+
+            chapters.Add(new WStoryChapterSyntax(
+                title,
+                titleSpan,
+                description,
+                TextSpan.FromBounds(line.Span.Start, end)));
+        }
     }
 
     private void ParseDocs(List<DocSyntax> docs)

@@ -2,6 +2,7 @@
 using Weftline.Language;
 using Weftline.Language.Diagnostics;
 using Weftline.Language.Generation;
+using Weftline.Language.Ir;
 using Weftline.Language.Projects;
 using Weftline.Language.Source;
 
@@ -14,6 +15,9 @@ if (args.Length == 0)
 return args[0] switch
 {
     "parse" when args.Length == 2 => Parse(args[1]),
+    "validate" when args.Length == 2 => Validate(args[1]),
+    "ir" when args.Length is 2 or 3 => Ir(args[1], args.Length == 3 ? args[2] : null),
+    "graph" when args.Length is 2 or 3 => Graph(args[1], args.Length == 3 ? args[2] : null),
     "sync" when args.Length == 2 => Sync(args[1]),
     _ => PrintUsageAndFail(),
 };
@@ -39,6 +43,87 @@ static int Parse(string path)
     return result.HasErrors ? 1 : 0;
 }
 
+static int Validate(string folder)
+{
+    if (!Directory.Exists(folder))
+    {
+        Console.Error.WriteLine($"Folder not found: {folder}");
+        return 1;
+    }
+
+    var result = ProjectCompiler.Compile(folder);
+    PrintProjectDiagnostics(result.Diagnostics, Console.Out);
+
+    Console.WriteLine(
+        $"Validated {result.Graph.Modules.Count} modules, " +
+        $"{result.Diagnostics.Count} diagnostics.");
+
+    return result.HasErrors ? 1 : 0;
+}
+
+static int Ir(string folder, string? outputPath)
+{
+    if (!Directory.Exists(folder))
+    {
+        Console.Error.WriteLine($"Folder not found: {folder}");
+        return 1;
+    }
+
+    var result = ProjectCompiler.Compile(folder);
+    PrintProjectDiagnostics(result.Diagnostics, Console.Error);
+
+    var json = StoryGraphJson.Serialize(result.Graph);
+
+    if (outputPath is not null)
+    {
+        File.WriteAllText(outputPath, json);
+        Console.WriteLine($"Wrote {outputPath}");
+    }
+    else
+    {
+        Console.WriteLine(json);
+    }
+
+    return result.HasErrors ? 1 : 0;
+}
+
+static int Graph(string folder, string? outputPath)
+{
+    if (!Directory.Exists(folder))
+    {
+        Console.Error.WriteLine($"Folder not found: {folder}");
+        return 1;
+    }
+
+    var result = ProjectCompiler.Compile(folder);
+    PrintProjectDiagnostics(result.Diagnostics, Console.Error);
+
+    StreamWriter? fileWriter = null;
+    var writer = Console.Out;
+
+    if (outputPath is not null)
+    {
+        fileWriter = new StreamWriter(outputPath);
+        writer = fileWriter;
+    }
+
+    try
+    {
+        StoryGraphPrinter.Print(result.Graph, writer);
+    }
+    finally
+    {
+        fileWriter?.Dispose();
+    }
+
+    if (outputPath is not null)
+    {
+        Console.WriteLine($"Wrote {outputPath}");
+    }
+
+    return result.HasErrors ? 1 : 0;
+}
+
 static int Sync(string folder)
 {
     if (!Directory.Exists(folder))
@@ -48,20 +133,7 @@ static int Sync(string folder)
     }
 
     var project = ProjectLoader.Load(folder);
-
-    foreach (var group in project.Diagnostics.GroupBy(static item => item.FilePath))
-    {
-        var source = SourceText.From(File.ReadAllText(group.Key), group.Key);
-
-        foreach (var item in group)
-        {
-            var position = source.GetLinePosition(item.Diagnostic.Span.Start);
-            Console.WriteLine(
-                $"{item.FilePath}:{position.Line}:{position.Character}: " +
-                $"{item.Diagnostic.Severity.ToString().ToLowerInvariant()} " +
-                $"{item.Diagnostic.Code}: {item.Diagnostic.Message}");
-        }
-    }
+    PrintProjectDiagnostics(project.Diagnostics, Console.Out);
 
     if (project.Diagnostics.Any(static item => item.Diagnostic.Severity == DiagnosticSeverity.Error))
     {
@@ -70,7 +142,10 @@ static int Sync(string folder)
 
     var target = project.WStoryPath ?? Path.Combine(folder, "project.wstory");
     var fallbackName = new DirectoryInfo(folder).Name;
-    var text = WStoryGenerator.Generate(project.WeftFiles, project.WStory, fallbackName);
+    var text = WStoryGenerator.Generate(
+        project.WeftFiles.Select(static file => file.Ast).ToList(),
+        project.WStory,
+        fallbackName);
     File.WriteAllText(target, text);
 
     Console.WriteLine($"Wrote {target}");
@@ -92,11 +167,53 @@ static void PrintDiagnostics(
     }
 }
 
+static void PrintProjectDiagnostics(
+    IReadOnlyList<ProjectDiagnostic> diagnostics,
+    TextWriter writer)
+{
+    var sources = new Dictionary<string, SourceText>(StringComparer.Ordinal);
+
+    foreach (var item in diagnostics)
+    {
+        var position = GetPosition(item.FilePath, item.Diagnostic.Span.Start, sources);
+        writer.WriteLine(
+            $"{item.FilePath}:{position.Line}:{position.Character}: " +
+            $"{item.Diagnostic.Severity.ToString().ToLowerInvariant()} " +
+            $"{item.Diagnostic.Code}: {item.Diagnostic.Message}");
+
+        if (item.Related is { } related)
+        {
+            var relatedPosition = GetPosition(related.FilePath, related.Span.Start, sources);
+            writer.WriteLine(
+                $"    related: {related.FilePath}:{relatedPosition.Line}:{relatedPosition.Character}");
+        }
+    }
+}
+
+static LinePosition GetPosition(
+    string path,
+    int offset,
+    Dictionary<string, SourceText> sources)
+{
+    if (!sources.TryGetValue(path, out var source))
+    {
+        source = File.Exists(path)
+            ? SourceText.From(File.ReadAllText(path), path)
+            : SourceText.From(string.Empty, path);
+        sources[path] = source;
+    }
+
+    return source.GetLinePosition(offset);
+}
+
 static void PrintUsage()
 {
     Console.WriteLine("Weftline compiler");
     Console.WriteLine("Usage:");
     Console.WriteLine("  dotnet run --project src/Weftline.Cli -- parse <file.weft|file.wstory>");
+    Console.WriteLine("  dotnet run --project src/Weftline.Cli -- validate <folder>");
+    Console.WriteLine("  dotnet run --project src/Weftline.Cli -- ir <folder> [out.json]");
+    Console.WriteLine("  dotnet run --project src/Weftline.Cli -- graph <folder> [out.txt]");
     Console.WriteLine("  dotnet run --project src/Weftline.Cli -- sync <folder>");
 }
 

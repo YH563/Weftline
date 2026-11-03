@@ -1,0 +1,140 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Weftline.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             x:Class="Weftline.App.Controls.StoryGraphView"
+             x:DataType="vm:GraphViewModel">
+
+    <Grid RowDefinitions="Auto,*">
+        <StackPanel Margin="4,0,4,8" Spacing="2">
+            <TextBlock Text="图视图" FontSize="13" FontWeight="SemiBold" />
+            <TextBlock Text="章节分组 · 模块节点 · 跨章节边"
+                       FontSize="11"
+                       Foreground="#808080" />
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                CornerRadius="10"
+                BorderThickness="1"
+                BorderBrush="#22808080"
+                Background="#08808080">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto">
+                <Canvas Width="{Binding CanvasWidth}"
+                        Height="{Binding CanvasHeight}"
+                        ClipToBounds="True">
+
+                    <ItemsControl ItemsSource="{Binding Chapters}"
+                                  Width="{Binding CanvasWidth}"
+                                  Height="{Binding CanvasHeight}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Canvas />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemContainerTheme>
+                            <ControlTheme TargetType="ContentPresenter">
+                                <Setter Property="Canvas.Left" Value="{ReflectionBinding X}" />
+                                <Setter Property="Canvas.Top" Value="{ReflectionBinding Y}" />
+                            </ControlTheme>
+                        </ItemsControl.ItemContainerTheme>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:GraphChapterViewModel">
+                                <Border Width="{Binding Width}"
+                                        Height="{Binding Height}"
+                                        CornerRadius="12"
+                                        BorderThickness="1"
+                                        BorderBrush="#33808080"
+                                        Background="#0C808080"
+                                        Padding="12">
+                                    <TextBlock Text="{Binding Title}"
+                                               FontWeight="SemiBold"
+                                               FontSize="12"
+                                               VerticalAlignment="Top" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <ItemsControl ItemsSource="{Binding Edges}"
+                                  Width="{Binding CanvasWidth}"
+                                  Height="{Binding CanvasHeight}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Canvas />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:GraphEdgeViewModel">
+                                <Path Data="{Binding Geometry}"
+                                      Stroke="{Binding Stroke}"
+                                      StrokeThickness="1.2"
+                                      Opacity="0.55" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <ItemsControl ItemsSource="{Binding Edges}"
+                                  Width="{Binding CanvasWidth}"
+                                  Height="{Binding CanvasHeight}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Canvas />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemContainerTheme>
+                            <ControlTheme TargetType="ContentPresenter">
+                                <Setter Property="Canvas.Left" Value="{ReflectionBinding LabelX}" />
+                                <Setter Property="Canvas.Top" Value="{ReflectionBinding LabelY}" />
+                            </ControlTheme>
+                        </ItemsControl.ItemContainerTheme>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:GraphEdgeViewModel">
+                                <TextBlock Text="{Binding Label}"
+                                           IsVisible="{Binding HasLabel}"
+                                           FontSize="10"
+                                           Foreground="#808080" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <ItemsControl ItemsSource="{Binding Nodes}"
+                                  Width="{Binding CanvasWidth}"
+                                  Height="{Binding CanvasHeight}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Canvas />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemContainerTheme>
+                            <ControlTheme TargetType="ContentPresenter">
+                                <Setter Property="Canvas.Left" Value="{ReflectionBinding X}" />
+                                <Setter Property="Canvas.Top" Value="{ReflectionBinding Y}" />
+                            </ControlTheme>
+                        </ItemsControl.ItemContainerTheme>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:GraphNodeViewModel">
+                                <Border Width="{Binding Width}"
+                                        Height="{Binding Height}"
+                                        CornerRadius="8"
+                                        BorderThickness="1"
+                                        BorderBrush="#33808080"
+                                        Background="#14808080"
+                                        Padding="10,8">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{Binding Id}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Scene}"
+                                                   FontSize="11"
+                                                   Foreground="#808080" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Canvas>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</UserControl>

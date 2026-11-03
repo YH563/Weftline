@@ -11,6 +11,8 @@
 `.weft`：
 
 ```text
+@title 第一章 街道
+
 @chars
     @char 萧影
 
@@ -18,19 +20,19 @@
     @scene 街道
     @scene 医院
 
-@title 开场
+@module 开场
     @scene 街道
     [雨水模糊了视线。]
     萧影:[你来了。]
 @next(萧影):[继续] -> 医院
     ()[回头] -> 回头
 
-@title 医院
+@module 医院
     @scene 医院
     [两人走进医院。]
 @next -> END
 
-@title 回头
+@module 回头
     @scene 街道
     [萧影转身离开。]
 @next -> END
@@ -41,6 +43,9 @@
 ```text
 @project 雨夜
     @summary [一个关于信任的故事。]
+
+    @chapters
+        @chapter 第一章 街道 [雨夜的开端。]
 
     @chars
         @char 萧影 [主角。]
@@ -59,6 +64,9 @@
 ```text
 @project 雨夜
     @summary [一个关于信任的故事。]
+
+    @chapters
+        @chapter 第一章 雨夜 [开篇。]
 
     @docs
         @doc 世界规则 [医院在雨夜不关门。]
@@ -81,6 +89,8 @@
 ### 2.2 chapter1.weft
 
 ```text
+@title 第一章 雨夜
+
 @vars
     @var trust_low false
     @var has_key false
@@ -95,12 +105,12 @@
 @scenes
     @scene 医院
 
-@title 序
+@module 序
     @scene 医院
     [雨夜，{萧影}走向医院。]
 @next -> 相信 { @set trust_low true }
 
-@title 相信
+@module 相信
     @scene 医院
     [雨水模糊了视线，{萧影}在泥泞中奔跑。]
     萧影:[你来了。]
@@ -109,23 +119,23 @@
 @next(萧影):(trust_low)[相信他] -> 医院 { @set has_key true }
     ()[沉默] -> 沉默
 
-@title 医院
+@module 医院
     @scene 医院
     [两人走进医院。]
 @next():(has_key) -> 地下层
     () -> 走廊
 
-@title 地下层
+@module 地下层
     @scene 医院
     [萧影找到了{医院钥匙}。]
 @next -> END
 
-@title 走廊
+@module 走廊
     @scene 医院
     [走廊空无一人。]
 @next -> END
 
-@title 沉默
+@module 沉默
     @scene 医院
     [萧影没有说话。]
 @next -> END
@@ -202,9 +212,9 @@
 
 ## 5. 覆盖的语言特性
 
-- `.weft` 顶部 `@vars` / `@chars` / `@items` / `@scenes` 分组
-- `.wstory` 项目信息、概要、设定文档、描述
-- `@title` 模块边界与 `@scene` 场景标签
+- `.weft` 章节标题与顶部 `@vars` / `@chars` / `@items` / `@scenes` 分组
+- `.wstory` 项目信息、概要、章节、设定文档、描述
+- `@title` 章节边界、`@module` 模块边界与 `@scene` 场景标签
 - 行内 `[]` 旁白与 `角色:[]` 对话
 - 正文引用 `{名字}`
 - `@fig` 图片插入

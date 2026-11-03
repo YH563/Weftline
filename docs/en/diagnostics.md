@@ -14,7 +14,7 @@ The editor shows a diagnostic code at the problem location. This page lists the 
 | WFT1002 | Unterminated text block | Add the closing `]` |
 | WFT1003 | Malformed directive | Check the arguments, e.g. `@var 信任 false` |
 | WFT1004 | Malformed exit branch | Check `(condition)[label] -> target` |
-| WFT1005 | Title contains `{` or `}` | Remove `{` / `}` from `@title` |
+| WFT1005 | Module ID contains `{` or `}` | Remove `{` / `}` from `@module` |
 | WFT1006 | Unterminated `{}` reference | Add `}` on the same line |
 
 ## 2. Declarations and modules
@@ -23,9 +23,9 @@ The editor shows a diagnostic code at the problem location. This page lists the 
 |---|---|---|
 | WFT2001 | Symbol declaration in the wrong place | Put `@vars` / `@chars` / `@items` / `@scenes` before modules |
 | WFT2004 | Duplicate global variable | Remove the duplicate `@var` |
-| WFT2005 | Duplicate module title | Rename the duplicate `@title` |
+| WFT2005 | Duplicate module ID | Rename the duplicate `@module` |
 | WFT2006 | Module header directive after content | Move `@scene` before the content |
-| WFT2007 | Empty `@title` / `@project` / `@doc` | Provide a title or name |
+| WFT2007 | Empty `@title` / `@module` / `@project` / `@chapter` / `@doc` | Provide a title, module ID, or name |
 | WFT2008 | Dialogue or exit references an undeclared character | Add `@char` under `@chars` in `.weft` |
 | WFT2009 | Duplicate character | Remove the duplicate `@char` |
 | WFT2010 | Duplicate item | Remove the duplicate `@item` |
@@ -35,6 +35,9 @@ The editor shows a diagnostic code at the problem location. This page lists the 
 | WFT2014 | `{name}` references an undeclared character or item | Declare it at the top of `.weft`, or fix the name |
 | WFT2015 | Duplicate scene | Remove the duplicate `@scene` |
 | WFT2016 | Invalid scene name | Use a valid identifier such as `医院` |
+| WFT2017 | `.weft` is missing a chapter title | Put `@title <chapter>` on the first line |
+| WFT2018 | Multiple chapter titles in one file | A `.weft` file has exactly one `@title` |
+| WFT2019 | Duplicate chapter title | Give each chapter file a unique title |
 
 ## 3. Content and exits
 
@@ -51,12 +54,12 @@ The editor shows a diagnostic code at the problem location. This page lists the 
 | WFT3009 | Non-`@set` statement in an effect block | Effect blocks only allow `@set` |
 | WFT3010 | Repeated assignment in one effect block | Later wins; consider removing the duplicate |
 
-## 4. Project and graph (planned)
+## 4. Project and graph
 
 | Code | Meaning | Common fix |
 |---|---|---|
 | WFT4001 | Target module not found | Create it or fix the target name |
-| WFT4002 | Invalid `END` definition or use | Do not define `@title END`; terminate with `@next -> END` |
+| WFT4002 | Invalid `END` definition or use | Do not define `@module END`; terminate with `@next -> END` |
 | WFT4004 | Module unreachable from the entry | Check whether an exit points to it |
 | WFT4005 | A path cannot reach `END` | Check dead ends and fallbacks |
 | WFT4007 | Image asset not found | Fix the `@fig` path or import the asset |

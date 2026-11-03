@@ -23,6 +23,8 @@
 ```text
 @project
 @summary
+@chapters
+@chapter
 @doc
 @vars
 @var
@@ -33,6 +35,7 @@
 @scenes
 @scene
 @title
+@module
 @fig
 @next
 @set
@@ -105,7 +108,9 @@ BoolLiteral := "true" | "false"
 ### 2.1 `.weft` 模块脚本
 
 ```ebnf
-WeftFile        ::= DeclarationGroup* Module*
+WeftFile        ::= "@title" TitleText NEWLINE
+                    DeclarationGroup*
+                    Module*
 
 DeclarationGroup ::= VarGroup | CharGroup | ItemGroup | SceneGroup
 VarGroup        ::= "@vars" NEWLINE VarDecl+
@@ -118,7 +123,7 @@ CharDecl        ::= "@char" Identifier NEWLINE
 ItemDecl        ::= "@item" Identifier NEWLINE
 SceneDecl       ::= "@scene" Identifier NEWLINE
 
-Module          ::= "@title" TitleText NEWLINE
+Module          ::= "@module" Identifier NEWLINE
                     ModuleScene?
                     Content*
                     ExitBlock
@@ -170,9 +175,12 @@ UnaryExpr       ::= "not" UnaryExpr
 WStoryFile      ::= "@project" TitleText NEWLINE
                     WStoryItem*
 
-WStoryItem      ::= Summary | DocGroup | CharGroup | ItemGroup | SceneGroup | VarGroup
+WStoryItem      ::= Summary | ChapterGroup | DocGroup | CharGroup | ItemGroup | SceneGroup | VarGroup
 
 Summary         ::= "@summary" TextBlock NEWLINE
+
+ChapterGroup    ::= "@chapters" NEWLINE ChapterDecl+
+ChapterDecl     ::= "@chapter" TitleText TextBlock? NEWLINE
 
 DocGroup        ::= "@docs" NEWLINE DocDecl+
 DocDecl         ::= "@doc" TitleText TextBlock NEWLINE
@@ -198,22 +206,26 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 
 - `.weft`：顶部声明分组 + 模块。
 - `.wstory`：项目信息 + 描述 + 分组声明。
+- `.weft` 第一行是章节标题，后面是声明分组和模块。
 - `.weft` 是符号声明的唯一来源。
 - `.wstory` 的声明由工具生成；描述手写。
 
-### 3.2 模块边界
+### 3.2 章节与模块边界
 
-- 每个 `@title` 开始一个新模块。
-- 出现新的 `@title` 时，上一个模块结束。
+- `.weft` 第一行必须是 `@title <章节标题>`。
+- 每个 `@module <模块ID>` 开始一个新模块。
+- 出现新的 `@module` 时，上一个模块结束。
 - 文件结束（EOF）结束最后一个模块。
+- 一个 `.weft` 文件只能有一个 `@title`。
 
 ### 3.3 模块头
 
 ```text
-@title <title>
+@module <模块ID>
 @scene <scene>
 ```
 
+- 模块 ID 必须是标识符，项目内唯一。
 - `@scene` 可选，只能出现在内容之前。
 - 一个模块最多一个 `@scene`。
 - 模块头不再声明角色、道具、变量或场景。
@@ -268,6 +280,8 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 ## 4. 完整 `.weft` 示例
 
 ```text
+@title 第一章 雨夜
+
 @vars
     @var trust_low false
     @var has_key false
@@ -282,7 +296,7 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 @scenes
     @scene 医院
 
-@title 相信
+@module 相信
     @scene 医院
     [雨水模糊了视线，{萧影}在泥泞中奔跑。]
     萧影:[你来了。]
@@ -297,6 +311,9 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 ```text
 @project 雨夜
     @summary [一个关于信任的故事。]
+
+    @chapters
+        @chapter 第一章 雨夜 [开篇。]
 
     @docs
         @doc 世界规则 [医院在雨夜不关门。]

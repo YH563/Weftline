@@ -10,9 +10,10 @@ Current stage: the language core is usable; the desktop editor, graph view, and 
 
 | Extension | Role |
 |---|---|
-| `.weft` | Module script: top-level symbol declarations + modules |
-| `.wstory` | Project overview: project info + declarations generated from `.weft` + hand-written descriptions |
+| `.weft` | Chapter script: chapter title + top-level symbol declarations + modules |
+| `.wstory` | Project overview: project info + chapters + declarations generated from `.weft` + hand-written descriptions |
 
+- One `.weft` file is one chapter.
 - `.weft` is the only declaration source.
 - `.wstory` is not a declaration entry point; declarations are generated, descriptions are hand-written and preserved.
 - All `.weft` files in one flat folder belong to the same story.

@@ -22,11 +22,13 @@ public static class WStoryGenerator
         WStoryFileSyntax? existing,
         string fallbackProjectName)
     {
+        var chapters = new List<string>();
         var variables = new List<(string Name, bool Value)>();
         var characters = new List<string>();
         var items = new List<string>();
         var scenes = new List<string>();
 
+        var seenChapters = new HashSet<string>(StringComparer.Ordinal);
         var seenVariables = new HashSet<string>(StringComparer.Ordinal);
         var seenCharacters = new HashSet<string>(StringComparer.Ordinal);
         var seenItems = new HashSet<string>(StringComparer.Ordinal);
@@ -34,6 +36,11 @@ public static class WStoryGenerator
 
         foreach (var weft in weftFiles)
         {
+            if (seenChapters.Add(weft.Title))
+            {
+                chapters.Add(weft.Title);
+            }
+
             foreach (var variable in weft.Variables)
             {
                 if (seenVariables.Add(variable.Name))
@@ -67,6 +74,8 @@ public static class WStoryGenerator
             }
         }
 
+        var chapterDescriptions = ToDescriptionMap(
+            existing?.Chapters.Select(static value => (value.Title, value.Description)));
         var characterDescriptions = ToDescriptionMap(
             existing?.Characters.Select(static value => (value.Name, value.Description)));
         var itemDescriptions = ToDescriptionMap(
@@ -87,6 +96,8 @@ public static class WStoryGenerator
         {
             builder.Append("    @summary ").AppendLine(FormatDescription(summary.Text));
         }
+
+        WriteGroup(builder, "chapters", "chapter", chapters, chapterDescriptions);
 
         if (existing is { Docs.Count: > 0 })
         {

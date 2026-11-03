@@ -51,6 +51,25 @@ public sealed class WStoryParserTests
     }
 
     [Fact]
+    public void ParsesChapters()
+    {
+        const string source = """
+        @project 雨夜
+            @chapters
+                @chapter 第一章 雨夜 [开篇。]
+                @chapter 第二章 病房 [转折。]
+        """;
+
+        var result = WeftlineCompiler.Parse(source, "project.wstory");
+
+        Assert.Empty(result.Diagnostics);
+        var file = Assert.IsType<WStoryFileSyntax>(result.Script);
+        Assert.Equal(2, file.Chapters.Count);
+        Assert.Equal("第一章 雨夜", file.Chapters[0].Title);
+        Assert.Equal("开篇。", file.Chapters[0].Description?.Text);
+    }
+
+    [Fact]
     public void ParsesMultilineDescriptionWithAttachedBrackets()
     {
         const string source = """

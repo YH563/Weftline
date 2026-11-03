@@ -74,6 +74,38 @@ public sealed partial class Parser
 
     private WeftFileSyntax ParseWeftFile()
     {
+        SkipBlankAndComments();
+
+        var chapterTitle = string.Empty;
+        var chapterTitleSpan = Current?.Span ?? new TextSpan(0, 0);
+
+        if (IsAtEnd || !IsDirective(CurrentTrimmed, "@title"))
+        {
+            _diagnostics.Error(
+                DiagnosticCode.MissingChapterTitle,
+                chapterTitleSpan,
+                ".weft 第一行必须是章节标题 @title。");
+        }
+        else
+        {
+            var titleLine = Current!.Value;
+            Advance();
+
+            var trimmed = titleLine.Text.Trim();
+            chapterTitle = trimmed.Length > "@title".Length
+                ? trimmed["@title".Length..].Trim()
+                : string.Empty;
+
+            if (chapterTitle.Length == 0)
+            {
+                _diagnostics.Error(DiagnosticCode.EmptyTitle, titleLine.Span, "@title 不能为空。");
+            }
+
+            chapterTitleSpan = chapterTitle.Length == 0
+                ? titleLine.Span
+                : SpanAfter(titleLine, "@title", chapterTitle);
+        }
+
         var variables = new List<WeftVariableSyntax>();
         var characters = new List<WeftCharacterSyntax>();
         var items = new List<WeftItemSyntax>();
@@ -158,9 +190,19 @@ public sealed partial class Parser
             var line = Current!.Value;
             var trimmed = line.Text.Trim();
 
-            if (IsDirective(trimmed, "@title"))
+            if (IsDirective(trimmed, "@module"))
             {
                 modules.Add(ParseModule());
+                continue;
+            }
+
+            if (IsDirective(trimmed, "@title"))
+            {
+                _diagnostics.Error(
+                    DiagnosticCode.MultipleChapterTitle,
+                    line.Span,
+                    "一个 .weft 文件只能有一个章节标题 @title。");
+                Advance();
                 continue;
             }
 
@@ -184,7 +226,8 @@ public sealed partial class Parser
 
             if (IsDirective(trimmed, "@project") ||
                 IsDirective(trimmed, "@summary") ||
-                IsDirective(trimmed, "@doc"))
+                IsDirective(trimmed, "@doc") ||
+                IsDirective(trimmed, "@chapter"))
             {
                 _diagnostics.Error(
                     DiagnosticCode.MalformedDirective,
@@ -197,11 +240,13 @@ public sealed partial class Parser
             _diagnostics.Error(
                 DiagnosticCode.UnknownLine,
                 line.Span,
-                "无法识别的行；模块必须以 @title 开始。");
+                "无法识别的行；模块必须以 @module 开始。");
             Advance();
         }
 
         return new WeftFileSyntax(
+            chapterTitle,
+            chapterTitleSpan,
             variables,
             characters,
             items,
@@ -290,25 +335,25 @@ public sealed partial class Parser
 
     private ModuleSyntax ParseModule()
     {
-        var titleLine = Current!.Value;
+        var moduleLine = Current!.Value;
         Advance();
 
-        var trimmedTitleLine = titleLine.Text.Trim();
-        var title = trimmedTitleLine.Length > "@title".Length
-            ? trimmedTitleLine["@title".Length..].Trim()
+        var trimmedModuleLine = moduleLine.Text.Trim();
+        var moduleId = trimmedModuleLine.Length > "@module".Length
+            ? trimmedModuleLine["@module".Length..].Trim()
             : string.Empty;
 
-        ValidateTitle(title, titleLine);
+        ValidateModuleTitle(moduleId, moduleLine);
 
-        var titleSpan = title.Length == 0
-            ? titleLine.Span
-            : SpanAfter(titleLine, "@title", title);
+        var titleSpan = moduleId.Length == 0
+            ? moduleLine.Span
+            : SpanAfter(moduleLine, "@module", moduleId);
 
         string? scene = null;
         TextSpan? sceneSpan = null;
         var content = new List<ContentSyntax>();
         var seenContent = false;
-        var moduleEnd = titleLine.Span.End;
+        var moduleEnd = moduleLine.Span.End;
         ExitSyntax? exit = null;
 
         while (!IsAtEnd)
@@ -322,7 +367,7 @@ public sealed partial class Parser
             var line = Current!.Value;
             var trimmed = line.Text.Trim();
 
-            if (IsDirective(trimmed, "@title"))
+            if (IsDirective(trimmed, "@module") || IsDirective(trimmed, "@title"))
             {
                 break;
             }
@@ -435,50 +480,60 @@ public sealed partial class Parser
         {
             _diagnostics.Error(
                 DiagnosticCode.MissingExitBlock,
-                titleLine.Span,
-                $"模块“{title}”缺少 @next 出口块。");
+                moduleLine.Span,
+                $"模块“{moduleId}”缺少 @next 出口块。");
         }
 
         return new ModuleSyntax(
-            title,
+            moduleId,
             titleSpan,
             scene,
             sceneSpan,
             content,
             exit,
-            TextSpan.FromBounds(titleLine.Span.Start, moduleEnd));
+            TextSpan.FromBounds(moduleLine.Span.Start, moduleEnd));
     }
 
-    private void ValidateTitle(string title, SourceLine titleLine)
+    private void ValidateModuleTitle(string title, SourceLine moduleLine)
     {
         if (title.Length == 0)
         {
-            _diagnostics.Error(DiagnosticCode.EmptyTitle, titleLine.Span, "@title 不能为空。");
+            _diagnostics.Error(DiagnosticCode.EmptyTitle, moduleLine.Span, "@module 不能为空。");
             return;
         }
 
-        if (title.Contains('{') || title.Contains('}'))
+        if (!SyntaxFacts.IsIdentifier(title))
         {
-            _diagnostics.Error(
-                DiagnosticCode.InvalidTitleCharacter,
-                titleLine.Span,
-                "@title 不能包含 { 或 }。");
+            if (title.Contains('{') || title.Contains('}'))
+            {
+                _diagnostics.Error(
+                    DiagnosticCode.InvalidTitleCharacter,
+                    moduleLine.Span,
+                    "@module 不能包含 { 或 }。");
+            }
+            else
+            {
+                _diagnostics.Error(
+                    DiagnosticCode.MalformedDirective,
+                    moduleLine.Span,
+                    "@module 的语法是：@module <模块ID>");
+            }
         }
 
         if (string.Equals(title, "END", StringComparison.Ordinal))
         {
             _diagnostics.Error(
                 DiagnosticCode.InvalidEnd,
-                titleLine.Span,
-                "END 是保留的终止模块，不能作为 @title 定义。");
+                moduleLine.Span,
+                "END 是保留的终止模块，不能作为 @module 定义。");
         }
 
         if (!_moduleTitles.Add(title))
         {
             _diagnostics.Error(
                 DiagnosticCode.DuplicateModuleTitle,
-                titleLine.Span,
-                $"模块标题重复：{title}");
+                moduleLine.Span,
+                $"模块 ID 重复：{title}");
         }
     }
 
@@ -831,7 +886,7 @@ public sealed partial class Parser
             var line = Current!.Value;
             var trimmed = line.Text.Trim();
 
-            if (IsDirective(trimmed, "@title"))
+            if (IsDirective(trimmed, "@module") || IsDirective(trimmed, "@title"))
             {
                 break;
             }
@@ -1202,7 +1257,7 @@ public sealed partial class Parser
             var line = Current!.Value;
             var trimmed = line.Text.Trim();
 
-            if (IsDirective(trimmed, "@title"))
+            if (IsDirective(trimmed, "@module") || IsDirective(trimmed, "@title"))
             {
                 break;
             }
@@ -1224,7 +1279,8 @@ public sealed partial class Parser
     {
         while (!IsAtEnd)
         {
-            if (IsDirective(Current!.Value.Text.Trim(), "@title"))
+            if (IsDirective(Current!.Value.Text.Trim(), "@module") ||
+                IsDirective(Current!.Value.Text.Trim(), "@title"))
             {
                 break;
             }

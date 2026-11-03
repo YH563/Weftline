@@ -1,15 +1,18 @@
 using Weftline.Language.Diagnostics;
+using Weftline.Language.Source;
 using Weftline.Language.Syntax;
 
 namespace Weftline.Language.Projects;
 
 /// <summary>
-/// 一条携带文件路径的项目诊断。
-/// A project diagnostic paired with its file path.
+/// 一条携带文件路径的项目诊断；可选关联位置指向首次声明。
+/// A project diagnostic paired with its file path; the optional related
+/// location points to the first declaration.
 /// </summary>
 public sealed record ProjectDiagnostic(
     string FilePath,
-    Diagnostic Diagnostic);
+    Diagnostic Diagnostic,
+    SourceLocation? Related = null);
 
 /// <summary>
 /// 一个已加载的项目：一个 `.wstory` 和若干 `.weft`。
@@ -21,7 +24,7 @@ public sealed class LoadedProject
         string folder,
         WStoryFileSyntax? wstory,
         string? wstoryPath,
-        IReadOnlyList<WeftFileSyntax> weftFiles,
+        IReadOnlyList<ProjectFile> weftFiles,
         IReadOnlyList<ProjectDiagnostic> diagnostics)
     {
         Folder = folder;
@@ -37,7 +40,7 @@ public sealed class LoadedProject
 
     public string? WStoryPath { get; }
 
-    public IReadOnlyList<WeftFileSyntax> WeftFiles { get; }
+    public IReadOnlyList<ProjectFile> WeftFiles { get; }
 
     public IReadOnlyList<ProjectDiagnostic> Diagnostics { get; }
 }
@@ -52,7 +55,7 @@ public static class ProjectLoader
     public static LoadedProject Load(string folder)
     {
         var diagnostics = new List<ProjectDiagnostic>();
-        var weftFiles = new List<WeftFileSyntax>();
+        var weftFiles = new List<ProjectFile>();
 
         var weftPaths = Directory
             .EnumerateFiles(folder, "*.weft", SearchOption.TopDirectoryOnly)
@@ -65,7 +68,7 @@ public static class ProjectLoader
 
             if (result.Script is WeftFileSyntax weft)
             {
-                weftFiles.Add(weft);
+                weftFiles.Add(new ProjectFile(path, weft));
             }
         }
 

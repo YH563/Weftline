@@ -88,7 +88,7 @@ public static class WeftlineCompiler
             diagnostics.Add(diagnostic);
         }
 
-        Binder.Bind(parsed.Script, diagnostics);
+        Binder.Bind(parsed.Script, diagnostics, parsed.Source.FilePath);
 
         return new CompilationResult(parsed.Source, parsed.Script, diagnostics.ToList());
     }

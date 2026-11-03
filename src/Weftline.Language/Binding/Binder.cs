@@ -23,23 +23,31 @@ namespace Weftline.Language.Binding;
 /// </summary>
 public static class Binder
 {
-    public static void Bind(ScriptFileSyntax script, DiagnosticBag diagnostics)
+    public static void Bind(
+        ScriptFileSyntax script,
+        DiagnosticBag diagnostics,
+        string? filePath = null)
     {
+        var path = filePath ?? string.Empty;
+
         switch (script)
         {
             case WeftFileSyntax weft:
-                BindWeft(weft, diagnostics);
+                BindWeft(weft, diagnostics, path);
                 break;
 
             case WStoryFileSyntax wstory:
-                BuildWStorySymbols(wstory, diagnostics);
+                BindWStory(wstory, diagnostics, path);
                 break;
         }
     }
 
-    private static void BindWeft(WeftFileSyntax weft, DiagnosticBag diagnostics)
+    private static void BindWeft(
+        WeftFileSyntax weft,
+        DiagnosticBag diagnostics,
+        string filePath)
     {
-        var symbols = BuildWeftSymbols(weft, diagnostics);
+        var symbols = BuildWeftSymbols(weft, diagnostics, filePath);
 
         foreach (var module in weft.Modules)
         {
@@ -47,100 +55,115 @@ public static class Binder
         }
     }
 
-    private static SymbolTable BuildWeftSymbols(WeftFileSyntax weft, DiagnosticBag diagnostics)
-    {
-        var symbols = new SymbolTable();
-
-        foreach (var variable in weft.Variables)
-        {
-            if (Declare(symbols, variable.Name, "变量", variable.Span, DiagnosticCode.DuplicateGlobalVariable, diagnostics))
-            {
-                symbols.Variables.TryAdd(variable.Name, variable.Value);
-            }
-        }
-
-        foreach (var character in weft.Characters)
-        {
-            if (Declare(symbols, character.Name, "角色", character.Span, DiagnosticCode.DuplicateCharacter, diagnostics))
-            {
-                symbols.Characters.TryAdd(character.Name, character.Span);
-            }
-        }
-
-        foreach (var item in weft.Items)
-        {
-            if (Declare(symbols, item.Name, "道具", item.Span, DiagnosticCode.DuplicateItem, diagnostics))
-            {
-                symbols.Items.TryAdd(item.Name, item.Span);
-            }
-        }
-
-        foreach (var scene in weft.Scenes)
-        {
-            if (Declare(symbols, scene.Name, "场景", scene.Span, DiagnosticCode.DuplicateScene, diagnostics))
-            {
-                symbols.Scenes.TryAdd(scene.Name, scene.Span);
-            }
-        }
-
-        return symbols;
-    }
-
-    private static void BuildWStorySymbols(WStoryFileSyntax wstory, DiagnosticBag diagnostics)
+    private static void BindWStory(
+        WStoryFileSyntax wstory,
+        DiagnosticBag diagnostics,
+        string filePath)
     {
         var symbols = new SymbolTable();
 
         foreach (var variable in wstory.Variables)
         {
-            Declare(symbols, variable.Name, "变量", variable.Span, DiagnosticCode.DuplicateGlobalVariable, diagnostics);
+            Declare(
+                symbols,
+                variable.Name,
+                SymbolKind.Variable,
+                variable.Value,
+                variable.Span,
+                filePath,
+                diagnostics);
         }
 
         foreach (var character in wstory.Characters)
         {
-            Declare(symbols, character.Name, "角色", character.Span, DiagnosticCode.DuplicateCharacter, diagnostics);
+            Declare(symbols, character.Name, SymbolKind.Character, null, character.Span, filePath, diagnostics);
         }
 
         foreach (var item in wstory.Items)
         {
-            Declare(symbols, item.Name, "道具", item.Span, DiagnosticCode.DuplicateItem, diagnostics);
+            Declare(symbols, item.Name, SymbolKind.Item, null, item.Span, filePath, diagnostics);
         }
 
         foreach (var scene in wstory.Scenes)
         {
-            Declare(symbols, scene.Name, "场景", scene.Span, DiagnosticCode.DuplicateScene, diagnostics);
+            Declare(symbols, scene.Name, SymbolKind.Scene, null, scene.Span, filePath, diagnostics);
         }
     }
 
-    private static bool Declare(
+    internal static SymbolTable BuildWeftSymbols(
+        WeftFileSyntax weft,
+        DiagnosticBag diagnostics,
+        string filePath)
+    {
+        var symbols = new SymbolTable();
+
+        foreach (var variable in weft.Variables)
+        {
+            Declare(
+                symbols,
+                variable.Name,
+                SymbolKind.Variable,
+                variable.Value,
+                variable.Span,
+                filePath,
+                diagnostics);
+        }
+
+        foreach (var character in weft.Characters)
+        {
+            Declare(symbols, character.Name, SymbolKind.Character, null, character.Span, filePath, diagnostics);
+        }
+
+        foreach (var item in weft.Items)
+        {
+            Declare(symbols, item.Name, SymbolKind.Item, null, item.Span, filePath, diagnostics);
+        }
+
+        foreach (var scene in weft.Scenes)
+        {
+            Declare(symbols, scene.Name, SymbolKind.Scene, null, scene.Span, filePath, diagnostics);
+        }
+
+        return symbols;
+    }
+
+    internal static bool Declare(
         SymbolTable symbols,
         string name,
-        string kind,
+        SymbolKind kind,
+        bool? value,
         TextSpan span,
-        string sameKindCode,
+        string filePath,
         DiagnosticBag diagnostics)
     {
-        if (symbols.All.TryGetValue(name, out var existing))
-        {
-            if (existing.Kind == kind)
-            {
-                diagnostics.Error(sameKindCode, span, $"全局{kind}重复声明：{name}");
-            }
-            else
-            {
-                diagnostics.Error(
-                    DiagnosticCode.DuplicateSymbol,
-                    span,
-                    $"符号名已被声明为{existing.Kind}：{name}");
-            }
+        var entry = new SymbolEntry(name, kind, new SourceLocation(filePath, span), value);
 
-            return false;
+        if (symbols.TryDeclare(entry, out var existing))
+        {
+            return true;
         }
 
-        symbols.All[name] = (kind, span);
-        return true;
+        var kindName = KindName(kind);
+
+        if (existing!.Kind == kind)
+        {
+            diagnostics.Error(
+                DuplicateCode(kind),
+                span,
+                $"全局{kindName}重复声明：{name}");
+        }
+        else
+        {
+            diagnostics.Error(
+                DiagnosticCode.DuplicateSymbol,
+                span,
+                $"符号名已被声明为{KindName(existing.Kind)}：{name}");
+        }
+
+        return false;
     }
 
-    private static void BindModule(
+    internal static void BindModule(
         ModuleSyntax module,
         SymbolTable symbols,
         DiagnosticBag diagnostics)
@@ -199,7 +222,7 @@ public static class Binder
         }
     }
 
-    private static void ValidateSegments(
+    internal static void ValidateSegments(
         IReadOnlyList<TextSegmentSyntax> segments,
         SymbolTable symbols,
         DiagnosticBag diagnostics)
@@ -222,7 +245,7 @@ public static class Binder
         }
     }
 
-    private static void ValidateCondition(
+    internal static void ValidateCondition(
         BoolExprSyntax expression,
         SymbolTable symbols,
         DiagnosticBag diagnostics)
@@ -256,16 +279,23 @@ public static class Binder
         }
     }
 
-    private sealed class SymbolTable
-    {
-        public Dictionary<string, (string Kind, TextSpan Span)> All { get; } = new(StringComparer.Ordinal);
+    private static string DuplicateCode(SymbolKind kind)
+        => kind switch
+        {
+            SymbolKind.Variable => DiagnosticCode.DuplicateGlobalVariable,
+            SymbolKind.Character => DiagnosticCode.DuplicateCharacter,
+            SymbolKind.Item => DiagnosticCode.DuplicateItem,
+            SymbolKind.Scene => DiagnosticCode.DuplicateScene,
+            _ => DiagnosticCode.DuplicateSymbol,
+        };
 
-        public Dictionary<string, bool> Variables { get; } = new(StringComparer.Ordinal);
-
-        public Dictionary<string, TextSpan> Characters { get; } = new(StringComparer.Ordinal);
-
-        public Dictionary<string, TextSpan> Items { get; } = new(StringComparer.Ordinal);
-
-        public Dictionary<string, TextSpan> Scenes { get; } = new(StringComparer.Ordinal);
-    }
+    private static string KindName(SymbolKind kind)
+        => kind switch
+        {
+            SymbolKind.Variable => "变量",
+            SymbolKind.Character => "角色",
+            SymbolKind.Item => "道具",
+            SymbolKind.Scene => "场景",
+            _ => "符号",
+        };
 }

@@ -10,17 +10,18 @@ public sealed class ExitParserTests
     public void ParsesAutoExitWithConditionAndFallback()
     {
         const string source = """
+        @title 第15章
         @vars
             @var has_key false
 
-        @title 医院
+        @module 医院
         @next():(has_key) -> 地下层
             () -> 走廊
 
-        @title 地下层
+        @module 地下层
         @next -> END
 
-        @title 走廊
+        @module 走廊
         @next -> END
         """;
 
@@ -51,7 +52,8 @@ public sealed class ExitParserTests
     public void ParsesShorthandExit()
     {
         const string source = """
-        @title 开场
+        @title 第16章
+        @module 开场
         @next -> END
         """;
 
@@ -76,10 +78,11 @@ public sealed class ExitParserTests
     public void ParsesShorthandExitWithEffects()
     {
         const string source = """
+        @title 第17章
         @vars
             @var a false
 
-        @title 开场
+        @module 开场
         @next -> END { @set a true }
         """;
 
@@ -97,16 +100,17 @@ public sealed class ExitParserTests
     public void ParsesConditionPrecedence()
     {
         const string source = """
+        @title 第18章
         @vars
             @var a false
             @var b false
             @var c false
 
-        @title 测试
+        @module 测试
         @next():(a and not b or c) -> 结束
             () -> END
 
-        @title 结束
+        @module 结束
         @next -> END
         """;
 
@@ -131,15 +135,16 @@ public sealed class ExitParserTests
     public void ParsesInlineAndMultilineEffects()
     {
         const string source = """
+        @title 第19章
         @vars
             @var a false
             @var b false
 
-        @title 开场
+        @module 开场
         @next(萧影):[继续] -> 结局 { @set a true }
             ()[结束] -> END
 
-        @title 结局
+        @module 结局
         @next(萧影):[继续] -> END {
             @set a true
             @set b true
@@ -167,14 +172,15 @@ public sealed class ExitParserTests
     }
 
     [Fact]
-    public void ParsesTargetWithSpaces()
+    public void ParsesModuleIdTarget()
     {
         const string source = """
-        @title 开场
-        @next(萧影):[继续] -> 第一章 雨夜
+        @title 第20章
+        @module 开场
+        @next(萧影):[继续] -> 第一章_雨夜
             ()[结束] -> END
 
-        @title 第一章 雨夜
+        @module 第一章_雨夜
         @next -> END
         """;
 
@@ -185,18 +191,19 @@ public sealed class ExitParserTests
 
         var opening = Assert.Single(file.Modules, m => m.Title == "开场");
         var branch = Assert.IsType<ExitSyntax>(opening.Exit).Branches[0];
-        Assert.Equal("第一章 雨夜", branch.Target);
+        Assert.Equal("第一章_雨夜", branch.Target);
     }
 
     [Fact]
     public void ReportsMissingFallback()
     {
         const string source = """
+        @title 第21章
         @vars
             @var a false
             @var b false
 
-        @title 测试
+        @module 测试
         @next():(a) -> A
             (b) -> B
         """;
@@ -212,7 +219,8 @@ public sealed class ExitParserTests
     public void ReportsModeMismatch()
     {
         const string source = """
-        @title 测试
+        @title 第22章
+        @module 测试
         @next(萧影):[有文案] -> A
             -> B
         """;
@@ -227,7 +235,8 @@ public sealed class ExitParserTests
     public void ReportsContentAfterShorthandExit()
     {
         const string source = """
-        @title 开场
+        @title 第23章
+        @module 开场
         @next -> END
             [多余内容]
         """;
@@ -243,10 +252,11 @@ public sealed class ExitParserTests
     public void ReportsMalformedCondition()
     {
         const string source = """
+        @title 第24章
         @vars
             @var a false
 
-        @title 测试
+        @module 测试
         @next():(a and) -> END
             () -> END
         """;
@@ -262,10 +272,11 @@ public sealed class ExitParserTests
     public void ReportsUnterminatedEffectBlock()
     {
         const string source = """
+        @title 第25章
         @vars
             @var a false
 
-        @title 测试
+        @module 测试
         @next(萧影):[继续] -> END {
             @set a true
         """;
@@ -281,7 +292,8 @@ public sealed class ExitParserTests
     public void ReportsLabelInAutoMode()
     {
         const string source = """
-        @title 测试
+        @title 第26章
+        @module 测试
         @next():[文案] -> END
         """;
 
@@ -296,7 +308,8 @@ public sealed class ExitParserTests
     public void ReportsEmptyLabelInChoiceMode()
     {
         const string source = """
-        @title 测试
+        @title 第27章
+        @module 测试
         @next(萧影):[] -> END
         """;
 

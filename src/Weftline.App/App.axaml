@@ -2,15 +2,15 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Weftline.App.App"
              xmlns:local="using:Weftline.App"
+             xmlns:suki="https://github.com/kikipoulet/SukiUI"
              RequestedThemeVariant="Default">
-             <!-- "Default" 跟随系统主题。"Dark" 或 "Light" 是其他可选值。
-                  "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
     <Application.DataTemplates>
         <local:ViewLocator />
     </Application.DataTemplates>
 
     <Application.Styles>
-        <FluentTheme />
+        <suki:SukiTheme ThemeColor="Blue" />
+        <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" />
     </Application.Styles>
 </Application>

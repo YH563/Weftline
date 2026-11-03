@@ -9,6 +9,7 @@ public sealed class ParserTests
     public void ParsesWeftDeclarationsAndModules()
     {
         const string source = """
+        @title 第1章
         @vars
             @var trust_low false
             @var has_key false
@@ -23,7 +24,7 @@ public sealed class ParserTests
         @scenes
             @scene 医院
 
-        @title 相信
+        @module 相信
             @scene 医院
             [雨水模糊了视线，{萧影}看见了{医院钥匙}。]
             萧影:[你来了。]
@@ -75,10 +76,11 @@ public sealed class ParserTests
     public void ParsesInlineNarrationAndDialogue()
     {
         const string source = """
+        @title 第2章
         @chars
             @char 萧影
 
-        @title 开场
+        @module 开场
             [简短旁白]
             萧影:[你好。]
         @next -> END
@@ -103,10 +105,11 @@ public sealed class ParserTests
     public void ParsesMultilineTextWithAttachedBrackets()
     {
         const string source = """
+        @title 第3章
         @vars
             @var a false
 
-        @title 测试
+        @module 测试
             [第一行
             第二行]
         @next -> END
@@ -124,10 +127,11 @@ public sealed class ParserTests
     public void ParsesReferenceEscapes()
     {
         const string source = """
+        @title 第4章
         @chars
             @char 萧影
 
-        @title 测试
+        @module 测试
             [{萧影}说：{{别怕}}。]
         @next -> END
         """;
@@ -145,6 +149,7 @@ public sealed class ParserTests
     public void ReportsVariableWithoutInitialValue()
     {
         const string source = """
+        @title 第5章
         @vars
             @var 信任
         """;
@@ -157,17 +162,18 @@ public sealed class ParserTests
     }
 
     [Fact]
-    public void ReportsDuplicateModuleTitle()
+    public void ReportsDuplicateModuleId()
     {
         const string source = """
+        @title 第6章
         @chars
             @char 萧影
 
-        @title 相信
+        @module 相信
             [第一段。]
         @next -> END
 
-        @title 相信
+        @module 相信
             [第二段。]
         @next -> END
         """;
@@ -183,10 +189,11 @@ public sealed class ParserTests
     public void ReportsMissingExitBlock()
     {
         const string source = """
+        @title 第7章
         @chars
             @char 萧影
 
-        @title 相信
+        @module 相信
             [没有出口。]
         """;
 
@@ -201,10 +208,11 @@ public sealed class ParserTests
     public void ReportsUnterminatedTextBlock()
     {
         const string source = """
+        @title 第8章
         @chars
             @char 萧影
 
-        @title 相信
+        @module 相信
             [没有闭合。
         """;
 
@@ -219,10 +227,11 @@ public sealed class ParserTests
     public void ReportsUnterminatedReference()
     {
         const string source = """
+        @title 第9章
         @chars
             @char 萧影
 
-        @title 相信
+        @module 相信
             [他{萧影 走了。]
         @next -> END
         """;
@@ -238,7 +247,8 @@ public sealed class ParserTests
     public void ReportsDeclarationsAfterModules()
     {
         const string source = """
-        @title 相信
+        @title 第10章
+        @module 相信
             [正文。]
         @vars
             @var a false
@@ -255,10 +265,11 @@ public sealed class ParserTests
     public void ReportsHeaderAfterContent()
     {
         const string source = """
+        @title 第11章
         @chars
             @char 萧影
 
-        @title 相信
+        @module 相信
             [正文。]
             @scene 医院
         @next -> END
@@ -272,10 +283,11 @@ public sealed class ParserTests
     }
 
     [Fact]
-    public void ReportsInvalidTitleCharacter()
+    public void ReportsInvalidModuleId()
     {
         const string source = """
-        @title 相信{他}
+        @title 第12章
+        @module 相信{他}
         @next -> END
         """;
 
@@ -287,10 +299,11 @@ public sealed class ParserTests
     }
 
     [Fact]
-    public void ReportsEndAsTitle()
+    public void ReportsEndAsModuleId()
     {
         const string source = """
-        @title END
+        @title 第13章
+        @module END
         @next -> END
         """;
 
@@ -305,10 +318,11 @@ public sealed class ParserTests
     public void ReportsSetInContent()
     {
         const string source = """
+        @title 第14章
         @vars
             @var a false
 
-        @title 测试
+        @module 测试
             @set a true
         @next -> END
         """;
@@ -318,5 +332,78 @@ public sealed class ParserTests
         Assert.Contains(
             result.Diagnostics,
             d => d.Code == DiagnosticCode.SetInContent);
+    }
+
+    [Fact]
+    public void ParsesChapterAndMultipleModules()
+    {
+        const string source = """
+        @title 第一章 雨夜
+        @vars
+            @var a false
+
+        @module 序
+            [开场。]
+        @next -> 相信
+
+        @module 相信
+            [继续。]
+        @next -> END
+        """;
+
+        var result = WeftlineCompiler.Parse(source, "test.weft");
+
+        Assert.Empty(result.Diagnostics);
+        var file = Assert.IsType<WeftFileSyntax>(result.Script);
+        Assert.Equal("第一章 雨夜", file.Title);
+        Assert.Equal(2, file.Modules.Count);
+        Assert.Equal("序", file.Modules[0].Title);
+        Assert.Equal("相信", file.Modules[1].Title);
+    }
+
+    [Fact]
+    public void ReportsMissingChapterTitle()
+    {
+        const string source = """
+        @vars
+            @var a false
+        """;
+
+        var result = WeftlineCompiler.Parse(source, "test.weft");
+
+        Assert.Contains(
+            result.Diagnostics,
+            d => d.Code == DiagnosticCode.MissingChapterTitle);
+    }
+
+    [Fact]
+    public void ReportsMultipleChapterTitles()
+    {
+        const string source = """
+        @title 第一章
+        @title 第二章
+        """;
+
+        var result = WeftlineCompiler.Parse(source, "test.weft");
+
+        Assert.Contains(
+            result.Diagnostics,
+            d => d.Code == DiagnosticCode.MultipleChapterTitle);
+    }
+
+    [Fact]
+    public void ReportsInvalidModuleIdWithSpaces()
+    {
+        const string source = """
+        @title 第一章
+        @module 第一章 雨夜
+        @next -> END
+        """;
+
+        var result = WeftlineCompiler.Parse(source, "test.weft");
+
+        Assert.Contains(
+            result.Diagnostics,
+            d => d.Code == DiagnosticCode.MalformedDirective);
     }
 }

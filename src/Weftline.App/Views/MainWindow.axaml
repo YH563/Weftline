@@ -1,25 +1,111 @@
-<Window xmlns="https://github.com/avaloniaui"
+<suki:SukiWindow xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Weftline.App.ViewModels"
+        xmlns:views="using:Weftline.App.Views"
+        xmlns:controls="using:Weftline.App.Controls"
+        xmlns:suki="https://github.com/kikipoulet/SukiUI"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d"
         x:Class="Weftline.App.Views.MainWindow"
-        x:DataType="vm:MainViewModel"
-        Icon="/Assets/avalonia-logo.ico"
-        Title="Weftline.App">
+        x:DataType="vm:MainWindowViewModel"
+        Title="Weftline"
+        Width="1440"
+        Height="900"
+        MinWidth="1100"
+        MinHeight="700"
+        WindowStartupLocation="CenterScreen">
 
     <Design.DataContext>
-        <!-- 这里只为 IDE 预览器设置 DataContext。
-             运行时的实际 DataContext 在代码中设置（见 App.axaml.cs）。
-             This only sets the DataContext for the previewer in an IDE.
-             To set the actual DataContext for runtime, set the DataContext property
-             in code (look at App.axaml.cs). -->
-        <vm:MainViewModel />
+        <vm:MainWindowViewModel />
     </Design.DataContext>
 
-    <TextBox Text="{Binding Greeting}"
-             HorizontalAlignment="Center"
-             VerticalAlignment="Center" />
+    <Grid RowDefinitions="Auto,*,220,28">
+        <Border Grid.Row="0"
+                Padding="16,10"
+                BorderThickness="0,0,0,1"
+                BorderBrush="#22808080">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding ProjectName}"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                </StackPanel>
 
-</Window>
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            HorizontalAlignment="Right">
+                    <Button Content="打开文件夹" Command="{Binding OpenFolderCommand}" />
+                    <Button Content="保存" Command="{Binding SaveCommand}" />
+                    <Button Content="同步" Command="{Binding SyncCommand}" />
+                    <Button Content="校验" Command="{Binding ValidateCommand}" />
+                    <Button Content="{Binding ThemeLabel}" Command="{Binding ToggleThemeCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="260,4,*,4,340">
+            <views:ProjectExplorerView Grid.Column="0"
+                                       DataContext="{Binding Explorer}" />
+
+            <GridSplitter Grid.Column="1"
+                          Width="4"
+                          ResizeDirection="Columns"
+                          Background="Transparent" />
+
+            <TabControl Grid.Column="2"
+                        Margin="8"
+                        ItemsSource="{Binding Documents}"
+                        SelectedItem="{Binding SelectedDocument}">
+                <TabControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:DocumentViewModel">
+                        <TextBlock Text="{Binding Title}" />
+                    </DataTemplate>
+                </TabControl.ItemTemplate>
+                <TabControl.ContentTemplate>
+                    <DataTemplate x:DataType="vm:DocumentViewModel">
+                        <views:EditorView />
+                    </DataTemplate>
+                </TabControl.ContentTemplate>
+            </TabControl>
+
+            <GridSplitter Grid.Column="3"
+                          Width="4"
+                          ResizeDirection="Columns"
+                          Background="Transparent" />
+
+            <controls:StoryGraphView Grid.Column="4"
+                                     DataContext="{Binding Graph}"
+                                     Margin="8" />
+        </Grid>
+
+        <views:BottomPanelView Grid.Row="2"
+                               DataContext="{Binding}"
+                               Margin="8,0,8,8" />
+
+        <Border Grid.Row="3"
+                Padding="12,0"
+                BorderThickness="0,1,0,0"
+                BorderBrush="#22808080">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBlock Text="{Binding StatusText}"
+                           FontSize="12"
+                           Foreground="#808080"
+                           VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1"
+                           Text="{Binding SelectedDocument.FilePath}"
+                           FontSize="12"
+                           Foreground="#808080"
+                           Margin="0,0,16,0"
+                           VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2"
+                           Text="{Binding DiagnosticsSummary}"
+                           FontSize="12"
+                           Foreground="#808080"
+                           VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+    </Grid>
+</suki:SukiWindow>
