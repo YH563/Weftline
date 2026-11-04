@@ -4,7 +4,7 @@
 
 Weftline 是一个剧情 demo / 叙事演示工具：写剧本、看剧情图、导出可在浏览器里直接演示的 HTML。
 
-当前阶段：语言核心已可用，桌面编辑器、图视图和 HTML 导出仍在开发中。
+当前阶段：语言核心与 HTML 导出可用；桌面端已具备 IDE 基础界面：项目资源管理器、AvaloniaEdit 多标签编辑器、状态栏、文件夹切换和基础文件操作。剧情图 UI 与底部面板暂未接入。
 
 ## 文件类型
 
@@ -17,6 +17,30 @@ Weftline 是一个剧情 demo / 叙事演示工具：写剧本、看剧情图、
 - `.weft` 是符号声明的唯一来源。
 - `.wstory` 不是声明入口；声明由工具生成，描述由作者手写并保留。
 - 同一扁平文件夹下所有 `.weft` 属于同一个故事。
+
+
+## 桌面应用
+
+- 顶部菜单栏 + 可调整宽度的项目资源管理器 + 中央编辑区 + 底部状态栏。
+- 项目资源管理器：目录/文件树、懒加载、按后缀显示图标；支持新建文件、新建文件夹、重命名、删除；通过菜单切换项目文件夹。
+- 编辑器：AvaloniaEdit 多文件标签，支持关闭标签、Weft 语法高亮、行号、当前行高亮、实线分隔和未保存标记。
+- 状态栏：光标行列、选区长度、语言、当前模块/场景、模块/变量数、诊断摘要和运行状态。
+- 主题：SukiUI 浅色主题；界面字体使用 Inter，编辑区优先使用 JetBrains Mono。
+- 剧情图 UI 与 Problems/Output 面板暂未接入。
+
+```bash
+dotnet run --project src/Weftline.App
+```
+
+### 主要 UI 依赖
+
+| 包 | 用途 |
+|---|---|
+| `Avalonia` / `Avalonia.Desktop` | 桌面 UI 与窗口 |
+| `SukiUI` | 主题、窗口样式、通知与弹层 |
+| `Avalonia.AvaloniaEdit` | 代码编辑器 |
+| `CommunityToolkit.Mvvm` | ObservableObject / RelayCommand |
+| `Avalonia.Fonts.Inter` | 界面字体 |
 
 ## 文档
 

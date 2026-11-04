@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Weftline.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="24"
+             x:Class="Weftline.App.Views.StatusBarView"
+             x:DataType="vm:StatusBarViewModel"
+             x:CompileBindings="True">
+
+    <Border Height="24"
+            Padding="10,0"
+            Background="#F7F8FA"
+            BorderBrush="#E2E5EA"
+            BorderThickness="0,1,0,0">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="12"
+                        VerticalAlignment="Center">
+                <TextBlock Text="{Binding CaretText}"
+                           FontSize="11"
+                           Foreground="#6B7280" />
+                <TextBlock Text="{Binding SelectionText}"
+                           IsVisible="{Binding HasSelection}"
+                           FontSize="11"
+                           Foreground="#6B7280" />
+                <TextBlock Text="{Binding Language}"
+                           FontSize="11"
+                           Foreground="#6B7280" />
+                <TextBlock Text="{Binding ContextText}"
+                           FontSize="11"
+                           Foreground="#6B7280"
+                           TextTrimming="CharacterEllipsis"
+                           MaxWidth="320" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        Spacing="16"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Right">
+                <TextBlock Text="{Binding SymbolText}"
+                           FontSize="11"
+                           Foreground="#6B7280" />
+                <TextBlock Text="{Binding DiagnosticsText}"
+                           FontSize="11"
+                           Foreground="#6B7280" />
+                <TextBlock Text="{Binding StatusText}"
+                           FontSize="11"
+                           Foreground="#5F6673" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

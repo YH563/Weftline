@@ -2,9 +2,9 @@ using Avalonia.Controls;
 
 namespace Weftline.App.Views;
 
-public partial class BottomPanelView : UserControl
+public partial class StatusBarView : UserControl
 {
-    public BottomPanelView()
+    public StatusBarView()
     {
         InitializeComponent();
     }

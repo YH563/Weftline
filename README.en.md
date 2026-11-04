@@ -4,7 +4,7 @@
 
 Weftline is a story demo / narrative demonstration tool: write scripts, inspect the story graph, and export a playable HTML demo.
 
-Current stage: the language core is usable; the desktop editor, graph view, and HTML export are still in development.
+Current stage: the language core and HTML export are usable. The desktop app now has an IDE-style shell: project explorer, multi-tab AvaloniaEdit editor, status bar, folder switching, and basic file operations. The story graph UI and bottom panels are not wired up yet.
 
 ## File types
 
@@ -17,6 +17,30 @@ Current stage: the language core is usable; the desktop editor, graph view, and 
 - `.weft` is the only declaration source.
 - `.wstory` is not a declaration entry point; declarations are generated, descriptions are hand-written and preserved.
 - All `.weft` files in one flat folder belong to the same story.
+
+
+## Desktop app
+
+- Top menu bar, resizable project explorer, central editor area, and bottom status bar.
+- Project explorer: directory/file tree with lazy loading and extension-based icons; supports new file, new folder, rename, delete, and switching the project folder from the menu.
+- Editor: multi-file AvaloniaEdit tabs with close buttons, Weft syntax highlighting, line numbers, current-line highlight, a solid gutter separator, and modified markers.
+- Status bar: caret position, selection length, language, current module/scene, module/variable counts, diagnostics summary, and operation status.
+- Theme: SukiUI light theme; Inter for UI text and JetBrains Mono for the editor when available.
+- The story graph UI and Problems/Output panels are not wired up yet.
+
+```bash
+dotnet run --project src/Weftline.App
+```
+
+### Main UI packages
+
+| Package | Purpose |
+|---|---|
+| `Avalonia` / `Avalonia.Desktop` | Desktop UI and windows |
+| `SukiUI` | Theme, window chrome, notifications, popups |
+| `Avalonia.AvaloniaEdit` | Code editor |
+| `CommunityToolkit.Mvvm` | ObservableObject / RelayCommand |
+| `Avalonia.Fonts.Inter` | UI font |
 
 ## Documentation
 

@@ -4,31 +4,154 @@
              xmlns:ae="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
              x:Class="Weftline.App.Views.EditorView"
-             x:DataType="vm:DocumentViewModel">
+             x:DataType="vm:EditorHostViewModel"
+             x:CompileBindings="True">
 
-    <Design.DataContext>
-        <vm:DocumentViewModel Title="第一章 雨夜.weft"
-                              FilePath="samples/believe.weft"
-                              Text="[雨夜。]" />
-    </Design.DataContext>
+
 
     <Grid RowDefinitions="Auto,*">
-        <Border Padding="12,6"
-                BorderThickness="0,0,0,1"
-                BorderBrush="#22808080">
-            <TextBlock Text="{Binding FilePath}"
-                       FontSize="12"
-                       Foreground="#808080" />
+        <Border Grid.Row="0"
+                Background="#F2F3F5"
+                Padding="8,6,8,6"
+                BorderBrush="#E2E5EA"
+                BorderThickness="0,0,0,1">
+            <ListBox ItemsSource="{Binding Documents}"
+                     SelectedItem="{Binding SelectedDocument, Mode=TwoWay}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     Padding="0"
+                     SelectionMode="Single"
+                     ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                     ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Margin" Value="0,0,4,0" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Template">
+                            <ControlTemplate>
+                                <Border Name="TabBorder"
+                                        Background="Transparent"
+                                        BorderBrush="Transparent"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        Padding="8,4">
+                                    <ContentPresenter Name="PART_TabContentPresenter"
+                                                      Content="{TemplateBinding Content}"
+                                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                      Background="Transparent"
+                                                      VerticalAlignment="Center" />
+                                </Border>
+                            </ControlTemplate>
+                        </Setter>
+                    </Style>
+                    <Style Selector="ListBoxItem /template/ ContentPresenter#PART_TabContentPresenter">
+                        <Setter Property="Background" Value="Transparent" />
+                    </Style>
+                    <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_TabContentPresenter">
+                        <Setter Property="Background" Value="Transparent" />
+                    </Style>
+                    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter#PART_TabContentPresenter">
+                        <Setter Property="Background" Value="Transparent" />
+                    </Style>
+                    <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_TabContentPresenter">
+                        <Setter Property="Background" Value="Transparent" />
+                    </Style>
+                    <Style Selector="ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_TabContentPresenter">
+                        <Setter Property="Background" Value="Transparent" />
+                    </Style>
+                    <Style Selector="ListBoxItem:pointerover /template/ Border#TabBorder">
+                        <Setter Property="Background" Value="#E6E8EC" />
+                    </Style>
+                    <Style Selector="ListBoxItem:selected /template/ Border#TabBorder">
+                        <Setter Property="Background" Value="#EAF2FF" />
+                        <Setter Property="BorderBrush" Value="#C7DAFF" />
+                    </Style>
+                    <Style Selector="ListBoxItem:selected:pointerover /template/ Border#TabBorder">
+                        <Setter Property="Background" Value="#DDEBFF" />
+                        <Setter Property="BorderBrush" Value="#B9D3FF" />
+                    </Style>
+                </ListBox.Styles>
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:EditorViewModel">
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="6"
+                                    ToolTip.Tip="{Binding FilePath}">
+                            <PathIcon Data="{Binding IconGeometry}"
+                                      Foreground="{Binding IconBrush}"
+                                      Width="16"
+                                      Height="16"
+                                      VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding FileName}"
+                                       FontSize="12"
+                                       FontWeight="Medium"
+                                       MaxWidth="220"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="*"
+                                       IsVisible="{Binding IsModified}"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#E5484D"
+                                       VerticalAlignment="Center" />
+                            <Button Content="×"
+                                    Command="{Binding CloseCommand}"
+                                    Width="16"
+                                    Height="16"
+                                    Padding="0"
+                                    FontSize="12"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Foreground="#7A8494"
+                                    Focusable="False"
+                                    VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
         </Border>
 
-        <ae:TextEditor x:Name="Editor"
-                       Grid.Row="1"
-                       ShowLineNumbers="True"
-                       FontSize="14"
-                       FontFamily="Cascadia Code, JetBrains Mono, Consolas, monospace"
-                       HorizontalScrollBarVisibility="Auto"
-                       VerticalScrollBarVisibility="Auto" />
+        <Grid Grid.Row="1">
+            <ae:TextEditor x:Name="TextEditor"
+                           IsVisible="{Binding HasDocument}"
+                           ShowLineNumbers="True"
+                           FontSize="14"
+                           FontFamily="Cascadia Code, JetBrains Mono, Consolas, monospace"
+                           HorizontalScrollBarVisibility="Auto"
+                           VerticalScrollBarVisibility="Auto"
+                           WordWrap="False"
+                           LineNumbersMargin="4,0,0,0">
+                <ae:TextEditor.Options>
+                    <ae:TextEditorOptions IndentationSize="4"
+                                          ConvertTabsToSpaces="True"
+                                          HighlightCurrentLine="True"
+                                          LineHeightFactor="1.25"
+                                          CutCopyWholeLine="True"
+                                          EnableRectangularSelection="True" />
+                </ae:TextEditor.Options>
+            </ae:TextEditor>
+
+            <StackPanel IsVisible="{Binding !HasDocument}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="6">
+                <TextBlock Text="未打开文件"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="#9AA3B2"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="双击左侧项目资源管理器中的文件开始编辑"
+                           FontSize="12"
+                           Foreground="#B0B6C3"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+        </Grid>
     </Grid>
 </UserControl>

@@ -3,75 +3,220 @@
              xmlns:vm="using:Weftline.App.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="600"
              x:Class="Weftline.App.Views.ProjectExplorerView"
-             x:DataType="vm:ProjectExplorerViewModel">
+             x:DataType="vm:ProjectExplorerViewModel"
+             x:CompileBindings="True">
+
+    <UserControl.Resources>
+        <ControlTheme x:Key="WeftlineChevronButton"
+                      TargetType="Button">
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="Transparent"
+                            Width="16"
+                            Height="16">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+
+
+    </UserControl.Resources>
 
     <Grid RowDefinitions="Auto,*">
-        <StackPanel Margin="16,16,16,8" Spacing="2">
-            <TextBlock Text="项目" FontSize="12" Foreground="#808080" />
-            <TextBlock Text="{Binding ProjectName}" FontSize="16" FontWeight="SemiBold" />
-        </StackPanel>
+        <Border Padding="12,8"
+                BorderThickness="0,0,0,1"
+                BorderBrush="#22808080">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="3" ToolTip.Tip="{Binding RootPath}">
+                    <TextBlock Text="项目资源管理器"
+                               FontSize="11"
+                               Foreground="#808080" />
+                    <TextBlock Text="{Binding RootName}"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
 
-        <ScrollViewer Grid.Row="1" Margin="8,0,8,8">
-            <StackPanel Spacing="6">
-                <ItemsControl ItemsSource="{Binding Chapters}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:ChapterNodeViewModel">
-                            <Expander IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
-                                      Margin="0,0,0,4">
-                                <Expander.Header>
-                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
-                                </Expander.Header>
-                                <ItemsControl ItemsSource="{Binding Modules}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:ModuleNodeViewModel">
-                                            <Border Margin="8,2"
-                                                    Padding="10,8"
-                                                    CornerRadius="6"
-                                                    Background="#10808080">
-                                                <StackPanel Spacing="2">
-                                                    <TextBlock Text="{Binding Id}" FontWeight="SemiBold" />
-                                                    <TextBlock Text="{Binding Scene}"
-                                                               FontSize="12"
-                                                               Foreground="#808080" />
-                                                </StackPanel>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </Expander>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="2"
+                            VerticalAlignment="Center">
+                    <Button Command="{Binding NewFileCommand}"
+                            Width="24"
+                            Height="24"
+                            Padding="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Focusable="False"
+                            ToolTip.Tip="新建文件">
+                        <PathIcon Width="14"
+                                  Height="14"
+                                  Foreground="#6B7280"
+                                  Data="M14 2H6C4.89 2 4 2.9 4 4V20C4 21.1 4.89 22 6 22H18C19.11 22 20 21.1 20 20V8L14 2M14 7V3.5L18.5 8H14M11 11H13V14H16V16H13V19H11V16H8V14H11V11Z" />
+                    </Button>
+                    <Button Command="{Binding NewFolderCommand}"
+                            Width="24"
+                            Height="24"
+                            Padding="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Focusable="False"
+                            ToolTip.Tip="新建文件夹">
+                        <PathIcon Width="14"
+                                  Height="14"
+                                  Foreground="#6B7280"
+                                  Data="M10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6H12L10 4M13 10H15V13H18V15H15V18H13V15H10V13H13V10Z" />
+                    </Button>
+                    <Button Command="{Binding RenameCommand}"
+                            IsEnabled="{Binding HasSelection}"
+                            Width="24"
+                            Height="24"
+                            Padding="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Focusable="False"
+                            ToolTip.Tip="重命名">
+                        <PathIcon Width="14"
+                                  Height="14"
+                                  Foreground="#6B7280"
+                                  Data="M3 17.25V21H6.75L17.81 9.94L14.06 6.19L3 17.25M20.71 7.04C21.1 6.65 21.1 6 20.71 5.63L18.37 3.29C18 2.9 17.35 2.9 16.96 3.29L15.13 5.12L18.88 8.87L20.71 7.04Z" />
+                    </Button>
+                    <Button Command="{Binding DeleteCommand}"
+                            IsEnabled="{Binding HasSelection}"
+                            Width="24"
+                            Height="24"
+                            Padding="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Focusable="False"
+                            ToolTip.Tip="删除">
+                        <PathIcon Width="14"
+                                  Height="14"
+                                  Foreground="#6B7280"
+                                  Data="M19 4H15.5L14.5 3H9.5L8.5 4H5V6H19V4M6 7V20C6 21.1 6.9 22 8 22H16C17.1 22 18 21.1 18 20V7H6Z" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
 
-                <Separator Margin="8,8" />
+        <ListBox Grid.Row="1"
+                 Margin="6,4,6,8"
+                 ItemsSource="{Binding VisibleNodes}"
+                 SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
+                 SelectionMode="Single"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 Padding="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.AllowAutoHide="True"
+                 FontSize="13"
+                 DoubleTapped="OnListDoubleTapped">
+            <ListBox.Styles>
+                <Style Selector="ListBoxItem">
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Margin" Value="0" />
+                    <Setter Property="MinHeight" Value="24" />
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="Template">
+                        <ControlTemplate>
+                            <Border Name="PART_Row"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="3"
+                                    MinHeight="24">
+                                <ContentPresenter Name="PART_ContentPresenter"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  HorizontalAlignment="Stretch"
+                                                  VerticalAlignment="Center" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter>
+                </Style>
+                <Style Selector="ListBoxItem:pointerover /template/ Border#PART_Row">
+                    <Setter Property="Background" Value="#12808080" />
+                </Style>
+                <Style Selector="ListBoxItem:selected /template/ Border#PART_Row">
+                    <Setter Property="Background" Value="#1F2563EB" />
+                </Style>
+                <Style Selector="ListBoxItem:selected:pointerover /template/ Border#PART_Row">
+                    <Setter Property="Background" Value="#2A2563EB" />
+                </Style>
+                <Style Selector="ListBox ScrollBar">
+                    <Setter Property="Opacity" Value="0" />
+                    <Setter Property="Transitions">
+                        <Transitions>
+                            <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+                        </Transitions>
+                    </Setter>
+                </Style>
+                <Style Selector="ListBox:pointerover ScrollBar">
+                    <Setter Property="Opacity" Value="1" />
+                </Style>
+                <Style Selector="ScrollBar:pointerover">
+                    <Setter Property="Opacity" Value="1" />
+                </Style>
+            </ListBox.Styles>
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ProjectTreeNodeViewModel">
+                    <Grid ColumnDefinitions="Auto,Auto,Auto,*"
+                          Height="24"
+                          HorizontalAlignment="Stretch">
+                        <Border Width="{Binding Indent}" />
 
-                <ItemsControl ItemsSource="{Binding SymbolGroups}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:SymbolGroupViewModel">
-                            <Expander IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
-                                      Margin="0,0,0,4">
-                                <Expander.Header>
-                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
-                                </Expander.Header>
-                                <ItemsControl ItemsSource="{Binding Items}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="x:String">
-                                            <Border Margin="8,2"
-                                                    Padding="10,6"
-                                                    CornerRadius="6"
-                                                    Background="#0C808080">
-                                                <TextBlock Text="{Binding}" />
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </Expander>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
-        </ScrollViewer>
+                        <Grid Grid.Column="1"
+                              Width="16"
+                              Height="16"
+                              VerticalAlignment="Center">
+                            <Button Theme="{StaticResource WeftlineChevronButton}"
+                                    Command="{Binding ToggleExpandCommand}"
+                                    IsVisible="{Binding CanExpand}">
+                                <Path Data="M 0,0 L 4,4 L 0,8"
+                                      Width="8"
+                                      Height="8"
+                                      Stretch="Uniform"
+                                      Stroke="#7A8494"
+                                      StrokeThickness="1.2"
+                                      StrokeLineCap="Round"
+                                      StrokeJoin="Round"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      RenderTransformOrigin="50%,50%">
+                                    <Path.RenderTransform>
+                                        <RotateTransform Angle="{Binding ChevronAngle}" />
+                                    </Path.RenderTransform>
+                                </Path>
+                            </Button>
+                        </Grid>
+
+                        <PathIcon Grid.Column="2"
+                                  Data="{Binding IconGeometry}"
+                                  Foreground="{Binding IconBrush}"
+                                  Width="16"
+                                  Height="16"
+                                  Margin="6,0,6,0"
+                                  VerticalAlignment="Center" />
+
+                        <TextBlock Grid.Column="3"
+                                   Text="{Binding Name}"
+                                   FontWeight="Medium"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
     </Grid>
 </UserControl>

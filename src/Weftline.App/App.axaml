@@ -1,16 +1,35 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="Weftline.App.App"
-             xmlns:local="using:Weftline.App"
              xmlns:suki="https://github.com/kikipoulet/SukiUI"
-             RequestedThemeVariant="Default">
+             x:Class="Weftline.App.App"
+             RequestedThemeVariant="Light">
 
-    <Application.DataTemplates>
-        <local:ViewLocator />
-    </Application.DataTemplates>
+    <Application.Resources>
+        <ControlTheme x:Key="WeftlineToolTip" TargetType="ToolTip">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="#FFFFFF"
+                            BorderBrush="#D8DCE3"
+                            BorderThickness="1"
+                            Padding="6,4">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+    </Application.Resources>
 
     <Application.Styles>
         <suki:SukiTheme ThemeColor="Blue" />
         <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" />
+        <Style Selector="PopupRoot">
+            <Setter Property="TransparencyBackgroundFallback" Value="#F5F5F5" />
+        </Style>
+        <Style Selector="ToolTip">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="#5F6673" />
+            <Setter Property="Theme" Value="{StaticResource WeftlineToolTip}" />
+        </Style>
     </Application.Styles>
 </Application>
