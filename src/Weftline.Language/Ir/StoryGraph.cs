@@ -1,45 +1,52 @@
+using Weftline.Language.Source;
+
 namespace Weftline.Language.Ir;
 
 /// <summary>
-/// 编译器与图视图、HTML 导出之间的中间表示。
-/// The intermediate representation between the compiler, graph view, and HTML export.
+/// 图与执行语义：有序全局变量、模块、出口块和分支。
+/// Graph and execution semantics: ordered globals, modules, exit blocks, and branches.
 /// </summary>
 public sealed record StoryGraph(
     int SchemaVersion,
     string End,
     string? Entry,
-    IrProjectInfo? Project,
-    IReadOnlyList<IrChapter> Chapters,
-    IReadOnlyDictionary<string, bool> Globals,
-    IReadOnlyList<IrModule> Modules,
-    IReadOnlyList<IrChapterEdge> ChapterEdges);
+    IReadOnlyList<IrGlobal> Globals,
+    IReadOnlyList<IrModule> Modules);
 
-public sealed record IrProjectInfo(
+public sealed record IrGlobal(
     string Name,
-    string? Summary,
-    IReadOnlyList<IrDoc> Docs);
-
-public sealed record IrDoc(
-    string Title,
-    string Text);
-
-public sealed record IrChapter(
-    string Title,
-    string? Description,
-    IReadOnlyList<string> Modules);
-
-public sealed record IrChapterEdge(
-    string From,
-    string To,
-    IReadOnlyList<string> Via);
+    bool Initial);
 
 public sealed record IrModule(
     string Id,
-    string Title,
+    string ChapterId,
     string? Scene,
-    string? Chapter,
     IReadOnlyList<IrContentBlock> Content,
-    IReadOnlyList<IrExit> Exits);
+    IrExitBlock? Exit,
+    SourceLocation Source);
+
+public enum ExitMode
+{
+    Auto,
+    Choice,
+}
+
+/// <summary>
+/// 一个模块的出口块。模式、角色和分支顺序都是语义的一部分。
+/// The exit block of one module. Mode, character, and branch order are semantic.
+/// </summary>
+public sealed record IrExitBlock(
+    ExitMode Mode,
+    string? Character,
+    IReadOnlyList<IrExitBranch> Branches,
+    SourceLocation Source);
+
+public sealed record IrExitBranch(
+    IrBoolExpr? Condition,
+    string? Label,
+    string Target,
+    IReadOnlyList<IrAssignment> Effects,
+    SourceLocation Source);
 
 public sealed record IrContentBlock(
     string Kind,
@@ -61,14 +68,6 @@ public sealed record IrTextSegment(
     string Kind,
     string? Text = null,
     string? Name = null);
-
-public sealed record IrExit(
-    string? Character,
-    IrBoolExpr? Condition,
-    string? Label,
-    string Target,
-    IReadOnlyList<IrAssignment> Effects,
-    bool External = false);
 
 public sealed record IrAssignment(
     string Name,

@@ -9,6 +9,8 @@ namespace Weftline.App;
 
 public partial class App : Application
 {
+    public static string? GraphPreviewFolder { get; set; }
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -19,11 +21,19 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             ThemeService.Initialize();
-            var viewModel = new MainWindowViewModel(new DialogService());
-            desktop.MainWindow = new MainWindow
+
+            if (GraphPreviewFolder is { } folder)
             {
-                DataContext = viewModel,
-            };
+                desktop.MainWindow = new GraphPreviewWindow(folder);
+            }
+            else
+            {
+                var viewModel = new MainWindowViewModel(new DialogService());
+                desktop.MainWindow = new MainWindow
+                {
+                    DataContext = viewModel,
+                };
+            }
         }
 
         base.OnFrameworkInitializationCompleted();

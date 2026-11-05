@@ -7,68 +7,101 @@ namespace Weftline.Language.Tests;
 public sealed class StoryGraphTests
 {
     [Fact]
-    public void BuildsGraphFromProjectAst()
+    public void BuildsSemanticGraphFromProjectAst()
     {
         var (project, index) = BuildProject();
 
-        var graph = StoryGraphBuilder.Build(project, index);
+        var model = ProjectModelBuilder.Build(project, index);
+        var graph = StoryGraphBuilder.Build(project, model);
 
-        Assert.Equal(1, graph.SchemaVersion);
+        Assert.Equal(2, graph.SchemaVersion);
         Assert.Equal("END", graph.End);
         Assert.Equal("开场", graph.Entry);
-        Assert.Equal("雨夜", graph.Project?.Name);
-        Assert.Equal("概要。", graph.Project?.Summary);
-        var doc = Assert.Single(graph.Project!.Docs);
-        Assert.Equal("规则", doc.Title);
-        Assert.Equal("文本。", doc.Text);
 
-        Assert.False(graph.Globals["a"]);
-
-        var chapter = Assert.Single(graph.Chapters);
-        Assert.Equal("第48章", chapter.Title);
-        Assert.Equal("章节描述。", chapter.Description);
-        Assert.Equal("开场", Assert.Single(chapter.Modules));
-        Assert.Empty(graph.ChapterEdges);
+        var global = Assert.Single(graph.Globals);
+        Assert.Equal("a", global.Name);
+        Assert.False(global.Initial);
 
         var module = Assert.Single(graph.Modules);
         Assert.Equal("开场", module.Id);
-        Assert.Equal("第48章", module.Chapter);
+        Assert.Equal("第48章", module.ChapterId);
         Assert.Equal("医院", module.Scene);
+        Assert.Equal("story.weft", module.Source.FilePath);
         Assert.Equal(2, module.Content.Count);
 
-        var narration = Assert.IsType<IrContentBlock>(module.Content[0]);
+        var narration = module.Content[0];
         Assert.Equal("narration", narration.Kind);
-        Assert.Equal("萧影", Assert.Single(narration.Segments!.OfType<IrTextSegment>(), s => s.Kind == "ref").Name);
+        Assert.Equal("萧影", Assert.Single(narration.Segments!, s => s.Kind == "ref").Name);
 
         var dialogue = module.Content[1];
         Assert.Equal("dialogue", dialogue.Kind);
         Assert.Equal("萧影", dialogue.Speaker);
 
-        Assert.Equal(2, module.Exits.Count);
-        var first = module.Exits[0];
-        Assert.Equal("萧影", first.Character);
-        Assert.Equal("继续", first.Label);
-        Assert.Equal("END", first.Target);
-        Assert.Equal("a", first.Condition?.Name);
-        Assert.Empty(first.Effects);
+        Assert.NotNull(module.Exit);
+        Assert.Equal(ExitMode.Choice, module.Exit!.Mode);
+        Assert.Equal("萧影", module.Exit.Character);
+        Assert.Equal(2, module.Exit.Branches.Count);
 
-        var second = module.Exits[1];
+        var first = module.Exit.Branches[0];
+        Assert.Equal("继续", first.Label);
+        Assert.Equal("a", first.Condition?.Name);
+        Assert.Equal("END", first.Target);
+        Assert.Empty(first.Effects);
+        Assert.Equal("story.weft", first.Source.FilePath);
+
+        var second = module.Exit.Branches[1];
         Assert.Equal("结束", second.Label);
         Assert.Null(second.Condition);
     }
 
     [Fact]
-    public void SerializesGraphToJson()
+    public void BuildsProjectModelWithDescriptions()
+    {
+        var (project, index) = BuildProject();
+
+        var model = ProjectModelBuilder.Build(project, index);
+
+        Assert.Equal("雨夜", model.Project.Name);
+        Assert.Equal("概要。", model.Project.Summary);
+        var doc = Assert.Single(model.Project.Docs);
+        Assert.Equal("规则", doc.Title);
+        Assert.Equal("文本。", doc.Text);
+
+        var chapter = Assert.Single(model.Chapters);
+        Assert.Equal("第48章", chapter.Title);
+        Assert.Equal("章节描述。", chapter.Description);
+        Assert.Equal("开场", Assert.Single(chapter.ModuleIds));
+
+        var variable = Assert.Single(model.Symbols.Variables);
+        Assert.Equal("a", variable.Name);
+        Assert.False(variable.Initial);
+        Assert.Equal("变量。", variable.Description);
+
+        var character = Assert.Single(model.Symbols.Characters);
+        Assert.Equal("萧影", character.Name);
+        Assert.Equal("主角。", character.Description);
+
+        var scene = Assert.Single(model.Symbols.Scenes);
+        Assert.Equal("医院", scene.Name);
+        Assert.Equal("医院。", scene.Description);
+    }
+
+    [Fact]
+    public void SerializesSemanticGraphToJson()
     {
         var (project, index) = BuildProject();
         var graph = StoryGraphBuilder.Build(project, index);
 
         var json = StoryGraphJson.Serialize(graph);
 
-        Assert.Contains("\"schemaVersion\": 1", json, StringComparison.Ordinal);
+        Assert.Contains("\"schemaVersion\": 2", json, StringComparison.Ordinal);
         Assert.Contains("\"entry\": \"开场\"", json, StringComparison.Ordinal);
         Assert.Contains("\"id\": \"开场\"", json, StringComparison.Ordinal);
         Assert.Contains("\"kind\": \"narration\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"mode\": \"choice\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"globals\": [", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"external\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"chapterEdges\"", json, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -81,13 +114,14 @@ public sealed class StoryGraphTests
         StoryGraphPrinter.Print(graph, writer);
         var text = writer.ToString();
 
-        Assert.Contains("StoryGraph schema=1 entry=开场 end=END", text, StringComparison.Ordinal);
+        Assert.Contains("StoryGraph schema=2 entry=开场 end=END", text, StringComparison.Ordinal);
         Assert.Contains("Module \"开场\" chapter=\"第48章\" scene=医院", text, StringComparison.Ordinal);
+        Assert.Contains("exit: choice character=萧影", text, StringComparison.Ordinal);
         Assert.Contains("edge: [继续] when a -> END", text, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void BuildsChaptersAndExternalEdges()
+    public void PreservesCrossChapterTargetsWithoutDerivedEdges()
     {
         var first = ParseWeft("chapter1.weft", """
         @title 第一章
@@ -115,16 +149,11 @@ public sealed class StoryGraphTests
 
         var graph = StoryGraphBuilder.Build(project, binding.Index);
 
-        Assert.Equal(2, graph.Chapters.Count);
-        Assert.Equal("第一章", graph.Modules[0].Chapter);
-        Assert.Equal("第二章", graph.Modules[1].Chapter);
-        Assert.True(graph.Modules[0].Exits[0].External);
-        Assert.False(graph.Modules[1].Exits[0].External);
-
-        var chapterEdge = Assert.Single(graph.ChapterEdges);
-        Assert.Equal("第一章", chapterEdge.From);
-        Assert.Equal("第二章", chapterEdge.To);
-        Assert.Equal("A -> B", Assert.Single(chapterEdge.Via));
+        Assert.Equal(2, graph.Modules.Count);
+        Assert.Equal("第一章", graph.Modules[0].ChapterId);
+        Assert.Equal("第二章", graph.Modules[1].ChapterId);
+        Assert.Equal("B", graph.Modules[0].Exit!.Branches[0].Target);
+        Assert.Equal("END", graph.Modules[1].Exit!.Branches[0].Target);
     }
 
     private static ProjectFile ParseWeft(string path, string source)

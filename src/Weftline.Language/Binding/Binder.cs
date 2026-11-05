@@ -61,6 +61,18 @@ public static class Binder
         string filePath)
     {
         var symbols = new SymbolTable();
+        var chapterTitles = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var chapter in wstory.Chapters)
+        {
+            if (!chapterTitles.Add(chapter.Title))
+            {
+                diagnostics.Error(
+                    DiagnosticCode.DuplicateChapterTitle,
+                    chapter.TitleSpan,
+                    $"章节标题重复：{chapter.Title}");
+            }
+        }
 
         foreach (var variable in wstory.Variables)
         {

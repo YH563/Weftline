@@ -1,167 +1,88 @@
-using Weftline.Language.Binding;
 using Weftline.Language.Projects;
+using Weftline.Language.Source;
 using Weftline.Language.Syntax;
 
 namespace Weftline.Language.Ir;
 
 /// <summary>
-/// 从项目 AST 与项目索引构建 StoryGraph。
-/// Builds a StoryGraph from project ASTs and the project index.
+/// 从项目 AST 与 ProjectModel 构建语义 StoryGraph。
+/// Builds the semantic StoryGraph from project ASTs and the ProjectModel.
 /// </summary>
 public static class StoryGraphBuilder
 {
+    public static StoryGraph Build(LoadedProject project, ProjectIndex index)
+        => Build(project, ProjectModelBuilder.Build(project, index));
+
+    public static StoryGraph Build(LoadedProject project, ProjectIndex index, string? entry)
+        => Build(project, ProjectModelBuilder.Build(project, index), entry);
+
     public static StoryGraph Build(
         LoadedProject project,
-        ProjectIndex index,
+        ProjectModel model,
         string? entry = null)
     {
-        var moduleChapters = index.Modules.ToDictionary(
-            static pair => pair.Key,
-            static pair => pair.Value.Chapter,
-            StringComparer.Ordinal);
-
-        var chapterDescriptions = project.WStory?.Chapters.ToDictionary(
-            static chapter => chapter.Title,
-            static chapter => chapter.Description?.Text,
-            StringComparer.Ordinal) ?? new Dictionary<string, string?>(StringComparer.Ordinal);
-
-        var chapterModules = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-        var chapterOrder = new List<string>();
-
-        foreach (var file in project.WeftFiles)
-        {
-            if (!chapterModules.TryGetValue(file.Ast.Title, out var modulesInChapter))
-            {
-                modulesInChapter = new List<string>();
-                chapterModules[file.Ast.Title] = modulesInChapter;
-                chapterOrder.Add(file.Ast.Title);
-            }
-
-            foreach (var module in file.Ast.Modules)
-            {
-                modulesInChapter.Add(module.Title);
-            }
-        }
-
-        var chapters = chapterOrder
-            .Select(title => new IrChapter(
-                title,
-                chapterDescriptions.TryGetValue(title, out var description) ? description : null,
-                chapterModules[title]))
-            .ToList();
-
         var modules = new List<IrModule>();
-        var chapterEdges = new Dictionary<(string From, string To), List<string>>();
+        var seenModuleIds = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var file in project.WeftFiles)
         {
             foreach (var module in file.Ast.Modules)
             {
-                modules.Add(BuildModule(module, file.Ast.Title, moduleChapters));
-
-                if (module.Exit is not { } exit)
+                if (!seenModuleIds.Add(module.Title))
                 {
                     continue;
                 }
 
-                foreach (var branch in exit.Branches)
-                {
-                    if (!IsExternal(branch.Target, file.Ast.Title, moduleChapters) ||
-                        !moduleChapters.TryGetValue(branch.Target, out var targetChapter))
-                    {
-                        continue;
-                    }
-
-                    if (!chapterEdges.TryGetValue((file.Ast.Title, targetChapter), out var via))
-                    {
-                        via = new List<string>();
-                        chapterEdges[(file.Ast.Title, targetChapter)] = via;
-                    }
-
-                    var edge = $"{module.Title} -> {branch.Target}";
-                    if (!via.Contains(edge, StringComparer.Ordinal))
-                    {
-                        via.Add(edge);
-                    }
-                }
+                modules.Add(BuildModule(file.FilePath, file.Ast.Title, module));
             }
         }
 
-        var projectInfo = project.WStory is { } wstory
-            ? new IrProjectInfo(
-                wstory.ProjectName,
-                wstory.Summary?.Text,
-                wstory.Docs.Select(static doc => new IrDoc(doc.Title, doc.Body.Text)).ToList())
-            : new IrProjectInfo(
-                Path.GetFileName(Path.TrimEndingDirectorySeparator(project.Folder)),
-                null,
-                Array.Empty<IrDoc>());
-
-        var globals = index.Symbols.Values
-            .Where(static symbol => symbol.Kind == SymbolKind.Variable)
-            .ToDictionary(
-                static symbol => symbol.Name,
-                static symbol => symbol.Value ?? false,
-                StringComparer.Ordinal);
-
-        var entryId = entry ?? modules.FirstOrDefault()?.Id;
+        var globals = model.Symbols.Variables
+            .Select(static variable => new IrGlobal(variable.Name, variable.Initial))
+            .ToList();
 
         return new StoryGraph(
-            1,
+            2,
             "END",
-            entryId,
-            projectInfo,
-            chapters,
+            entry ?? modules.FirstOrDefault()?.Id,
             globals,
-            modules,
-            chapterEdges
-                .Select(static pair => new IrChapterEdge(pair.Key.From, pair.Key.To, pair.Value))
-                .ToList());
+            modules);
     }
 
     private static IrModule BuildModule(
-        ModuleSyntax module,
-        string chapter,
-        IReadOnlyDictionary<string, string> moduleChapters)
+        string filePath,
+        string chapterId,
+        ModuleSyntax module)
     {
         var content = module.Content
             .Select(ToContentBlock)
             .ToList();
 
-        var exits = new List<IrExit>();
-
-        if (module.Exit is { } exit)
-        {
-            foreach (var branch in exit.Branches)
-            {
-                exits.Add(new IrExit(
-                    exit.Character,
-                    branch.Condition is null ? null : ToBoolExpr(branch.Condition),
-                    branch.Label,
-                    branch.Target,
-                    branch.Effects
-                        .Select(static effect => new IrAssignment(effect.Name, effect.Value))
-                        .ToList(),
-                    IsExternal(branch.Target, chapter, moduleChapters)));
-            }
-        }
+        var exit = module.Exit is { } exitSyntax
+            ? new IrExitBlock(
+                exitSyntax.IsChoiceMode ? ExitMode.Choice : ExitMode.Auto,
+                exitSyntax.Character,
+                exitSyntax.Branches
+                    .Select(branch => new IrExitBranch(
+                        branch.Condition is null ? null : ToBoolExpr(branch.Condition),
+                        branch.Label,
+                        branch.Target,
+                        branch.Effects
+                            .Select(static effect => new IrAssignment(effect.Name, effect.Value))
+                            .ToList(),
+                        new SourceLocation(filePath, branch.Span)))
+                    .ToList(),
+                new SourceLocation(filePath, exitSyntax.Span))
+            : null;
 
         return new IrModule(
             module.Title,
-            module.Title,
+            chapterId,
             module.Scene,
-            chapter,
             content,
-            exits);
+            exit,
+            new SourceLocation(filePath, module.TitleSpan));
     }
-
-    private static bool IsExternal(
-        string target,
-        string sourceChapter,
-        IReadOnlyDictionary<string, string> moduleChapters)
-        => !string.Equals(target, "END", StringComparison.Ordinal) &&
-           moduleChapters.TryGetValue(target, out var targetChapter) &&
-           !string.Equals(targetChapter, sourceChapter, StringComparison.Ordinal);
 
     private static IrContentBlock ToContentBlock(ContentSyntax content)
         => content switch

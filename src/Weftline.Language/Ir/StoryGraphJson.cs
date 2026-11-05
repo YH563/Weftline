@@ -16,6 +16,7 @@ public static class StoryGraphJson
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
     public static string Serialize(StoryGraph graph)

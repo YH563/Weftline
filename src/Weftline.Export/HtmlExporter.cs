@@ -5,9 +5,9 @@ namespace Weftline.Export;
 
 public static class HtmlExporter
 {
-    public static string Export(StoryGraph graph)
+    public static string Export(ProjectModel model, StoryGraph graph)
     {
-        var title = graph.Project?.Name ?? "Weftline Story";
+        var title = model.Project.Name;
         var json = StoryGraphJson.Serialize(graph).Replace("</", "<\\/", StringComparison.Ordinal);
 
         return Template
@@ -61,7 +61,7 @@ public static class HtmlExporter
     </main>
     <script>
     const graph = __GRAPH__;
-    const state = { ...graph.globals };
+    const state = Object.fromEntries((graph.globals || []).map(g => [g.name, g.initial]));
     const story = document.getElementById('story');
     const chapter = document.getElementById('chapter');
     const meta = document.getElementById('meta');
@@ -120,12 +120,20 @@ public static class HtmlExporter
         return;
       }
 
-      chapter.textContent = mod.chapter || '';
-      const exits = (mod.exits || []).filter(e => evalExpr(e.condition));
+      chapter.textContent = mod.chapterId || '';
+      const branches = mod.exit ? (mod.exit.branches || []) : [];
+      const exits = branches.filter(e => evalExpr(e.condition));
       const auto = exits.filter(e => !e.label);
       const choices = exits.filter(e => e.label);
 
-      story.innerHTML = `<div class="module">@module ${escapeHtml(mod.title)}${mod.scene ? ` · ${escapeHtml(mod.scene)}` : ''}</div><div class="content">${(mod.content || []).map(contentHtml).join('')}</div>`;
+      story.innerHTML = `<div class="module">@module ${escapeHtml(mod.id)}${mod.scene ? ` · ${escapeHtml(mod.scene)}` : ''}</div><div class="content">${(mod.content || []).map(contentHtml).join('')}</div>`;
+
+      if (choices.length && mod.exit && mod.exit.character) {
+        const prompt = document.createElement('p');
+        prompt.className = 'module';
+        prompt.textContent = mod.exit.character;
+        story.appendChild(prompt);
+      }
 
       if (choices.length) {
         const box = document.createElement('div');
@@ -150,7 +158,7 @@ public static class HtmlExporter
 
     document.getElementById('restart').addEventListener('click', () => {
       for (const key of Object.keys(state)) delete state[key];
-      Object.assign(state, graph.globals);
+      for (const global of graph.globals || []) state[global.name] = global.initial;
       render(graph.entry);
     });
 

@@ -51,13 +51,11 @@ public sealed class CompilationResult
 /// <summary>
 /// 编译器的公共入口。
 ///
-/// 目前提供源码解析：源码文本 -> AST + 诊断。
-/// 语义解析和 StoryGraph IR 尚未接入。
+/// 单文件入口：源码文本 -> AST + 单文件符号绑定 + 诊断。
+/// 项目级图与投影由 `ProjectCompiler` 提供。
 ///
-/// Public entry point for the compiler.
-///
-/// Currently provides source parsing: source text -> AST + diagnostics.
-/// Semantic resolution and StoryGraph IR are not included yet.
+/// Single-file entry point: source text -> AST + single-file binding + diagnostics.
+/// Project-level graph and projections are provided by `ProjectCompiler`.
 /// </summary>
 public static class WeftlineCompiler
 {

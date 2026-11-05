@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -6,6 +7,8 @@ namespace Weftline.App.ViewModels;
 
 public partial class EditorHostViewModel : ObservableObject
 {
+    public event EventHandler<EditorViewModel>? DocumentTextChanged;
+
     [ObservableProperty]
     private EditorViewModel? _selectedDocument;
 
@@ -42,12 +45,18 @@ public partial class EditorHostViewModel : ObservableObject
             document.UpdateText(exception.Message, false);
         }
 
+        document.PropertyChanged += OnDocumentPropertyChanged;
         Documents.Add(document);
         SelectedDocument = document;
     }
 
     public void CloseAll()
     {
+        foreach (var document in Documents)
+        {
+            document.PropertyChanged -= OnDocumentPropertyChanged;
+        }
+
         Documents.Clear();
         SelectedDocument = null;
     }
@@ -87,6 +96,7 @@ public partial class EditorHostViewModel : ObservableObject
             return;
         }
 
+        document.PropertyChanged -= OnDocumentPropertyChanged;
         Documents.RemoveAt(index);
 
         if (ReferenceEquals(SelectedDocument, document))
@@ -99,6 +109,15 @@ public partial class EditorHostViewModel : ObservableObject
 
     partial void OnSelectedDocumentChanged(EditorViewModel? value)
         => OnPropertyChanged(nameof(HasDocument));
+
+    private void OnDocumentPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(EditorViewModel.Text) &&
+            sender is EditorViewModel document)
+        {
+            DocumentTextChanged?.Invoke(this, document);
+        }
+    }
 
     private static bool IsSameOrUnder(string path, string root)
         => string.Equals(path, root, StringComparison.OrdinalIgnoreCase) ||

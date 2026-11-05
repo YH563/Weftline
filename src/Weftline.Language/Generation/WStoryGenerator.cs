@@ -99,6 +99,8 @@ public static class WStoryGenerator
 
         WriteGroup(builder, "chapters", "chapter", chapters, chapterDescriptions);
 
+        // @docs 是手写的世界设定资料，不是剧情正文；生成时原样保留。
+        // @docs are hand-written world-setting notes, not story text; preserve them as-is.
         if (existing is { Docs.Count: > 0 })
         {
             builder.AppendLine();

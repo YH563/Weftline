@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Weftline.Graph\Weftline.Graph.csproj" />
     <ProjectReference Include="..\Weftline.Language\Weftline.Language.csproj" />
     <ProjectReference Include="..\Weftline.Export\Weftline.Export.csproj" />
   </ItemGroup>

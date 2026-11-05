@@ -55,7 +55,7 @@ static int Validate(string folder)
     PrintProjectDiagnostics(result.Diagnostics, Console.Out);
 
     Console.WriteLine(
-        $"Validated {result.Graph.Modules.Count} modules, " +
+        $"Validated {result.Index.Modules.Count} modules, " +
         $"{result.Diagnostics.Count} diagnostics.");
 
     return result.HasErrors ? 1 : 0;
@@ -72,7 +72,13 @@ static int Ir(string folder, string? outputPath)
     var result = ProjectCompiler.Compile(folder);
     PrintProjectDiagnostics(result.Diagnostics, Console.Error);
 
-    var json = StoryGraphJson.Serialize(result.Graph);
+    if (result.Graph is not { } graph)
+    {
+        Console.Error.WriteLine("IR not generated because the project has errors.");
+        return 1;
+    }
+
+    var json = StoryGraphJson.Serialize(graph);
 
     if (outputPath is not null)
     {
@@ -98,6 +104,12 @@ static int Graph(string folder, string? outputPath)
     var result = ProjectCompiler.Compile(folder);
     PrintProjectDiagnostics(result.Diagnostics, Console.Error);
 
+    if (result.Graph is not { } graph)
+    {
+        Console.Error.WriteLine("Graph not generated because the project has errors.");
+        return 1;
+    }
+
     StreamWriter? fileWriter = null;
     var writer = Console.Out;
 
@@ -109,7 +121,7 @@ static int Graph(string folder, string? outputPath)
 
     try
     {
-        StoryGraphPrinter.Print(result.Graph, writer);
+        StoryGraphPrinter.Print(graph, writer);
     }
     finally
     {

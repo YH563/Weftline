@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Weftline.App.Models;
 using Weftline.App.Services;
+using Weftline.Language.Diagnostics;
 using Weftline.Language.Projects;
 
 namespace Weftline.App.ViewModels;
@@ -12,7 +13,13 @@ namespace Weftline.App.ViewModels;
 public partial class MainWindowViewModel : ObservableObject
 {
     private readonly IDialogService _dialogs;
+    private readonly CompilationCache _compilationCache = new();
+    private readonly SemaphoreSlim _compileGate = new(1, 1);
     private EditorViewModel? _observedDocument;
+    private CancellationTokenSource? _compileCts;
+    private ProjectCompilationResult? _lastGoodResult;
+    private string? _projectFolder;
+    private long _editVersion;
 
     public MainWindowViewModel(IDialogService dialogs)
     {
@@ -20,12 +27,17 @@ public partial class MainWindowViewModel : ObservableObject
         Explorer = new ProjectExplorerViewModel(dialogs);
         Editor = new EditorHostViewModel();
         Status = new StatusBarViewModel();
+        Graph = new GraphViewModel();
 
         Explorer.FileOpenRequested += OnFileOpenRequested;
         Explorer.FileSystemChanged += OnFileSystemChanged;
         Editor.PropertyChanged += OnEditorPropertyChanged;
+        Editor.DocumentTextChanged += OnDocumentTextChanged;
+        Editor.Documents.CollectionChanged += (_, _) => ScheduleCompile();
         Status.UpdateDocument(Editor.SelectedDocument);
-        _ = RefreshProjectAsync(Explorer.RootPath);
+
+        _projectFolder = Explorer.RootPath;
+        _ = CompileNowAsync();
     }
 
     public ProjectExplorerViewModel Explorer { get; }
@@ -33,6 +45,10 @@ public partial class MainWindowViewModel : ObservableObject
     public EditorHostViewModel Editor { get; }
 
     public StatusBarViewModel Status { get; }
+
+    public GraphViewModel Graph { get; }
+
+    public event EventHandler? ProjectOpened;
 
     [RelayCommand]
     private async Task OpenProjectAsync()
@@ -46,7 +62,12 @@ public partial class MainWindowViewModel : ObservableObject
 
         Editor.CloseAll();
         Explorer.Load(folder);
-        await RefreshProjectAsync(folder).ConfigureAwait(true);
+        _projectFolder = folder;
+        _compilationCache.Clear();
+        _lastGoodResult = null;
+        Graph.Reset();
+        ProjectOpened?.Invoke(this, EventArgs.Empty);
+        await CompileNowAsync().ConfigureAwait(true);
         Status.SetStatus($"已打开：{GetFolderName(folder)}");
     }
 
@@ -66,8 +87,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             await File.WriteAllTextAsync(document.FilePath, document.Text).ConfigureAwait(true);
             document.IsModified = false;
-            Status.SetStatus($"已保存：{Path.GetFileName(document.FilePath)}");
-            await RefreshProjectAsync(Explorer.RootPath).ConfigureAwait(true);
+            await CompileNowAsync().ConfigureAwait(true);
             Status.SetStatus($"已保存：{Path.GetFileName(document.FilePath)}");
         }
         catch (Exception exception)
@@ -106,7 +126,7 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private async Task ValidateAsync()
     {
-        await RefreshProjectAsync(Explorer.RootPath).ConfigureAwait(true);
+        await CompileNowAsync().ConfigureAwait(true);
         Status.SetStatus("校验完成");
     }
 
@@ -134,7 +154,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task HandleFileSystemChangedAsync(ProjectFileChange change)
     {
-        await RefreshProjectAsync(Explorer.RootPath).ConfigureAwait(true);
+        await CompileNowAsync().ConfigureAwait(true);
         Status.SetStatus(change.Kind switch
         {
             ProjectFileChangeKind.Created => $"已新建：{Path.GetFileName(change.Path)}",
@@ -178,23 +198,153 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    private async Task<ProjectCompilationResult?> RefreshProjectAsync(string folder)
+    private void OnDocumentTextChanged(object? sender, EditorViewModel document)
+        => ScheduleCompile();
+
+    private void ScheduleCompile()
     {
+        if (string.IsNullOrWhiteSpace(_projectFolder))
+        {
+            return;
+        }
+
+        _compileCts?.Cancel();
+
+        var cts = new CancellationTokenSource();
+        _compileCts = cts;
+        var version = Interlocked.Increment(ref _editVersion);
+        _ = CompileAfterDelayAsync(version, cts);
+    }
+
+    private async Task CompileAfterDelayAsync(long version, CancellationTokenSource cts)
+    {
+        try
+        {
+            await Task.Delay(150, cts.Token).ConfigureAwait(true);
+            await CompileCoreAsync(version, cts).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task CompileNowAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_projectFolder))
+        {
+            Status.UpdateProject(null);
+            return;
+        }
+
+        _compileCts?.Cancel();
+
+        var cts = new CancellationTokenSource();
+        _compileCts = cts;
+        var version = Interlocked.Increment(ref _editVersion);
+        await CompileCoreAsync(version, cts).ConfigureAwait(true);
+    }
+
+    private async Task CompileCoreAsync(long version, CancellationTokenSource cts)
+    {
+        var folder = _projectFolder;
+
+        if (string.IsNullOrWhiteSpace(folder))
+        {
+            return;
+        }
+
+        var snapshot = CreateSnapshot(folder, version);
         Status.SetStatus("正在分析项目…");
+
+        ProjectCompilationResult result;
 
         try
         {
-            var result = await Task.Run(() => ProjectCompiler.Compile(folder)).ConfigureAwait(true);
-            Status.UpdateProject(result);
-            Status.SetStatus("就绪");
-            return result;
+            await _compileGate.WaitAsync(cts.Token).ConfigureAwait(true);
+
+            try
+            {
+                result = await Task.Run(
+                    () => ProjectCompiler.Compile(
+                        snapshot,
+                        _compilationCache,
+                        new CompilationOptions(AllowPartial: true, BuildProjection: true)),
+                    cts.Token).ConfigureAwait(true);
+            }
+            finally
+            {
+                _compileGate.Release();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            return;
         }
         catch (Exception exception)
         {
-            Status.UpdateProject(null);
-            Status.SetStatus($"分析失败：{exception.Message}");
-            return null;
+            if (!cts.IsCancellationRequested)
+            {
+                Status.UpdateProject(null);
+                Status.SetStatus($"分析失败：{exception.Message}");
+            }
+
+            return;
         }
+
+        if (cts.IsCancellationRequested || version != _editVersion)
+        {
+            return;
+        }
+
+        ApplyCompileResult(result);
+    }
+
+    private ProjectSnapshot CreateSnapshot(string folder, long version)
+    {
+        var documents = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var document in Editor.Documents)
+        {
+            if (!string.IsNullOrWhiteSpace(document.FilePath))
+            {
+                documents[document.FilePath] = document.Text;
+            }
+        }
+
+        return new ProjectSnapshot(folder, version, documents);
+    }
+
+    private void ApplyCompileResult(ProjectCompilationResult result)
+    {
+        Status.UpdateProject(result);
+
+        var errors = result.Diagnostics.Count(
+            static item => item.Diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var warnings = result.Diagnostics.Count(
+            static item => item.Diagnostic.Severity == DiagnosticSeverity.Warning);
+
+        Status.SetStatus(errors == 0 ? "就绪" : $"分析完成：{errors} 个错误");
+
+        var moduleCount = result.Graph?.Modules.Count ?? 0;
+
+        if (result.Projection is { } projection && moduleCount > 0)
+        {
+            Graph.Projection = projection;
+            _lastGoodResult = result;
+            Graph.StatusText = $"{moduleCount} 模块 · {errors} 错误 · {warnings} 警告";
+            return;
+        }
+
+        if (_lastGoodResult?.Projection is { } lastProjection)
+        {
+            Graph.Projection = lastProjection;
+            Graph.StatusText = $"保留上一次可用图 · {errors} 错误 · {warnings} 警告";
+            return;
+        }
+
+        Graph.Projection = result.Projection;
+        Graph.StatusText = errors == 0 ? "暂无模块" : $"{errors} 错误 · {warnings} 警告";
     }
 
     private static string GetFolderName(string folder)

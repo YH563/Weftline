@@ -11,62 +11,42 @@ public static class StoryGraphPrinter
         writer.WriteLine(
             $"StoryGraph schema={graph.SchemaVersion} entry={graph.Entry ?? "<none>"} end={graph.End}");
 
-        if (graph.Project is { } project)
-        {
-            writer.WriteLine($"Project \"{project.Name}\"");
-        }
-
-        if (graph.Chapters.Count > 0)
-        {
-            writer.WriteLine("Chapters");
-            foreach (var chapter in graph.Chapters)
-            {
-                var description = chapter.Description is null ? string.Empty : $" description=\"{chapter.Description}\"";
-                writer.WriteLine(
-                    $"  \"{chapter.Title}\" modules=[{string.Join(", ", chapter.Modules)}]{description}");
-            }
-        }
-
-        if (graph.ChapterEdges.Count > 0)
-        {
-            writer.WriteLine("ChapterEdges");
-            foreach (var edge in graph.ChapterEdges)
-            {
-                writer.WriteLine(
-                    $"  \"{edge.From}\" -> \"{edge.To}\" via {string.Join(", ", edge.Via)}");
-            }
-        }
-
         if (graph.Globals.Count > 0)
         {
             writer.WriteLine("Globals");
-            foreach (var (name, value) in graph.Globals)
+            foreach (var global in graph.Globals)
             {
-                writer.WriteLine($"  {name} = {(value ? "true" : "false")}");
+                writer.WriteLine($"  {global.Name} = {(global.Initial ? "true" : "false")}");
             }
         }
 
         foreach (var module in graph.Modules)
         {
             var scene = module.Scene is null ? string.Empty : $" scene={module.Scene}";
-            var chapter = module.Chapter is null ? string.Empty : $" chapter=\"{module.Chapter}\"";
-            writer.WriteLine($"Module \"{module.Id}\"{chapter}{scene}");
+            writer.WriteLine($"Module \"{module.Id}\" chapter=\"{module.ChapterId}\"{scene}");
 
             foreach (var content in module.Content)
             {
                 writer.WriteLine($"  content: {FormatContent(content)}");
             }
 
-            foreach (var exit in module.Exits)
+            if (module.Exit is not { } exit)
             {
-                var label = exit.Label is null ? string.Empty : $"[{exit.Label}] ";
-                var condition = exit.Condition is null ? string.Empty : $"when {FormatCondition(exit.Condition)} ";
-                var effects = exit.Effects.Count == 0
-                    ? string.Empty
-                    : " { " + string.Join("; ", exit.Effects.Select(static effect => $"{effect.Name} = {(effect.Value ? "true" : "false")}")) + " }";
-                var external = exit.External ? " (external)" : string.Empty;
+                continue;
+            }
 
-                writer.WriteLine($"  edge: {label}{condition}-> {exit.Target}{effects}{external}");
+            var character = exit.Character is null ? string.Empty : $" character={exit.Character}";
+            writer.WriteLine($"  exit: {exit.Mode.ToString().ToLowerInvariant()}{character}");
+
+            foreach (var branch in exit.Branches)
+            {
+                var label = branch.Label is null ? string.Empty : $"[{branch.Label}] ";
+                var condition = branch.Condition is null ? string.Empty : $"when {FormatCondition(branch.Condition)} ";
+                var effects = branch.Effects.Count == 0
+                    ? string.Empty
+                    : " { " + string.Join("; ", branch.Effects.Select(static effect => $"{effect.Name} = {(effect.Value ? "true" : "false")}")) + " }";
+
+                writer.WriteLine($"    edge: {label}{condition}-> {branch.Target}{effects}");
             }
         }
     }

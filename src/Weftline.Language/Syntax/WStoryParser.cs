@@ -3,12 +3,33 @@ using Weftline.Language.Source;
 
 namespace Weftline.Language.Syntax;
 
+// `.wstory` 项目总览的解析入口。本文件与 Parser.cs 共享行级工具，
+// 只负责项目级指令；缩进仅用于显示，解析时全部通过 Trim 忽略。
+// Entry points for `.wstory` project overviews. This file shares the line
+// helpers in Parser.cs and only handles project-level directives. Indentation is
+// display-only and ignored by trimming.
 public sealed partial class Parser
 {
+    /// <summary>
+    /// 解析一个 `.wstory` 项目总览文件。
+    ///
+    /// 文件必须以 @project 开始，后面是 @summary、@chapters、@docs、
+    /// @chars、@items、@scenes、@vars 等顶层分组。这里的声明是工具生成的
+    /// 描述性副本，真正的符号声明在 `.weft` 中。
+    ///
+    /// Parses one `.wstory` project overview file.
+    ///
+    /// The file must start with @project, followed by top-level groups such as
+    /// @summary, @chapters, @docs, @chars, @items, @scenes, and @vars. These
+    /// declarations are generated descriptive copies; the real symbol
+    /// declarations live in `.weft` files.
+    /// </summary>
     private WStoryFileSyntax ParseWStoryFile()
     {
         SkipBlankAndComments();
 
+        // @project 必须是第一条有效行；否则报错并返回空语法树。
+        // @project must be the first meaningful line; otherwise report and return an empty tree.
         if (IsAtEnd || !IsDirective(CurrentTrimmed, "@project"))
         {
             _diagnostics.Error(
@@ -54,6 +75,10 @@ public sealed partial class Parser
         var scenes = new List<WStorySceneSyntax>();
         var variables = new List<WStoryVariableSyntax>();
 
+        // 顶层分组可以任意顺序出现；每个分组内部由对应的 ParseXxx 循环消费，
+        // 因此这里只需要识别分组头并把控制权交出去。
+        // Top-level groups may appear in any order. Each ParseXxx loop consumes
+        // its own entries, so this loop only recognizes group headers and delegates.
         while (true)
         {
             SkipBlankAndComments();
@@ -157,8 +182,17 @@ public sealed partial class Parser
             new TextSpan(0, _source.Length));
     }
 
+    /// <summary>
+    /// 解析单行概要：@summary [文本]。
+    /// 方括号可以跨行，实际读取由 ParsePlainTextBlockFrom 完成。
+    ///
+    /// Parses the single-line summary @summary [text]. The bracket may span
+    /// multiple lines; ParsePlainTextBlockFrom does the actual reading.
+    /// </summary>
     private TextBlockSyntax ParseSummary(SourceLine line)
     {
+        // 概要必须带方括号；缺失时消费当前行并返回空文本，保证解析继续。
+        // The summary must have brackets; on failure consume the line and return empty text.
         var bracket = line.Text.IndexOf('[', StringComparison.Ordinal);
         if (bracket < 0)
         {
@@ -173,6 +207,13 @@ public sealed partial class Parser
         return ParsePlainTextBlockFrom(line, bracket);
     }
 
+    /// <summary>
+    /// 解析 @chapters 分组下的 @chapter 条目：@chapter &lt;标题&gt; [描述]。
+    /// 描述可省略；标题与描述在第一个 [ 处分开。
+    ///
+    /// Parses @chapter entries under @chapters: @chapter &lt;title&gt; [description].
+    /// The description is optional and is split from the title at the first [.
+    /// </summary>
     private void ParseChapters(List<WStoryChapterSyntax> chapters)
     {
         while (true)
@@ -190,6 +231,11 @@ public sealed partial class Parser
                 return;
             }
 
+            // bracket 是原始行中的位置，用于交给 ParsePlainTextBlockFrom；
+            // declarationEnd 是 trimmed 中的位置，只用于切出标题。
+            // bracket is the position in the raw line and is passed to
+            // ParsePlainTextBlockFrom; declarationEnd is the position in trimmed
+            // and is only used to slice out the title.
             var bracket = line.Text.IndexOf('[', StringComparison.Ordinal);
             var declarationEnd = bracket >= 0
                 ? trimmed.IndexOf('[', StringComparison.Ordinal)
@@ -203,6 +249,8 @@ public sealed partial class Parser
                 ? line.Span
                 : SpanAfter(line, "@chapter", title);
 
+            // 有 [ 时解析描述（可能跨行）；没有 [ 时只消费当前行。
+            // With [, parse the description (possibly multi-line); otherwise consume only this line.
             TextBlockSyntax? description = null;
             int end;
 
@@ -230,6 +278,21 @@ public sealed partial class Parser
         }
     }
 
+    /// <summary>
+    /// 解析 @docs 分组下的设定文档：@doc &lt;标题&gt; [正文]。
+    /// 与 @chapter 不同，@doc 必须带正文方括号。
+    ///
+    /// Parses world-setting docs under @docs: @doc &lt;title&gt; [body].
+    /// Unlike @chapter, @doc requires the body brackets.
+    /// </summary>
+    /// <remarks>
+    /// @doc 是作者的设定资料，不属于剧情执行模型；解析器只保留标题和正文。
+    /// 完整剧本写在 `.weft`，实体短描述写在对应的声明分组。
+    ///
+    /// @doc holds authoring notes, not part of the executable story; the parser
+    /// keeps only the title and body. Script text belongs in `.weft`, and short
+    /// entity descriptions belong in their declaration groups.
+    /// </remarks>
     private void ParseDocs(List<DocSyntax> docs)
     {
         while (true)
@@ -260,6 +323,8 @@ public sealed partial class Parser
                 ? line.Span
                 : SpanAfter(line, "@doc", title);
 
+            // @doc 的正文是必需的；缺失时仍然消费当前行，避免卡在同一行。
+            // The @doc body is required; when missing, still consume the line to avoid getting stuck.
             TextBlockSyntax body;
             int end;
 
@@ -288,6 +353,23 @@ public sealed partial class Parser
         }
     }
 
+    /// <summary>
+    /// 解析一组「名字 + 可选描述」条目，供 @chars / @items / @scenes 共用。
+    /// 语法为 &lt;keyword&gt; &lt;名称&gt; [描述]，名称必须是合法标识符。
+    /// 具体节点类型由 factory 决定。
+    ///
+    /// Parses a group of "name + optional description" entries shared by
+    /// @chars, @items, and @scenes. The syntax is &lt;keyword&gt; &lt;name&gt; [description];
+    /// the name must be a valid identifier. The factory decides the concrete node type.
+    /// </summary>
+    /// <param name="groupLine">
+    /// 分组头行，目前未参与解析，保留以对齐调用处。
+    /// The group header line; currently unused by parsing, kept for call-site symmetry.
+    /// </param>
+    /// <param name="keyword">条目关键字，例如 @char / @item / @scene。 / The entry keyword, e.g. @char / @item / @scene.</param>
+    /// <param name="target">收集解析结果的列表。 / The list receiving parsed entries.</param>
+    /// <param name="factory">把名字、描述和范围转换成具体语法节点。 / Converts a name, description, and span into a concrete syntax node.</param>
+    /// <typeparam name="T">条目语法节点类型。 / The entry syntax node type.</typeparam>
     private void ParseWStoryNames<T>(
         string groupLine,
         string keyword,
@@ -309,6 +391,9 @@ public sealed partial class Parser
                 return;
             }
 
+            // 与 @chapter 相同：原始行位置用于读描述，trimmed 位置用于切名字。
+            // Same as @chapter: the raw-line position reads the description, the
+            // trimmed position slices the name.
             var bracket = line.Text.IndexOf('[', StringComparison.Ordinal);
             var declarationEnd = bracket >= 0
                 ? trimmed.IndexOf('[', StringComparison.Ordinal)
@@ -345,6 +430,13 @@ public sealed partial class Parser
         }
     }
 
+    /// <summary>
+    /// 解析 @vars 分组下的 @var 条目：@var &lt;布尔变量名&gt; true|false [描述]。
+    /// 变量初值必须显式写出；描述可选。
+    ///
+    /// Parses @var entries under @vars: @var &lt;bool name&gt; true|false [description].
+    /// The initial value is mandatory; the description is optional.
+    /// </summary>
     private void ParseWStoryVariables(List<WStoryVariableSyntax> variables)
     {
         while (true)
@@ -385,6 +477,8 @@ public sealed partial class Parser
                 end = line.Span.End;
             }
 
+            // 声明部分必须恰好是「变量名 + 布尔初值」两段。
+            // The declaration part must be exactly two tokens: name and boolean value.
             var parts = declaration.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length != 2 ||
                 !SyntaxFacts.IsIdentifier(parts[0]) ||
@@ -405,11 +499,29 @@ public sealed partial class Parser
         }
     }
 
+    /// <summary>
+    /// 从指定方括号开始读取一个纯文本块，供 @summary、@chapter、@doc、
+    /// 声明描述等复用。
+    ///
+    /// 与 `.weft` 的正文块不同，这里不解析 {名字} 引用，只保留纯文本；
+    /// 每行去掉首尾空白，多行之间用 \n 连接。无论是否闭合，都会消费到
+    /// 闭合的 ] 所在行（或文件末尾）。
+    ///
+    /// Reads a plain text block starting at the given bracket. It is shared by
+    /// @summary, @chapter, @doc, and declaration descriptions.
+    ///
+    /// Unlike `.weft` content blocks, this does not parse {name} references and
+    /// keeps plain text only. Each line is trimmed and multiple lines are joined
+    /// with \n. Whether or not the block closes, parsing consumes through the
+    /// line containing the closing ] (or EOF).
+    /// </summary>
     private TextBlockSyntax ParsePlainTextBlockFrom(SourceLine openingLine, int openBracket)
     {
         var text = openingLine.Text;
         var close = text.IndexOf(']', openBracket + 1);
 
+        // 单行快路径：] 在同一行闭合，直接取中间文本。
+        // Fast path: ] closes on the same line, so take the text in between.
         if (close >= 0)
         {
             var inline = text[(openBracket + 1)..close].Trim();
@@ -417,6 +529,9 @@ public sealed partial class Parser
             return new TextBlockSyntax(inline, openingLine.Span);
         }
 
+        // 多行：先收下开括号之后的剩余内容，再逐行读到 ]。
+        // Multi-line: collect the remainder after the opening bracket, then read
+        // line by line until ].
         var lines = new List<string>
         {
             text[(openBracket + 1)..].Trim()
@@ -434,6 +549,8 @@ public sealed partial class Parser
 
             if (closeIndex >= 0)
             {
+                // end 指向 ] 之后；同一行 ] 之后的内容随行一起被消费并忽略。
+                // end points just past ]; anything after ] on this line is consumed and ignored.
                 lines.Add(line.Text[..closeIndex].Trim());
                 end = line.Span.Start + closeIndex + 1;
                 closed = true;
@@ -455,6 +572,8 @@ public sealed partial class Parser
             end = LastLineEnd();
         }
 
+        // 去掉块首尾的空行，避免多行描述产生多余的换行。
+        // Drop leading and trailing empty lines so multi-line descriptions do not add stray newlines.
         while (lines.Count > 0 && lines[0].Length == 0)
         {
             lines.RemoveAt(0);

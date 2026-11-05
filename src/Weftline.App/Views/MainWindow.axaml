@@ -7,6 +7,7 @@
         x:Class="Weftline.App.Views.MainWindow"
         xmlns:views="using:Weftline.App.Views"
         xmlns:vm="using:Weftline.App.ViewModels"
+        xmlns:graph="using:Weftline.Graph.Controls"
         x:DataType="vm:MainWindowViewModel"
         x:CompileBindings="True"
         Title="Weftline"
@@ -16,6 +17,10 @@
         MinHeight="600"
         WindowStartupLocation="CenterScreen">
 
+    <suki:SukiWindow.KeyBindings>
+        <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}" />
+    </suki:SukiWindow.KeyBindings>
+
     <Grid RowDefinitions="Auto,*,Auto">
         <views:MainMenuView Grid.Row="0" Height="25" Padding="3"/>
 
@@ -24,7 +29,9 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="280" MinWidth="180" MaxWidth="520" />
                 <ColumnDefinition Width="6" />
-                <ColumnDefinition Width="*" MinWidth="400" />
+                <ColumnDefinition Width="*" MinWidth="360" />
+                <ColumnDefinition Width="6" />
+                <ColumnDefinition Width="520" MinWidth="300" MaxWidth="900" />
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0"
@@ -44,7 +51,7 @@
                           Background="Transparent" />
 
             <Border Grid.Column="2"
-                    Margin="0,6,6,6"
+                    Margin="0,6,0,6"
                     Background="#FFFFFF"
                     BorderBrush="#E2E5EA"
                     BorderThickness="1"
@@ -52,6 +59,46 @@
                     ClipToBounds="True">
                 <views:EditorView x:Name="Editor"
                                       DataContext="{Binding Editor}" />
+            </Border>
+
+            <GridSplitter Grid.Column="3"
+                          Width="6"
+                          ResizeDirection="Columns"
+                          Background="Transparent" />
+
+            <Border Grid.Column="4"
+                    Margin="0,6,6,6"
+                    Background="#F6F8FC"
+                    BorderBrush="#E2E5EA"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    ClipToBounds="True">
+                <Grid RowDefinitions="Auto,*">
+                    <Grid Grid.Row="0"
+                          ColumnDefinitions="*,Auto"
+                          Margin="12,8">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="剧情图"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="#34405A" />
+                            <TextBlock Text="{Binding Graph.StatusText}"
+                                       FontSize="11"
+                                       Foreground="#7B8699" />
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="重置布局"
+                                Padding="10,4"
+                                Click="OnResetGraphLayout" />
+                    </Grid>
+
+                    <ScrollViewer Grid.Row="1"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto">
+                        <graph:StoryGraphView x:Name="GraphView"
+                                              Projection="{Binding Graph.Projection}" />
+                    </ScrollViewer>
+                </Grid>
             </Border>
         </Grid>
 

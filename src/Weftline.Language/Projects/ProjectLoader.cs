@@ -47,45 +47,154 @@ public sealed class LoadedProject
 
 /// <summary>
 /// 从扁平文件夹加载项目。非递归，只读取顶层 `.weft` 和 `.wstory`。
+/// 快照中的文件优先使用内存文本，其余文件从磁盘读取。
 /// Loads a project from a flat folder. Non-recursive; reads only top-level
-/// `.weft` and `.wstory` files.
+/// `.weft` and `.wstory` files. Files in the snapshot use in-memory text; the
+/// rest are read from disk.
 /// </summary>
 public static class ProjectLoader
 {
+    /// <summary>
+    /// 从磁盘文件夹加载项目。
+    /// Loads a project from a disk folder.
+    /// </summary>
     public static LoadedProject Load(string folder)
+        => Load(ProjectSnapshot.FromFolder(folder), null);
+
+    /// <summary>
+    /// 从快照加载项目；可选用解析缓存复用 AST。
+    /// Loads a project from a snapshot, optionally reusing ASTs from a parse cache.
+    /// </summary>
+    public static LoadedProject Load(
+        ProjectSnapshot snapshot,
+        CompilationCache? cache = null)
     {
         var diagnostics = new List<ProjectDiagnostic>();
         var weftFiles = new List<ProjectFile>();
 
-        var weftPaths = Directory
-            .EnumerateFiles(folder, "*.weft", SearchOption.TopDirectoryOnly)
+        var documents = snapshot.Documents.ToDictionary(
+            static pair => pair.Key,
+            static pair => pair.Value,
+            StringComparer.Ordinal);
+
+        var weftPaths = EnumeratePaths(snapshot.Folder, "*.weft", documents.Keys)
             .OrderBy(static path => path, StringComparer.Ordinal);
 
         foreach (var path in weftPaths)
         {
-            var result = WeftlineCompiler.ParseFile(path);
-            diagnostics.AddRange(result.Diagnostics.Select(diagnostic => new ProjectDiagnostic(path, diagnostic)));
+            if (!TryReadText(path, documents, out var text))
+            {
+                continue;
+            }
 
-            if (result.Script is WeftFileSyntax weft)
+            WeftFileSyntax? weft;
+            IReadOnlyList<Diagnostic> parseDiagnostics;
+
+            if (cache is not null &&
+                cache.TryGetWeft(path, text, out var cachedWeft, out var cachedDiagnostics))
+            {
+                weft = cachedWeft;
+                parseDiagnostics = cachedDiagnostics;
+            }
+            else
+            {
+                var result = WeftlineCompiler.Parse(text, path);
+                weft = result.Script as WeftFileSyntax;
+                parseDiagnostics = result.Diagnostics;
+                cache?.SetWeft(path, text, weft, parseDiagnostics);
+            }
+
+            diagnostics.AddRange(parseDiagnostics.Select(diagnostic =>
+                new ProjectDiagnostic(path, diagnostic)));
+
+            if (weft is not null)
             {
                 weftFiles.Add(new ProjectFile(path, weft));
             }
         }
 
-        var wstoryPath = Directory
-            .EnumerateFiles(folder, "*.wstory", SearchOption.TopDirectoryOnly)
+        var wstoryPath = EnumeratePaths(snapshot.Folder, "*.wstory", documents.Keys)
             .OrderBy(static path => path, StringComparer.Ordinal)
             .FirstOrDefault();
 
         WStoryFileSyntax? wstory = null;
 
-        if (wstoryPath is not null)
+        if (wstoryPath is not null &&
+            TryReadText(wstoryPath, documents, out var wstoryText))
         {
-            var result = WeftlineCompiler.ParseFile(wstoryPath);
-            diagnostics.AddRange(result.Diagnostics.Select(diagnostic => new ProjectDiagnostic(wstoryPath, diagnostic)));
-            wstory = result.Script as WStoryFileSyntax;
+            IReadOnlyList<Diagnostic> parseDiagnostics;
+
+            if (cache is not null &&
+                cache.TryGetWStory(wstoryPath, wstoryText, out var cachedWStory, out var cachedDiagnostics))
+            {
+                wstory = cachedWStory;
+                parseDiagnostics = cachedDiagnostics;
+            }
+            else
+            {
+                var result = WeftlineCompiler.Parse(wstoryText, wstoryPath);
+                wstory = result.Script as WStoryFileSyntax;
+                parseDiagnostics = result.Diagnostics;
+                cache?.SetWStory(wstoryPath, wstoryText, wstory, parseDiagnostics);
+            }
+
+            diagnostics.AddRange(parseDiagnostics.Select(diagnostic =>
+                new ProjectDiagnostic(wstoryPath, diagnostic)));
         }
 
-        return new LoadedProject(folder, wstory, wstoryPath, weftFiles, diagnostics);
+        return new LoadedProject(
+            snapshot.Folder,
+            wstory,
+            wstoryPath,
+            weftFiles,
+            diagnostics);
     }
+
+    private static IEnumerable<string> EnumeratePaths(
+        string folder,
+        string pattern,
+        IEnumerable<string> snapshotPaths)
+    {
+        var paths = new HashSet<string>(StringComparer.Ordinal);
+
+        if (Directory.Exists(folder))
+        {
+            foreach (var path in Directory.EnumerateFiles(folder, pattern, SearchOption.TopDirectoryOnly))
+            {
+                paths.Add(path);
+            }
+        }
+
+        foreach (var path in snapshotPaths)
+        {
+            if (path.EndsWith(pattern[1..], StringComparison.OrdinalIgnoreCase))
+            {
+                paths.Add(path);
+            }
+        }
+
+        return paths;
+    }
+
+    private static bool TryReadText(
+        string path,
+        IReadOnlyDictionary<string, string> documents,
+        out string text)
+    {
+        if (documents.TryGetValue(path, out var inMemory))
+        {
+            text = inMemory;
+            return true;
+        }
+
+        if (!File.Exists(path))
+        {
+            text = string.Empty;
+            return false;
+        }
+
+        text = File.ReadAllText(path);
+        return true;
+    }
+
 }

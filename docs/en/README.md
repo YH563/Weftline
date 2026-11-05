@@ -8,7 +8,7 @@ Weftline is a text format and tool for game scripts. It aims for three things:
 2. The story structure maps directly to a graph.
 3. A playable HTML demo can be exported with one command.
 
-Current stage: the language core is usable; the desktop editor, graph view, and HTML export are still in development.
+Current stage: the language core and desktop editor are usable, and the main window includes a live story graph; HTML export is still in development.
 
 ---
 
@@ -111,4 +111,4 @@ Non-goals: portraits, audio, saves, localization, voice, RPG stats/inventory, re
 4. **Entry**: no entry declaration; the default is the first module of the first file.
 5. **Scenes**: an optional module tag, not a graph node.
 6. **Variables**: boolean only; declarations must provide an initial value; runtime changes only in branch effects.
-7. **Images**: v0 supports `@fig "path"`, embedded on export.
+7. **Images**: v0 supports `@fig "path"`; it will be embedded once HTML export is wired up.

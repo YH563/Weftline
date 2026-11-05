@@ -87,8 +87,16 @@ public sealed record WStoryChapterSyntax(
     TextSpan Span);
 
 /// <summary>
-/// 一条 @doc 设定文档。
-/// A @doc world-setting document.
+/// 一条 @doc 设定文档：记录不属于单个实体的世界设定资料。
+///
+/// 适合放世界规则、时间线、阵营、术语、主题和未定问题；
+/// 不放完整剧本、角色/道具/场景的短描述，也不放自动生成的声明。
+///
+/// A @doc world-setting document: notes that do not belong to a single entity.
+///
+/// Use it for world rules, timelines, factions, terminology, themes, and open
+/// questions. Do not put full script text, short entity descriptions, or
+/// generated declarations here.
 /// </summary>
 public sealed record DocSyntax(
     string Title,
