@@ -39,3 +39,6 @@ compile_commands.json
 harmony/**/build/
 harmony/**/.hvigor/
 harmony/**/oh_modules/
+
+
+.VSCodeCounter/
