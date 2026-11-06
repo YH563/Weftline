@@ -28,9 +28,18 @@ Current stage: the C++ language core and desktop editor are usable. The desktop 
 - Theme: SukiUI light theme; Inter for UI text and JetBrains Mono for the editor when available.
 - The story graph and Problems panel are wired up; Output/Project Info panels are not yet.
 
+### Build and run
+
+Build the native core first, then the app:
+
 ```bash
+cmake -S native -B native/out/build/release -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+cmake --build native/out/build/release
+dotnet build Weftline.slnx
 dotnet run --project src/Weftline.App
 ```
+
+On Windows, run the same commands from the “x64 Native Tools Command Prompt for VS 2022”; `Weftline.App.csproj` copies `weftline_core.dll` to the output directory automatically. On Linux it copies `libweftline_core.so`.
 
 ### Main UI packages
 

@@ -27,11 +27,20 @@ Weftline 是一个剧情 demo / 叙事演示工具：写剧本、看剧情图、
 - 状态栏：光标行列、选区长度、语言、当前模块/场景、模块/变量数、诊断摘要和运行状态。
 - 剧情图面板：实时展示当前项目投影，支持章节/模块分层、入口/出口、拖动、缩放和 END 拖动。
 - 主题：SukiUI 浅色主题；界面字体使用 Inter，编辑区优先使用 JetBrains Mono。
-- Problems/Output/ProjectInfo 面板暂未接入。
+- Problems 面板已接入；Output/ProjectInfo 面板暂未接入。
+
+### 构建与运行
+
+先构建 native core，再构建 App：
 
 ```bash
+cmake -S native -B native/out/build/release -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+cmake --build native/out/build/release
+dotnet build Weftline.slnx
 dotnet run --project src/Weftline.App
 ```
+
+Windows 在 “x64 Native Tools Command Prompt for VS 2022” 中执行同样命令；`Weftline.App.csproj` 会自动把 `weftline_core.dll` 复制到输出目录。Linux 对应复制 `libweftline_core.so`。
 
 ### 主要 UI 依赖
 

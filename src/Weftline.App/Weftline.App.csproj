@@ -10,11 +10,20 @@
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
-  <!-- 试验用：Linux Release 下把 native core 复制到输出目录，正式发布应改为按 RID 打包。 -->
+  <!-- 开发期：按平台把 native core 复制到输出目录，正式发布应改为按 RID 打包。 -->
   <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)../../native/out/build/release/weftline-core/libweftline_core.so')">
     <None Include="$(MSBuildThisFileDirectory)../../native/out/build/release/weftline-core/libweftline_core.so">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <Link>libweftline_core.so</Link>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows')) And Exists('$(MSBuildThisFileDirectory)../../native/out/build/release/weftline-core/weftline_core.dll')">
+    <None Include="$(MSBuildThisFileDirectory)../../native/out/build/release/weftline-core/weftline_core.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <Link>weftline_core.dll</Link>
     </None>
   </ItemGroup>
 
