@@ -2,7 +2,7 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Media;
 using Weftline.Graph.Rendering;
-using Weftline.Language.Ir;
+using Weftline.Models;
 
 namespace Weftline.Graph.Layout;
 

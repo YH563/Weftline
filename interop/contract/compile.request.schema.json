@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://weftline.local/schema/compile.request.schema.json",
+  "title": "Weftline core compile request",
+  "type": "object",
+  "required": ["schemaVersion", "text"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "filePath": {
+      "type": "string"
+    },
+    "text": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

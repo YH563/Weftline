@@ -7,7 +7,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Weftline.Graph.Layout;
 using Weftline.Graph.Rendering;
-using Weftline.Language.Ir;
+using Weftline.Models;
 
 namespace Weftline.Graph.Controls;
 

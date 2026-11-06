@@ -9,6 +9,11 @@ public partial class EditorHostViewModel : ObservableObject
 {
     public event EventHandler<EditorViewModel>? DocumentTextChanged;
 
+    /// <summary>
+    /// 请求把光标定位到指定文档位置；视图层收到后负责滚动和聚焦。
+    /// </summary>
+    public event EventHandler<EditorViewModel>? NavigationRequested;
+
     [ObservableProperty]
     private EditorViewModel? _selectedDocument;
 
@@ -48,6 +53,23 @@ public partial class EditorHostViewModel : ObservableObject
         document.PropertyChanged += OnDocumentPropertyChanged;
         Documents.Add(document);
         SelectedDocument = document;
+    }
+
+    /// <summary>
+    /// 打开文件并请求定位到指定行列。
+    /// </summary>
+    public void NavigateTo(string path, int line, int column)
+    {
+        OpenFile(path);
+
+        if (SelectedDocument is not { } document)
+        {
+            return;
+        }
+
+        document.CaretLine = Math.Max(1, line);
+        document.CaretColumn = Math.Max(1, column);
+        NavigationRequested?.Invoke(this, document);
     }
 
     public void CloseAll()

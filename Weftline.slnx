@@ -1,12 +1,8 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Weftline.App/Weftline.App.csproj" />
-    <Project Path="src/Weftline.Cli/Weftline.Cli.csproj" />
-    <Project Path="src/Weftline.Export/Weftline.Export.csproj" />
     <Project Path="src/Weftline.Graph/Weftline.Graph.csproj" />
-    <Project Path="src/Weftline.Language/Weftline.Language.csproj" />
-  </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/Weftline.Language.Tests/Weftline.Language.Tests.csproj" />
+    <Project Path="src/Weftline.Models/Weftline.Models.csproj" />
+    <Project Path="src/Weftline.Native/Weftline.Native.csproj" />
   </Folder>
 </Solution>

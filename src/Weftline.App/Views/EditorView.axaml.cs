@@ -60,6 +60,7 @@ public partial class EditorView : UserControl
         if (_host is not null)
         {
             _host.PropertyChanged -= OnHostPropertyChanged;
+            _host.NavigationRequested -= OnNavigationRequested;
         }
 
         _host = DataContext as EditorHostViewModel;
@@ -67,6 +68,7 @@ public partial class EditorView : UserControl
         if (_host is not null)
         {
             _host.PropertyChanged += OnHostPropertyChanged;
+            _host.NavigationRequested += OnNavigationRequested;
             LoadSelectedDocument();
         }
     }
@@ -74,6 +76,14 @@ public partial class EditorView : UserControl
     private void OnHostPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(EditorHostViewModel.SelectedDocument))
+        {
+            LoadSelectedDocument();
+        }
+    }
+
+    private void OnNavigationRequested(object? sender, EditorViewModel document)
+    {
+        if (ReferenceEquals(_host?.SelectedDocument, document))
         {
             LoadSelectedDocument();
         }

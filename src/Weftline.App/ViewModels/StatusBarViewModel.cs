@@ -1,9 +1,15 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using Weftline.Language.Binding;
-using Weftline.Language.Diagnostics;
-using Weftline.Language.Projects;
 
 namespace Weftline.App.ViewModels;
+
+/// <summary>
+/// 状态栏需要的编译摘要，不依赖 C# 或 C++ 的具体结果类型。
+/// </summary>
+public readonly record struct ProjectCompileSummary(
+    int ModuleCount,
+    int VariableCount,
+    int Errors,
+    int Warnings);
 
 public partial class StatusBarViewModel : ObservableObject
 {
@@ -31,6 +37,9 @@ public partial class StatusBarViewModel : ObservableObject
     [ObservableProperty]
     private string _statusText = "就绪";
 
+    /// <summary>
+    /// 根据当前文档更新行列、语言和模块上下文。
+    /// </summary>
     public void UpdateDocument(EditorViewModel? document)
     {
         if (document is null)
@@ -50,26 +59,27 @@ public partial class StatusBarViewModel : ObservableObject
         ContextText = ResolveContext(document);
     }
 
-    public void UpdateProject(ProjectCompilationResult? result)
+    /// <summary>
+    /// 更新模块/变量数量和诊断摘要；null 表示清空。
+    /// </summary>
+    public void UpdateProject(ProjectCompileSummary? summary)
     {
-        if (result is null)
+        if (summary is not { } value)
         {
             SymbolText = "模块 - · 变量 -";
             DiagnosticsText = "无诊断";
             return;
         }
 
-        var moduleCount = result.Index.Modules.Count;
-        var variableCount = result.Index.Symbols.Values.Count(static symbol => symbol.Kind == SymbolKind.Variable);
-        var errors = result.Diagnostics.Count(static item => item.Diagnostic.Severity == DiagnosticSeverity.Error);
-        var warnings = result.Diagnostics.Count(static item => item.Diagnostic.Severity == DiagnosticSeverity.Warning);
-
-        SymbolText = $"模块 {moduleCount} · 变量 {variableCount}";
-        DiagnosticsText = errors == 0 && warnings == 0
+        SymbolText = $"模块 {value.ModuleCount} · 变量 {value.VariableCount}";
+        DiagnosticsText = value.Errors == 0 && value.Warnings == 0
             ? "无诊断"
-            : $"{errors} 错误 · {warnings} 警告";
+            : $"{value.Errors} 错误 · {value.Warnings} 警告";
     }
 
+    /// <summary>
+    /// 设置状态栏短消息。
+    /// </summary>
     public void SetStatus(string message) => StatusText = message;
 
     private static string ResolveLanguage(string path)

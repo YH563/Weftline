@@ -21,7 +21,7 @@
         <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}" />
     </suki:SukiWindow.KeyBindings>
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Grid RowDefinitions="Auto,*,Auto,Auto">
         <views:MainMenuView Grid.Row="0" Height="25" Padding="3"/>
 
         <Grid Grid.Row="1"
@@ -102,6 +102,78 @@
             </Border>
         </Grid>
 
-        <views:StatusBarView Grid.Row="2" DataContext="{Binding Status}" />
+        <Border Grid.Row="2"
+                IsVisible="{Binding IsProblemsVisible}"
+                Height="180"
+                Background="#FFFFFF"
+                BorderBrush="#E2E5EA"
+                BorderThickness="0,1,0,0">
+            <Grid RowDefinitions="Auto,*">
+                <Grid Grid.Row="0"
+                      ColumnDefinitions="*,Auto"
+                      Margin="12,6">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="问题"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="#34405A"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Diagnostics.Count}"
+                                   FontSize="11"
+                                   Foreground="#7B8699"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text="条"
+                                   FontSize="11"
+                                   Foreground="#7B8699"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Content="×"
+                            Command="{Binding ShowProblemsCommand}"
+                            Width="24"
+                            Height="24"
+                            Padding="0"
+                            FontSize="12"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Foreground="#7A8494"
+                            Focusable="False" />
+                </Grid>
+
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding Diagnostics}"
+                         SelectedItem="{Binding SelectedDiagnostic, Mode=TwoWay}"
+                         DoubleTapped="OnDiagnosticDoubleTapped"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Padding="4">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DiagnosticItem">
+                            <Grid ColumnDefinitions="60,70,140,*"
+                                  Margin="2">
+                                <TextBlock Text="{Binding Severity}"
+                                           FontSize="11"
+                                           Foreground="#C65B5B" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding Code}"
+                                           FontSize="11"
+                                           Foreground="#7B8699" />
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding Location}"
+                                           FontSize="11"
+                                           Foreground="#3B4352" />
+                                <TextBlock Grid.Column="3"
+                                           Text="{Binding Message}"
+                                           FontSize="11"
+                                           Foreground="#3B4352"
+                                           TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+
+        <views:StatusBarView Grid.Row="3" DataContext="{Binding Status}" />
     </Grid>
 </suki:SukiWindow>

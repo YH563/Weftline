@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://weftline.local/schema/project.response.schema.json",
+  "title": "Weftline project compile response",
+  "type": "object",
+  "required": ["schemaVersion", "hasErrors", "diagnostics"],
+  "properties": {
+    "schemaVersion": {
+      "const": 2
+    },
+    "version": {
+      "type": "string"
+    },
+    "hasErrors": {
+      "type": "boolean"
+    },
+    "error": {
+      "type": "string"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "severity", "message", "filePath", "start", "length"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": ["info", "warning", "error"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "filePath": {
+            "type": "string"
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "length": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "related": {
+            "type": "object",
+            "required": ["filePath", "start", "length"],
+            "properties": {
+              "filePath": {
+                "type": "string"
+              },
+              "start": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "length": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "graph": {
+      "type": "object",
+      "description": "StoryGraph JSON；字段见 docs 或 ir/story_graph.hpp。"
+    },
+    "projection": {
+      "type": "object",
+      "description": "GraphProjection JSON；字段见 ir/graph_projection.hpp。"
+    }
+  },
+  "additionalProperties": false
+}

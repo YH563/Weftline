@@ -25,3 +25,17 @@ coverage/
 
 # Local tooling
 .dotnet/
+
+# Native (CMake)
+native/build/
+native/out/
+cmake-build-*/
+**/CMakeFiles/
+**/CMakeCache.txt
+compile_commands.json
+.cache/
+
+# HarmonyOS
+harmony/**/build/
+harmony/**/.hvigor/
+harmony/**/oh_modules/

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://weftline.local/schema/compile.response.schema.json",
+  "title": "Weftline core compile response",
+  "type": "object",
+  "required": ["schemaVersion"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "version": {
+      "type": "string"
+    },
+    "filePath": {
+      "type": "string"
+    },
+    "length": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tokens": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "start", "length", "text"],
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "length": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "severity", "message", "start", "length"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": ["info", "warning", "error"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "length": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "error": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

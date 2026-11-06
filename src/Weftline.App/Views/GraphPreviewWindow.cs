@@ -3,8 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 using Weftline.Graph.Controls;
-using Weftline.Language.Ir;
-using Weftline.Language.Projects;
+using Weftline.Native;
 
 namespace Weftline.App.Views;
 
@@ -22,24 +21,38 @@ public sealed class GraphPreviewWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = new SolidColorBrush(Color.Parse("#F5F7FB"));
 
-        var result = ProjectCompiler.Compile(folder);
+        NativeProjectResponse response;
 
-        if (result.Graph is null || result.Analysis is null)
+        try
         {
-            Content = BuildError(result);
+            response = CompileWithNativeCore(folder);
+        }
+        catch (Exception exception)
+        {
+            Content = BuildError($"Native core failed: {exception.Message}");
             return;
         }
 
-        var projection = GraphProjectionBuilder.Build(result.Model, result.Graph, result.Analysis);
+        var projection = response.Projection?.ToGraphProjection();
+
+        if (projection is null)
+        {
+            Content = BuildError(response);
+            return;
+        }
 
         var graph = new StoryGraphView
         {
             Projection = projection,
         };
 
+        var projectName = string.IsNullOrWhiteSpace(response.ProjectName)
+            ? Path.GetFileName(Path.TrimEndingDirectorySeparator(folder))
+            : response.ProjectName;
+
         var headerText = new TextBlock
         {
-            Text = $"{result.Model.Project.Name}  ·  " +
+            Text = $"{projectName}  ·  " +
                    $"{projection.Chapters.Count} chapters  ·  " +
                    $"{projection.Modules.Count} modules  ·  " +
                    $"{projection.ChapterEdges.Count} chapter edges",
@@ -88,23 +101,30 @@ public sealed class GraphPreviewWindow : Window
         Content = grid;
     }
 
-    private static Control BuildError(ProjectCompilationResult result)
+    private static NativeProjectResponse CompileWithNativeCore(string folder)
     {
-        var diagnostics = result.Diagnostics
-            .Take(20)
-            .Select(item => $"{item.Diagnostic.Code}: {item.Diagnostic.Message}")
-            .ToList();
+        using var client = new NativeWeftlineClient();
+        client.LoadFolder(folder, new Dictionary<string, string>(StringComparer.Ordinal));
+        return client.Compile(allowPartial: true, buildProjection: true);
+    }
 
-        var text = diagnostics.Count == 0
-            ? "No graph was generated."
-            : string.Join(Environment.NewLine, diagnostics);
+    private static Control BuildError(NativeProjectResponse response)
+        => BuildError(
+            response.Error
+            ?? (response.Diagnostics.Count == 0
+                ? "No graph was generated."
+                : string.Join(
+                    Environment.NewLine,
+                    response.Diagnostics
+                        .Take(20)
+                        .Select(item => $"{item.Code}: {item.Message}"))));
 
-        return new TextBlock
+    private static Control BuildError(string message)
+        => new TextBlock
         {
-            Text = text,
+            Text = message,
             Margin = new Thickness(24),
             TextWrapping = TextWrapping.Wrap,
             Foreground = new SolidColorBrush(Color.Parse("#C65B5B")),
         };
-    }
 }

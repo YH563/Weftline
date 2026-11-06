@@ -1,4 +1,5 @@
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using SukiUI.Controls;
 using Weftline.App.ViewModels;
@@ -46,4 +47,13 @@ public partial class MainWindow : SukiWindow
 
     private void OnResetGraphLayout(object? sender, RoutedEventArgs e)
         => GraphView.ResetLayout();
+
+    private void OnDiagnosticDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel &&
+            viewModel.SelectedDiagnostic is { } diagnostic)
+        {
+            viewModel.NavigateToDiagnostic(diagnostic);
+        }
+    }
 }
