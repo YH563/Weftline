@@ -95,6 +95,8 @@ public sealed class EditorLanguageService : IWeftEditorLanguageService
         var insideCondition = insideParen && IsConditionParen(beforeCaret);
         var insideCharacterSlot = insideParen && !insideCondition;
         var insideBraces = IsInsideBraces(beforeCaret);
+        var isVarValueContext = IsVarValueContext(trimmedBefore, beforeCaret);
+        var isDeclarationContext = IsDeclarationContext(trimmedBefore);
         var speakerCandidate = !isDirectivePrefix &&
                                !insideBraces &&
                                !afterArrow &&
@@ -108,6 +110,11 @@ public sealed class EditorLanguageService : IWeftEditorLanguageService
         if (isDirectivePrefix)
         {
             items.AddRange(GetDirectiveItems(context.FilePath));
+        }
+        else if (isVarValueContext)
+        {
+            items.Add(TrueItem);
+            items.Add(FalseItem);
         }
         else if (afterSet || insideCondition)
         {
@@ -130,6 +137,10 @@ public sealed class EditorLanguageService : IWeftEditorLanguageService
         {
             items.AddRange(GetSymbolItems(_symbols?.Characters));
             items.AddRange(GetSymbolItems(_symbols?.Items));
+        }
+        else if (isDeclarationContext)
+        {
+            // 声明点需要新名字，不提供已有符号，避免引导写出重复声明。
         }
         else if (speakerCandidate)
         {
@@ -436,6 +447,8 @@ public sealed class EditorLanguageService : IWeftEditorLanguageService
     ];
 
     private static readonly WeftCompletionItem EndItem = new("END", "END", "结束");
+    private static readonly WeftCompletionItem TrueItem = new("true", "true", "布尔值 true");
+    private static readonly WeftCompletionItem FalseItem = new("false", "false", "布尔值 false");
 
     private IEnumerable<WeftCompletionItem> GetDirectiveItems(string filePath)
         => Path.GetExtension(filePath).Equals(".wstory", StringComparison.OrdinalIgnoreCase)
@@ -507,6 +520,44 @@ public sealed class EditorLanguageService : IWeftEditorLanguageService
 
         return open > beforeCaret.LastIndexOf('}');
     }
+
+    private static bool IsVarValueContext(string trimmedBefore, string beforeCaret)
+    {
+        if (!trimmedBefore.StartsWith("@var ", StringComparison.Ordinal) &&
+            !trimmedBefore.StartsWith("@var\t", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (beforeCaret.Contains('['))
+        {
+            return false;
+        }
+
+        if (beforeCaret.EndsWith(' '))
+        {
+            return true;
+        }
+
+        var tokens = trimmedBefore.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        return tokens.Length >= 3;
+    }
+
+    private static bool IsDeclarationContext(string trimmedBefore)
+        => trimmedBefore.StartsWith("@var ", StringComparison.Ordinal) ||
+           trimmedBefore.StartsWith("@var\t", StringComparison.Ordinal) ||
+           trimmedBefore.StartsWith("@char ", StringComparison.Ordinal) ||
+           trimmedBefore.StartsWith("@char\t", StringComparison.Ordinal) ||
+           trimmedBefore.StartsWith("@item ", StringComparison.Ordinal) ||
+           trimmedBefore.StartsWith("@item\t", StringComparison.Ordinal) ||
+           trimmedBefore.StartsWith("@module ", StringComparison.Ordinal) ||
+           trimmedBefore.StartsWith("@module\t", StringComparison.Ordinal) ||
+           trimmedBefore.StartsWith("@title ", StringComparison.Ordinal) ||
+           trimmedBefore.StartsWith("@title\t", StringComparison.Ordinal) ||
+           trimmedBefore.StartsWith("@chapter ", StringComparison.Ordinal) ||
+           trimmedBefore.StartsWith("@chapter\t", StringComparison.Ordinal) ||
+           trimmedBefore.StartsWith("@doc ", StringComparison.Ordinal) ||
+           trimmedBefore.StartsWith("@doc\t", StringComparison.Ordinal);
 
     private static bool IsInsideOpenParen(string beforeCaret)
     {

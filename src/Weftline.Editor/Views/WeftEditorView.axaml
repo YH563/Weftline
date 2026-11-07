@@ -90,14 +90,14 @@
                                       Height="16"
                                       VerticalAlignment="Center" />
                             <TextBlock Text="{Binding FileName}"
-                                       FontSize="12"
+                                       FontSize="13"
                                        FontWeight="Medium"
                                        MaxWidth="220"
                                        TextTrimming="CharacterEllipsis"
                                        VerticalAlignment="Center" />
                             <TextBlock Text="*"
                                        IsVisible="{Binding IsModified}"
-                                       FontSize="12"
+                                       FontSize="13"
                                        FontWeight="SemiBold"
                                        Foreground="#E5484D"
                                        VerticalAlignment="Center" />
@@ -106,10 +106,10 @@
                                     Width="16"
                                     Height="16"
                                     Padding="0"
-                                    FontSize="12"
+                                    FontSize="13"
                                     Background="Transparent"
                                     BorderThickness="0"
-                                    Foreground="#7A8494"
+                                    Foreground="#5F6B7A"
                                     Focusable="False"
                                     VerticalAlignment="Center" />
                         </StackPanel>
@@ -145,11 +145,11 @@
                 <TextBlock Text="未打开文件"
                            FontSize="16"
                            FontWeight="SemiBold"
-                           Foreground="#9AA3B2"
+                           Foreground="#6F7A8A"
                            HorizontalAlignment="Center" />
                 <TextBlock Text="双击左侧项目资源管理器中的文件开始编辑"
-                           FontSize="12"
-                           Foreground="#B0B6C3"
+                           FontSize="13"
+                           Foreground="#8A94A3"
                            HorizontalAlignment="Center" />
             </StackPanel>
         </Grid>

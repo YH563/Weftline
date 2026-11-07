@@ -57,9 +57,9 @@ public sealed class GraphPreviewWindow : Window
                    $"{projection.Modules.Count} modules  ·  " +
                    $"{projection.ChapterEdges.Count} chapter edges",
             Margin = new Thickness(16, 12),
-            FontSize = 12,
+            FontSize = 14,
             FontWeight = FontWeight.SemiBold,
-            Foreground = new SolidColorBrush(Color.Parse("#3B4352")),
+            Foreground = new SolidColorBrush(Color.Parse("#2B3038")),
         };
 
         var resetLayout = new Button

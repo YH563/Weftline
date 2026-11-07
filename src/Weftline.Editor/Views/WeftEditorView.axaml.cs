@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Xml;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -6,6 +7,8 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
+using AvaloniaEdit.Highlighting;
+using AvaloniaEdit.Highlighting.Xshd;
 using Weftline.Editor.Controls;
 using Weftline.Editor.Rendering;
 using Weftline.Editor.Services;
@@ -16,7 +19,7 @@ namespace Weftline.Editor.Views;
 
 public partial class WeftEditorView : UserControl
 {
-    private readonly WeftHighlightingTransformer _highlighter = new();
+    private static readonly IHighlightingDefinition? WeftHighlighting = LoadWeftHighlighting();
     private readonly DiagnosticRenderer _diagnosticRenderer;
     private readonly HoverController _hoverController;
     private readonly CompletionController _completionController;
@@ -32,7 +35,6 @@ public partial class WeftEditorView : UserControl
 
         _diagnosticRenderer = new DiagnosticRenderer(TextEditor);
 
-        TextEditor.TextArea.TextView.LineTransformers.Add(_highlighter);
         TextEditor.TextArea.TextView.BackgroundRenderers.Add(_diagnosticRenderer);
         ReplaceLeftMargins();
         TextEditor.TextChanged += OnEditorTextChanged;
@@ -110,6 +112,28 @@ public partial class WeftEditorView : UserControl
         }
     }
 
+    private static IHighlightingDefinition? LoadWeftHighlighting()
+    {
+        using var stream = typeof(WeftEditorView).Assembly.GetManifestResourceStream(
+            "Weftline.Editor.Highlighting.Weft.xshd");
+
+        if (stream is null)
+        {
+            return null;
+        }
+
+        using var reader = XmlReader.Create(stream);
+        return HighlightingLoader.Load(reader, HighlightingManager.Instance);
+    }
+
+    private static bool IsWeftFile(string? path)
+    {
+        var extension = Path.GetExtension(path);
+
+        return string.Equals(extension, ".weft", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(extension, ".wstory", StringComparison.OrdinalIgnoreCase);
+    }
+
     private void LoadSelectedDocument()
     {
         AttachDocument(_host?.SelectedDocument);
@@ -118,6 +142,7 @@ public partial class WeftEditorView : UserControl
         {
             _updating = true;
             TextEditor.Document = new TextDocument();
+            TextEditor.SyntaxHighlighting = null;
             _updating = false;
             ApplyDiagnostics();
             return;
@@ -125,6 +150,7 @@ public partial class WeftEditorView : UserControl
 
         _updating = true;
         TextEditor.Document = new TextDocument(document.Text);
+        TextEditor.SyntaxHighlighting = IsWeftFile(document.FilePath) ? WeftHighlighting : null;
         _updating = false;
         ApplyDiagnostics();
 
@@ -296,7 +322,6 @@ public partial class WeftEditorView : UserControl
         TextEditor.TextArea.TextView.CurrentLineBorder = new Pen(theme.CurrentLineBorder, 1);
 
         _lineNumberMargin?.ApplyTheme(theme);
-        _highlighter.ApplyTheme(theme);
         _diagnosticRenderer.ApplyTheme(theme);
         TextEditor.TextArea.TextView.Redraw();
     }

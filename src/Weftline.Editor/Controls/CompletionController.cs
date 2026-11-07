@@ -1,6 +1,15 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Styling;
+using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Document;
@@ -73,7 +82,8 @@ public sealed class CompletionController
                 var linePrefix = document.GetText(lineStart, offset - lineStart);
 
                 if (linePrefix.EndsWith("-> ", StringComparison.Ordinal) ||
-                    linePrefix.TrimEnd().EndsWith("@scene", StringComparison.Ordinal))
+                    linePrefix.TrimEnd().EndsWith("@scene", StringComparison.Ordinal) ||
+                    IsVarValueTrigger(linePrefix))
                 {
                     _ = ShowCompletionAsync();
                 }
@@ -134,8 +144,187 @@ public sealed class CompletionController
         }
 
         window.Closed += (_, _) => _window = null;
+        window.Opened += (_, _) => ApplyCompletionTheme(window);
+        window.CompletionList.TemplateApplied += (_, _) => ApplyCompletionTheme(window);
         _window = window;
         window.Show();
+    }
+
+    private static void ApplyCompletionTheme(CompletionWindow window)
+    {
+        var list = window.CompletionList;
+        var background = new SolidColorBrush(Color.Parse("#FFFFFF"));
+        var foreground = new SolidColorBrush(Color.Parse("#333333"));
+        var borderBrush = new SolidColorBrush(Color.Parse("#D8DCE3"));
+
+        list.Background = background;
+        list.Foreground = foreground;
+        list.BorderBrush = borderBrush;
+        list.BorderThickness = new Thickness(1);
+        list.CornerRadius = new CornerRadius(0);
+        list.FocusAdorner = null;
+        window.FocusAdorner = null;
+
+        if (window.Child is Border popupBorder)
+        {
+            popupBorder.Background = background;
+            popupBorder.BorderBrush = borderBrush;
+            popupBorder.BorderThickness = new Thickness(1);
+            popupBorder.CornerRadius = new CornerRadius(0);
+            popupBorder.BoxShadow = default;
+        }
+
+        var rootBorder = list.GetVisualDescendants()
+            .OfType<Border>()
+            .FirstOrDefault(border => ReferenceEquals(border.TemplatedParent, list))
+            ?? list.GetVisualDescendants().OfType<Border>().FirstOrDefault();
+
+        if (rootBorder is not null)
+        {
+            rootBorder.Background = background;
+            rootBorder.BorderBrush = borderBrush;
+            rootBorder.BorderThickness = new Thickness(1);
+            rootBorder.CornerRadius = new CornerRadius(0);
+            rootBorder.BoxShadow = default;
+        }
+
+        if (list.ListBox is { } listBox)
+        {
+            listBox.Background = background;
+            listBox.Foreground = foreground;
+            listBox.BorderBrush = Brushes.Transparent;
+            listBox.BorderThickness = new Thickness(0);
+            listBox.CornerRadius = new CornerRadius(0);
+            listBox.FocusAdorner = null;
+
+            if (!listBox.Classes.Contains("weft-completion-items"))
+            {
+                listBox.Classes.Add("weft-completion-items");
+                listBox.Padding = new Thickness(2);
+                listBox.ItemTemplate = CreateItemDataTemplate(foreground);
+                listBox.ItemContainerTheme = CreateItemContainerTheme(foreground);
+            }
+        }
+
+        if (list.ScrollViewer is { } scrollViewer)
+        {
+            scrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
+            scrollViewer.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+        }
+
+        foreach (var scrollBar in list.GetVisualDescendants().OfType<ScrollBar>())
+        {
+            scrollBar.IsVisible = false;
+        }
+    }
+
+    private static IDataTemplate CreateItemDataTemplate(IBrush foreground)
+        => new FuncDataTemplate<object>((data, _) =>
+            new TextBlock
+            {
+                Text = data is ICompletionData item
+                    ? item.Content?.ToString() ?? item.Text
+                    : data?.ToString() ?? string.Empty,
+                Foreground = foreground,
+                FontSize = 13,
+                FontWeight = FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+
+    private static ControlTheme CreateItemContainerTheme(IBrush foreground)
+    {
+        var hover = new SolidColorBrush(Color.Parse("#F2F4F7"));
+        var selected = new SolidColorBrush(Color.Parse("#E8F0FE"));
+
+        var theme = new ControlTheme(typeof(ListBoxItem))
+        {
+            Setters =
+            {
+                new Setter(TemplatedControl.ForegroundProperty, foreground),
+                new Setter(TemplatedControl.BackgroundProperty, Brushes.Transparent),
+                new Setter(TemplatedControl.PaddingProperty, new Thickness(8, 2)),
+                new Setter(TemplatedControl.CornerRadiusProperty, new CornerRadius(0)),
+                new Setter(Control.FocusAdornerProperty, null),
+                new Setter(Layoutable.MinHeightProperty, 22d),
+                new Setter(
+                    TemplatedControl.TemplateProperty,
+                    CreateItemContainerTemplate()),
+            },
+        };
+
+        theme.Children.Add(new Style(selector => selector.Nesting().Class(":pointerover"))
+        {
+            Setters =
+            {
+                new Setter(TemplatedControl.BackgroundProperty, hover),
+            },
+        });
+
+        theme.Children.Add(new Style(selector => selector.Nesting().Class(":selected"))
+        {
+            Setters =
+            {
+                new Setter(TemplatedControl.BackgroundProperty, selected),
+                new Setter(TemplatedControl.ForegroundProperty, foreground),
+            },
+        });
+
+        return theme;
+    }
+
+    private static FuncControlTemplate<ListBoxItem> CreateItemContainerTemplate()
+        => new((item, _) =>
+        {
+            var border = new Border
+            {
+                CornerRadius = new CornerRadius(0),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+            };
+            border.Bind(
+                Border.BackgroundProperty,
+                new Binding(nameof(TemplatedControl.Background)) { Source = item });
+            border.Bind(
+                Border.PaddingProperty,
+                new Binding(nameof(TemplatedControl.Padding)) { Source = item });
+
+            var presenter = new ContentPresenter
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            presenter.Bind(
+                ContentPresenter.ContentProperty,
+                new Binding(nameof(ContentControl.Content)) { Source = item });
+            presenter.Bind(
+                ContentPresenter.ContentTemplateProperty,
+                new Binding(nameof(ContentControl.ContentTemplate)) { Source = item });
+
+            border.Child = presenter;
+            return border;
+        });
+
+    private static bool IsVarValueTrigger(string linePrefix)
+    {
+        if (!linePrefix.EndsWith(' '))
+        {
+            return false;
+        }
+
+        var trimmed = linePrefix.Trim();
+
+        if (!trimmed.StartsWith("@var ", StringComparison.Ordinal) &&
+            !trimmed.StartsWith("@var\t", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (trimmed.Contains('['))
+        {
+            return false;
+        }
+
+        var tokens = trimmed.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        return tokens.Length == 2;
     }
 
     private static int FindWordStart(string text, int offset)

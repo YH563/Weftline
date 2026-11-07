@@ -11,6 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Highlighting\Weft.xshd" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Weftline.Models\Weftline.Models.csproj" />
   </ItemGroup>
 

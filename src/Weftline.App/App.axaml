@@ -23,12 +23,21 @@
     <Application.Styles>
         <suki:SukiTheme ThemeColor="Blue" />
         <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" />
+        <StyleInclude Source="avares://Weftline.Editor/Themes/EditorStyles.axaml" />
+
+        <!-- 全局排版：统一字体、字号和正文颜色，避免界面发灰、发细。 -->
+        <Style Selector=":is(Window)">
+            <Setter Property="FontFamily" Value="Inter, Segoe UI, sans-serif" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="#2B3038" />
+        </Style>
+
         <Style Selector="PopupRoot">
             <Setter Property="TransparencyBackgroundFallback" Value="#F5F5F5" />
         </Style>
         <Style Selector="ToolTip">
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="Foreground" Value="#5F6673" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="#3F4A59" />
             <Setter Property="Theme" Value="{StaticResource WeftlineToolTip}" />
         </Style>
     </Application.Styles>

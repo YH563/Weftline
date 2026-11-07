@@ -43,13 +43,21 @@ public partial class StatusBarViewModel : ObservableObject
     /// </summary>
     public void UpdateDocument(EditorDocumentViewModel? document)
     {
+        UpdateCaret(document);
+        UpdateContext(document);
+    }
+
+    /// <summary>
+    /// 只更新光标、选区和语言这些廉价状态。
+    /// </summary>
+    public void UpdateCaret(EditorDocumentViewModel? document)
+    {
         if (document is null)
         {
             CaretText = string.Empty;
             SelectionText = string.Empty;
             HasSelection = false;
             Language = "—";
-            ContextText = "未打开文件";
             return;
         }
 
@@ -57,7 +65,14 @@ public partial class StatusBarViewModel : ObservableObject
         HasSelection = document.SelectionLength > 0;
         SelectionText = HasSelection ? $"已选 {document.SelectionLength} 字符" : string.Empty;
         Language = ResolveLanguage(document.FilePath);
-        ContextText = ResolveContext(document);
+    }
+
+    /// <summary>
+    /// 只更新模块/场景上下文；调用方应做防抖。
+    /// </summary>
+    public void UpdateContext(EditorDocumentViewModel? document)
+    {
+        ContextText = document is null ? "未打开文件" : ResolveContext(document);
     }
 
     /// <summary>

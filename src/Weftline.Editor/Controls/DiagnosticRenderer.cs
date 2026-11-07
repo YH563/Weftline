@@ -15,22 +15,22 @@ public sealed class DiagnosticRenderer : IBackgroundRenderer
 {
     private readonly TextEditor _editor;
     private IReadOnlyList<WeftDiagnostic> _diagnostics = [];
-    private IBrush _errorBrush = Brushes.Red;
-    private IBrush _warningBrush = Brushes.Orange;
-    private IBrush _infoBrush = Brushes.DodgerBlue;
+    private IPen _errorPen = new Pen(Brushes.Red, 1);
+    private IPen _warningPen = new Pen(Brushes.Orange, 1);
+    private IPen _infoPen = new Pen(Brushes.DodgerBlue, 1);
 
     public DiagnosticRenderer(TextEditor editor)
     {
         _editor = editor;
     }
 
-    public KnownLayer Layer => KnownLayer.Selection;
+    public KnownLayer Layer => KnownLayer.Background;
 
     public void ApplyTheme(EditorTheme theme)
     {
-        _errorBrush = theme.DiagnosticError;
-        _warningBrush = theme.DiagnosticWarning;
-        _infoBrush = theme.DiagnosticInfo;
+        _errorPen = new Pen(theme.DiagnosticError, 1);
+        _warningPen = new Pen(theme.DiagnosticWarning, 1);
+        _infoPen = new Pen(theme.DiagnosticInfo, 1);
     }
 
     public void Update(IReadOnlyList<WeftDiagnostic> diagnostics)
@@ -41,23 +41,33 @@ public sealed class DiagnosticRenderer : IBackgroundRenderer
 
     public void Draw(TextView textView, DrawingContext drawingContext)
     {
-        if (_diagnostics.Count == 0 || textView.Document is not { } document)
+        if (_diagnostics.Count == 0 ||
+            textView.Document is not { } document ||
+            document.TextLength == 0)
         {
             return;
         }
 
+        var visualLines = textView.VisualLines;
+        if (visualLines.Count == 0)
+        {
+            return;
+        }
+
+        var viewStart = visualLines[0].FirstDocumentLine.Offset;
+        var viewEnd = visualLines[visualLines.Count - 1].LastDocumentLine.EndOffset;
+
         foreach (var diagnostic in _diagnostics)
         {
-            if (document.TextLength == 0)
+            var diagnosticEnd = diagnostic.Span.Start + diagnostic.Span.Length;
+
+            if (diagnosticEnd < viewStart || diagnostic.Span.Start > viewEnd)
             {
-                return;
+                continue;
             }
 
             var start = Math.Clamp(diagnostic.Span.Start, 0, document.TextLength);
-            var end = Math.Clamp(
-                diagnostic.Span.Start + diagnostic.Span.Length,
-                start,
-                document.TextLength);
+            var end = Math.Clamp(diagnosticEnd, start, document.TextLength);
 
             if (start == end)
             {
@@ -70,7 +80,7 @@ public sealed class DiagnosticRenderer : IBackgroundRenderer
                 EndOffset = end,
             };
 
-            var pen = new Pen(ResolveBrush(diagnostic.Severity), 1);
+            var pen = ResolvePen(diagnostic.Severity);
 
             foreach (var rect in BackgroundGeometryBuilder.GetRectsForSegment(textView, segment))
             {
@@ -79,12 +89,12 @@ public sealed class DiagnosticRenderer : IBackgroundRenderer
         }
     }
 
-    private IBrush ResolveBrush(WeftDiagnosticSeverity severity)
+    private IPen ResolvePen(WeftDiagnosticSeverity severity)
         => severity switch
         {
-            WeftDiagnosticSeverity.Error => _errorBrush,
-            WeftDiagnosticSeverity.Warning => _warningBrush,
-            _ => _infoBrush,
+            WeftDiagnosticSeverity.Error => _errorPen,
+            WeftDiagnosticSeverity.Warning => _warningPen,
+            _ => _infoPen,
         };
 
     private static void DrawSquiggle(DrawingContext drawingContext, IPen pen, Rect rect)

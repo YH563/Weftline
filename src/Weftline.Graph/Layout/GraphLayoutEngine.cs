@@ -296,7 +296,7 @@ public static class GraphLayoutEngine
                     CultureInfo.CurrentCulture,
                     FlowDirection.LeftToRight,
                     GraphTheme.BoldTypeface,
-                    12,
+                    13,
                     Brushes.Black);
 
                 width = Math.Clamp(text.Width + 44, 96, maxWidth);

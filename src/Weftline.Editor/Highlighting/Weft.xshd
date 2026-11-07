@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SyntaxDefinition name="Weft"
+                  extensions=".weft;.wstory"
+                  xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+    <Color name="Comment" foreground="#6E7781" />
+    <Color name="Directive" foreground="#0550AE" />
+    <Color name="Reference" foreground="#0F766E" />
+    <Color name="String" foreground="#953800" />
+    <Color name="Keyword" foreground="#0550AE" fontWeight="bold" />
+
+    <RuleSet>
+        <Rule color="Comment">//.*</Rule>
+        <Rule color="String">&quot;[^&quot;]*&quot;</Rule>
+        <Rule color="Directive">@[A-Za-z_]\w*</Rule>
+        <Rule color="Reference">\{[^}]*\}</Rule>
+        <Rule color="Keyword">\b(true|false|END)\b</Rule>
+    </RuleSet>
+</SyntaxDefinition>

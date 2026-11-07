@@ -9,7 +9,7 @@ namespace Weftline.Graph.Rendering;
 /// </summary>
 public static class GraphTheme
 {
-    public static readonly FontFamily UiFontFamily = new("Inter");
+    public static readonly FontFamily UiFontFamily = new("Inter, Segoe UI, sans-serif");
     public static readonly Typeface Typeface = new(UiFontFamily);
     public static readonly Typeface BoldTypeface = new(UiFontFamily, FontStyle.Normal, FontWeight.SemiBold);
 

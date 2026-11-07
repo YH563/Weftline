@@ -4,7 +4,7 @@
 
 Weftline is a story demo / narrative demonstration tool: write scripts, inspect the story graph, and export a playable HTML demo (planned for the C++ core).
 
-Current stage: the C++ language core and desktop editor are usable. The desktop app now has an IDE-style shell: project explorer, multi-tab AvaloniaEdit editor, status bar, folder switching, and basic file operations. The story graph UI and Problems panel are wired up; HTML export will be implemented in C++ later.
+Current stage: the C++ language core and desktop editor are usable. The desktop app now has an IDE-style shell: project explorer, multi-tab AvaloniaEdit editor, live analysis, diagnostics, hover, completion, status bar, folder switching, and basic file operations. Edits are debounced and compiled in the background, with only changed documents synced incrementally. The story graph UI and Problems panel are wired up; HTML export will be implemented in C++ later.
 
 ## File types
 
@@ -23,7 +23,7 @@ Current stage: the C++ language core and desktop editor are usable. The desktop 
 
 - Top menu bar, resizable project explorer, central editor area, and bottom status bar.
 - Project explorer: directory/file tree with lazy loading and extension-based icons; supports new file, new folder, rename, delete, and switching the project folder from the menu.
-- Editor: multi-file AvaloniaEdit tabs with close buttons, Weft syntax highlighting, line numbers, current-line highlight, a solid gutter separator, and modified markers.
+- Editor: multi-file AvaloniaEdit tabs with close buttons, Weft syntax highlighting, line numbers, current-line highlight, a solid gutter separator, and modified markers; diagnostics, hover, and completion are included.
 - Status bar: caret position, selection length, language, current module/scene, module/variable counts, diagnostics summary, and operation status.
 - Theme: SukiUI light theme; Inter for UI text and JetBrains Mono for the editor when available.
 - The story graph and Problems panel are wired up; Output/Project Info panels are not yet.

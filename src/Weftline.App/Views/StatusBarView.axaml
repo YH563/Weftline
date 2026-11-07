@@ -8,7 +8,7 @@
              x:DataType="vm:StatusBarViewModel"
              x:CompileBindings="True">
 
-    <Border Height="24"
+    <Border Height="26"
             Padding="10,0"
             Background="#F7F8FA"
             BorderBrush="#E2E5EA"
@@ -18,18 +18,18 @@
                         Spacing="12"
                         VerticalAlignment="Center">
                 <TextBlock Text="{Binding CaretText}"
-                           FontSize="11"
-                           Foreground="#6B7280" />
+                           FontSize="12"
+                           Foreground="#5F6B7A" />
                 <TextBlock Text="{Binding SelectionText}"
                            IsVisible="{Binding HasSelection}"
-                           FontSize="11"
-                           Foreground="#6B7280" />
+                           FontSize="12"
+                           Foreground="#5F6B7A" />
                 <TextBlock Text="{Binding Language}"
-                           FontSize="11"
-                           Foreground="#6B7280" />
+                           FontSize="12"
+                           Foreground="#5F6B7A" />
                 <TextBlock Text="{Binding ContextText}"
-                           FontSize="11"
-                           Foreground="#6B7280"
+                           FontSize="12"
+                           Foreground="#5F6B7A"
                            TextTrimming="CharacterEllipsis"
                            MaxWidth="320" />
             </StackPanel>
@@ -40,14 +40,14 @@
                         VerticalAlignment="Center"
                         HorizontalAlignment="Right">
                 <TextBlock Text="{Binding SymbolText}"
-                           FontSize="11"
-                           Foreground="#6B7280" />
+                           FontSize="12"
+                           Foreground="#5F6B7A" />
                 <TextBlock Text="{Binding DiagnosticsText}"
-                           FontSize="11"
-                           Foreground="#6B7280" />
+                           FontSize="12"
+                           Foreground="#5F6B7A" />
                 <TextBlock Text="{Binding StatusText}"
-                           FontSize="11"
-                           Foreground="#5F6673" />
+                           FontSize="12"
+                           Foreground="#3F4A59" />
             </StackPanel>
         </Grid>
     </Border>

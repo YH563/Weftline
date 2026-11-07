@@ -15,6 +15,7 @@ public sealed class NativeWeftlineClient : IDisposable
     };
 
     private readonly Dictionary<string, string> _documents = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, FileStamp> _diskStamps = new(StringComparer.Ordinal);
     private IntPtr _handle;
     private string? _folder;
 
@@ -37,9 +38,15 @@ public sealed class NativeWeftlineClient : IDisposable
         => Marshal.PtrToStringUTF8(NativeMethods.weft_version()) ?? string.Empty;
 
     /// <summary>
-    /// 从磁盘读取顶层 .weft/.wstory，并用打开文档的内存文本覆盖。
+    /// 同步顶层 .weft/.wstory：打开文档优先，未打开文件按时间戳增量读取。
     /// </summary>
-    public void LoadFolder(string folder, IReadOnlyDictionary<string, string> openDocuments)
+    /// <param name="reloadFromDisk">
+    /// 为 true 时强制重新读取所有关闭的文件，用于项目切换或文件系统事件。
+    /// </param>
+    public IReadOnlyDictionary<string, string> LoadFolder(
+        string folder,
+        IReadOnlyDictionary<string, string> openDocuments,
+        bool reloadFromDisk = false)
     {
         var fullFolder = Path.GetFullPath(folder);
 
@@ -47,22 +54,70 @@ public sealed class NativeWeftlineClient : IDisposable
         {
             NativeMethods.weft_project_set_folder(_handle, fullFolder);
             _folder = fullFolder;
+            _documents.Clear();
+            _diskStamps.Clear();
+            reloadFromDisk = true;
+        }
+
+        var open = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var pair in openDocuments)
+        {
+            open[Normalize(fullFolder, pair.Key)] = pair.Value;
         }
 
         var documents = new Dictionary<string, string>(StringComparer.Ordinal);
+        var stamps = new Dictionary<string, FileStamp>(StringComparer.Ordinal);
 
         foreach (var pattern in new[] { "*.weft", "*.wstory" })
         {
             foreach (var path in Directory.EnumerateFiles(
                          fullFolder, pattern, SearchOption.TopDirectoryOnly))
             {
-                documents[Path.GetFullPath(path)] = File.ReadAllText(path);
+                var fullPath = Path.GetFullPath(path);
+
+                if (open.TryGetValue(fullPath, out var openText))
+                {
+                    documents[fullPath] = openText;
+                    continue;
+                }
+
+                try
+                {
+                    var info = new FileInfo(fullPath);
+                    var stamp = new FileStamp(info.LastWriteTimeUtc, info.Length);
+                    stamps[fullPath] = stamp;
+
+                    if (!reloadFromDisk &&
+                        _diskStamps.TryGetValue(fullPath, out var cachedStamp) &&
+                        cachedStamp == stamp &&
+                        _documents.TryGetValue(fullPath, out var cachedText))
+                    {
+                        documents[fullPath] = cachedText;
+                        continue;
+                    }
+
+                    documents[fullPath] = File.ReadAllText(fullPath);
+                }
+                catch (IOException)
+                {
+                    if (_documents.TryGetValue(fullPath, out var fallback))
+                    {
+                        documents[fullPath] = fallback;
+                    }
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    if (_documents.TryGetValue(fullPath, out var fallback))
+                    {
+                        documents[fullPath] = fallback;
+                    }
+                }
             }
         }
 
-        foreach (var pair in openDocuments)
+        foreach (var pair in open)
         {
-            documents[Normalize(fullFolder, pair.Key)] = pair.Value;
+            documents.TryAdd(pair.Key, pair.Value);
         }
 
         foreach (var path in _documents.Keys.Except(documents.Keys).ToList())
@@ -73,9 +128,23 @@ public sealed class NativeWeftlineClient : IDisposable
 
         foreach (var pair in documents)
         {
+            if (_documents.TryGetValue(pair.Key, out var previous) &&
+                string.Equals(previous, pair.Value, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             NativeMethods.weft_project_set_document(_handle, pair.Key, pair.Value);
             _documents[pair.Key] = pair.Value;
         }
+
+        _diskStamps.Clear();
+        foreach (var pair in stamps)
+        {
+            _diskStamps[pair.Key] = pair.Value;
+        }
+
+        return documents;
     }
 
     /// <summary>
@@ -125,6 +194,8 @@ public sealed class NativeWeftlineClient : IDisposable
 
         GC.SuppressFinalize(this);
     }
+
+    private readonly record struct FileStamp(DateTime LastWriteTimeUtc, long Length);
 
     private static string Normalize(string folder, string path)
         => Path.IsPathRooted(path)

@@ -10,8 +10,8 @@
         <ControlTheme x:Key="WeftlineTopLevelMenuItem" TargetType="MenuItem">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Padding" Value="10,3" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Name="PART_Root"
@@ -27,8 +27,8 @@
                                 <ContentPresenter.ContentTemplate>
                                     <DataTemplate x:DataType="x:String">
                                         <TextBlock Text="{Binding}"
-                                                   FontSize="12"
-                                                   FontWeight="Normal"
+                                                   FontSize="13"
+                                                   FontWeight="Medium"
                                                    VerticalAlignment="Center" />
                                     </DataTemplate>
                                 </ContentPresenter.ContentTemplate>

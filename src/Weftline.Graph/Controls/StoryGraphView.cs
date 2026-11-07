@@ -60,6 +60,7 @@ public sealed class StoryGraphView : Control
     private bool _draggingEnd;
     private bool _selectedEnd;
     private bool _hoveredEnd;
+    private bool _hoverRedrawScheduled;
     private GraphLayout? _baseLayout;
     private string? _hoveredModuleId;
     private string? _hoveredChapterId;
@@ -499,7 +500,7 @@ public sealed class StoryGraphView : Control
             _hoveredModuleId = hoveredModule;
             _hoveredChapterId = hoveredChapter;
             _hoveredEnd = hoveredEnd;
-            InvalidateVisual();
+            ScheduleHoverRedraw();
         }
 
         var overResizeHandle =
@@ -559,6 +560,23 @@ public sealed class StoryGraphView : Control
         e.Handled = true;
     }
 
+    private void ScheduleHoverRedraw()
+    {
+        if (_hoverRedrawScheduled)
+        {
+            return;
+        }
+
+        _hoverRedrawScheduled = true;
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                _hoverRedrawScheduled = false;
+                InvalidateVisual();
+            },
+            DispatcherPriority.Render);
+    }
+
     protected override void OnPointerExited(PointerEventArgs e)
     {
         base.OnPointerExited(e);
@@ -573,7 +591,7 @@ public sealed class StoryGraphView : Control
             _hoveredModuleId = null;
             _hoveredChapterId = null;
             _hoveredEnd = false;
-            InvalidateVisual();
+            ScheduleHoverRedraw();
         }
 
         Cursor = ArrowCursor;
@@ -1108,7 +1126,7 @@ public sealed class StoryGraphView : Control
             context,
             "END",
             bounds,
-            12,
+            13,
             GraphTheme.EndText,
             bold: true);
 
@@ -1166,7 +1184,7 @@ public sealed class StoryGraphView : Control
             context,
             node.ModuleId,
             bounds,
-            12,
+            13,
             GraphTheme.ModuleTitle,
             bold: true);
 

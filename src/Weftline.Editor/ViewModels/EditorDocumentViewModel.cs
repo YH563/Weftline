@@ -15,6 +15,7 @@ public partial class EditorDocumentViewModel : ObservableObject
 
     private readonly IEditorDocumentLoader _loader;
     private readonly IEditorIconProvider _iconProvider;
+    private string? _lastFirstLine;
 
     [ObservableProperty]
     private string _title = "欢迎使用 Weftline";
@@ -71,6 +72,7 @@ public partial class EditorDocumentViewModel : ObservableObject
         var text = _loader.ReadAllText(path);
         FilePath = path;
         Text = text;
+        _lastFirstLine = GetFirstLine(text);
         Title = ParseTitle(text, Path.GetFileName(path));
         IsModified = false;
         CaretLine = 1;
@@ -93,7 +95,13 @@ public partial class EditorDocumentViewModel : ObservableObject
 
         if (!string.IsNullOrEmpty(FilePath))
         {
-            Title = ParseTitle(text, Path.GetFileName(FilePath));
+            var firstLine = GetFirstLine(text);
+
+            if (!string.Equals(_lastFirstLine, firstLine, StringComparison.Ordinal))
+            {
+                _lastFirstLine = firstLine;
+                Title = ParseTitle(text, Path.GetFileName(FilePath));
+            }
         }
     }
 
@@ -113,6 +121,12 @@ public partial class EditorDocumentViewModel : ObservableObject
             false);
         IconGeometry = icon.Geometry;
         IconBrush = icon.Brush;
+    }
+
+    private static string GetFirstLine(string text)
+    {
+        var end = text.IndexOf('\n');
+        return end < 0 ? text : text[..end];
     }
 
     private static string ParseTitle(string text, string fallback)

@@ -31,11 +31,6 @@ public sealed class EditorThemeSource : IEditorThemeSource
             new SolidColorBrush(Color.Parse("#F5F6F8")),
             new SolidColorBrush(Color.Parse(palette.IsDark ? "#1D2430" : "#F4F8FF")),
             new SolidColorBrush(Color.Parse(palette.IsDark ? "#2D3A4F" : "#E3ECFA")),
-            palette.Directive,
-            palette.Comment,
-            palette.Reference,
-            palette.String,
-            palette.Directive,
             palette.GraphDanger,
             new SolidColorBrush(Color.Parse("#D97706")),
             palette.GraphAccent);

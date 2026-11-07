@@ -80,12 +80,12 @@
                           Margin="12,8">
                         <StackPanel Spacing="2">
                             <TextBlock Text="剧情图"
-                                       FontSize="13"
+                                       FontSize="14"
                                        FontWeight="SemiBold"
-                                       Foreground="#34405A" />
+                                       Foreground="#2B3038" />
                             <TextBlock Text="{Binding Graph.StatusText}"
-                                       FontSize="11"
-                                       Foreground="#7B8699" />
+                                       FontSize="12"
+                                       Foreground="#5F6B7A" />
                         </StackPanel>
                         <Button Grid.Column="1"
                                 Content="重置布局"
@@ -115,17 +115,17 @@
                       Margin="12,6">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <TextBlock Text="问题"
-                                   FontSize="13"
+                                   FontSize="14"
                                    FontWeight="SemiBold"
-                                   Foreground="#34405A"
+                                   Foreground="#2B3038"
                                    VerticalAlignment="Center" />
                         <TextBlock Text="{Binding Diagnostics.Count}"
-                                   FontSize="11"
-                                   Foreground="#7B8699"
+                                   FontSize="12"
+                                   Foreground="#5F6B7A"
                                    VerticalAlignment="Center" />
                         <TextBlock Text="条"
-                                   FontSize="11"
-                                   Foreground="#7B8699"
+                                   FontSize="12"
+                                   Foreground="#5F6B7A"
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <Button Grid.Column="1"
@@ -134,10 +134,10 @@
                             Width="24"
                             Height="24"
                             Padding="0"
-                            FontSize="12"
+                            FontSize="13"
                             Background="Transparent"
                             BorderThickness="0"
-                            Foreground="#7A8494"
+                            Foreground="#5F6B7A"
                             Focusable="False" />
                 </Grid>
 
@@ -153,21 +153,21 @@
                             <Grid ColumnDefinitions="60,70,140,*"
                                   Margin="2">
                                 <TextBlock Text="{Binding Severity}"
-                                           FontSize="11"
-                                           Foreground="#C65B5B" />
+                                            FontSize="12"
+                                            Foreground="#C65B5B" />
                                 <TextBlock Grid.Column="1"
-                                           Text="{Binding Code}"
-                                           FontSize="11"
-                                           Foreground="#7B8699" />
+                                            Text="{Binding Code}"
+                                            FontSize="12"
+                                            Foreground="#5F6B7A" />
                                 <TextBlock Grid.Column="2"
-                                           Text="{Binding Location}"
-                                           FontSize="11"
-                                           Foreground="#3B4352" />
+                                            Text="{Binding Location}"
+                                            FontSize="12"
+                                            Foreground="#2B3038" />
                                 <TextBlock Grid.Column="3"
-                                           Text="{Binding Message}"
-                                           FontSize="11"
-                                           Foreground="#3B4352"
-                                           TextTrimming="CharacterEllipsis" />
+                                            Text="{Binding Message}"
+                                            FontSize="12"
+                                            Foreground="#2B3038"
+                                            TextTrimming="CharacterEllipsis" />
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>

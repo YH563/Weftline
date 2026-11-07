@@ -8,10 +8,6 @@ public sealed record ThemePalette(
     IBrush EditorBackground,
     IBrush EditorForeground,
     IBrush EditorLineNumber,
-    IBrush Directive,
-    IBrush Comment,
-    IBrush Reference,
-    IBrush String,
     IBrush GraphAccent,
     IBrush GraphDanger)
 {
@@ -20,10 +16,6 @@ public sealed record ThemePalette(
         Brush("#FFFFFF"),
         Brush("#1F2328"),
         Brush("#8C959F"),
-        Brush("#0550AE"),
-        Brush("#6E7781"),
-        Brush("#0F766E"),
-        Brush("#953800"),
         Brush("#2563EB"),
         Brush("#DC2626"));
 
@@ -32,10 +24,6 @@ public sealed record ThemePalette(
         Brush("#1E1F22"),
         Brush("#E6E6E6"),
         Brush("#7A7F87"),
-        Brush("#82AAFF"),
-        Brush("#7A7F87"),
-        Brush("#4EC9B0"),
-        Brush("#CE9178"),
         Brush("#7C9CFF"),
         Brush("#F87171"));
 

@@ -40,10 +40,10 @@
             <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Spacing="3" ToolTip.Tip="{Binding RootPath}">
                     <TextBlock Text="项目资源管理器"
-                               FontSize="11"
-                               Foreground="#808080" />
+                               FontSize="12"
+                               Foreground="#5F6B7A" />
                     <TextBlock Text="{Binding RootName}"
-                               FontSize="13"
+                               FontSize="14"
                                FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis" />
                 </StackPanel>
@@ -62,7 +62,7 @@
                             ToolTip.Tip="新建文件">
                         <PathIcon Width="14"
                                   Height="14"
-                                  Foreground="#6B7280"
+                                  Foreground="#5F6B7A"
                                   Data="M14 2H6C4.89 2 4 2.9 4 4V20C4 21.1 4.89 22 6 22H18C19.11 22 20 21.1 20 20V8L14 2M14 7V3.5L18.5 8H14M11 11H13V14H16V16H13V19H11V16H8V14H11V11Z" />
                     </Button>
                     <Button Command="{Binding NewFolderCommand}"
@@ -75,7 +75,7 @@
                             ToolTip.Tip="新建文件夹">
                         <PathIcon Width="14"
                                   Height="14"
-                                  Foreground="#6B7280"
+                                  Foreground="#5F6B7A"
                                   Data="M10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6H12L10 4M13 10H15V13H18V15H15V18H13V15H10V13H13V10Z" />
                     </Button>
                     <Button Command="{Binding RenameCommand}"
@@ -89,7 +89,7 @@
                             ToolTip.Tip="重命名">
                         <PathIcon Width="14"
                                   Height="14"
-                                  Foreground="#6B7280"
+                                  Foreground="#5F6B7A"
                                   Data="M3 17.25V21H6.75L17.81 9.94L14.06 6.19L3 17.25M20.71 7.04C21.1 6.65 21.1 6 20.71 5.63L18.37 3.29C18 2.9 17.35 2.9 16.96 3.29L15.13 5.12L18.88 8.87L20.71 7.04Z" />
                     </Button>
                     <Button Command="{Binding DeleteCommand}"
@@ -103,7 +103,7 @@
                             ToolTip.Tip="删除">
                         <PathIcon Width="14"
                                   Height="14"
-                                  Foreground="#6B7280"
+                                  Foreground="#5F6B7A"
                                   Data="M19 4H15.5L14.5 3H9.5L8.5 4H5V6H19V4M6 7V20C6 21.1 6.9 22 8 22H16C17.1 22 18 21.1 18 20V7H6Z" />
                     </Button>
                 </StackPanel>
@@ -127,15 +127,15 @@
                 <Style Selector="ListBoxItem">
                     <Setter Property="Padding" Value="0" />
                     <Setter Property="Margin" Value="0" />
-                    <Setter Property="MinHeight" Value="24" />
+                    <Setter Property="MinHeight" Value="26" />
                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                     <Setter Property="Background" Value="Transparent" />
                     <Setter Property="Template">
                         <ControlTemplate>
                             <Border Name="PART_Row"
                                     Background="{TemplateBinding Background}"
-                                    CornerRadius="3"
-                                    MinHeight="24">
+                                    CornerRadius="0"
+                                    MinHeight="26">
                                 <ContentPresenter Name="PART_ContentPresenter"
                                                   Content="{TemplateBinding Content}"
                                                   ContentTemplate="{TemplateBinding ContentTemplate}"
@@ -172,7 +172,7 @@
             <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:ProjectTreeNodeViewModel">
                     <Grid ColumnDefinitions="Auto,Auto,Auto,*"
-                          Height="24"
+                          Height="26"
                           HorizontalAlignment="Stretch">
                         <Border Width="{Binding Indent}" />
 
@@ -187,7 +187,7 @@
                                       Width="8"
                                       Height="8"
                                       Stretch="Uniform"
-                                      Stroke="#7A8494"
+                                      Stroke="#5F6B7A"
                                       StrokeThickness="1.2"
                                       StrokeLineCap="Round"
                                       StrokeJoin="Round"
@@ -211,7 +211,9 @@
 
                         <TextBlock Grid.Column="3"
                                    Text="{Binding Name}"
+                                   FontSize="13"
                                    FontWeight="Medium"
+                                   Foreground="#2B3038"
                                    VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis" />
                     </Grid>

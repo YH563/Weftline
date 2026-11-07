@@ -58,6 +58,14 @@ public sealed class HoverController : IDisposable
 
     private void OnPointerMoved(object? sender, PointerEventArgs e)
     {
+        var point = e.GetCurrentPoint(_editor);
+
+        if (point.Properties.IsLeftButtonPressed)
+        {
+            Hide();
+            return;
+        }
+
         var offset = ResolveOffset(e);
 
         if (offset < 0)
