@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Weftline.App.Models;
 using Weftline.App.Services;
+using Weftline.Editor.ViewModels;
 using Weftline.Models;
 using Weftline.Native;
 
@@ -14,8 +15,9 @@ namespace Weftline.App.ViewModels;
 public partial class MainWindowViewModel : ObservableObject
 {
     private readonly IDialogService _dialogs;
+    private readonly EditorLanguageService _editorLanguageService;
     private readonly SemaphoreSlim _compileGate = new(1, 1);
-    private EditorViewModel? _observedDocument;
+    private EditorDocumentViewModel? _observedDocument;
     private CancellationTokenSource? _compileCts;
     private NativeWeftlineClient? _nativeClient;
     private GraphProjection? _lastGoodProjection;
@@ -26,7 +28,12 @@ public partial class MainWindowViewModel : ObservableObject
     {
         _dialogs = dialogs;
         Explorer = new ProjectExplorerViewModel(dialogs);
-        Editor = new EditorHostViewModel();
+        _editorLanguageService = new EditorLanguageService();
+        Editor = new EditorHostViewModel(
+            new FileEditorDocumentLoader(),
+            new EditorIconProvider(),
+            new EditorThemeSource(),
+            _editorLanguageService);
         Status = new StatusBarViewModel();
         Graph = new GraphViewModel();
 
@@ -73,6 +80,8 @@ public partial class MainWindowViewModel : ObservableObject
         Explorer.Load(folder);
         _projectFolder = folder;
         _lastGoodProjection = null;
+        _editorLanguageService.Projection = null;
+        _editorLanguageService.Symbols = null;
         Graph.Reset();
         ProjectOpened?.Invoke(this, EventArgs.Empty);
         await CompileNowAsync().ConfigureAwait(true);
@@ -180,7 +189,7 @@ public partial class MainWindowViewModel : ObservableObject
         Status.UpdateDocument(Editor.SelectedDocument);
     }
 
-    private void AttachDocument(EditorViewModel? document)
+    private void AttachDocument(EditorDocumentViewModel? document)
     {
         if (_observedDocument is not null)
         {
@@ -197,13 +206,13 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void OnDocumentPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (sender is EditorViewModel document)
+        if (sender is EditorDocumentViewModel document)
         {
             Status.UpdateDocument(document);
         }
     }
 
-    private void OnDocumentTextChanged(object? sender, EditorViewModel document)
+    private void OnDocumentTextChanged(object? sender, EditorDocumentViewModel document)
         => ScheduleCompile();
 
     private void ScheduleCompile()
@@ -299,6 +308,9 @@ public partial class MainWindowViewModel : ObservableObject
             if (!cts.IsCancellationRequested)
             {
                 UpdateDiagnostics([]);
+                Editor.SetDiagnostics([]);
+                _editorLanguageService.Projection = null;
+                _editorLanguageService.Symbols = null;
                 Status.UpdateProject(null);
                 Status.SetStatus($"分析失败：{exception.Message}");
             }
@@ -332,6 +344,8 @@ public partial class MainWindowViewModel : ObservableObject
     private void ApplyNativeResult(NativeProjectResponse native)
     {
         var projection = native.Projection?.ToGraphProjection();
+        _editorLanguageService.Projection = projection;
+        _editorLanguageService.Symbols = native.Symbols?.ToSymbols();
         var errors = native.Diagnostics.Count(static item => item.Severity == "error");
         var warnings = native.Diagnostics.Count(static item => item.Severity == "warning");
         var variableCount = native.Graph?.Globals.Count ?? 0;
@@ -343,6 +357,8 @@ public partial class MainWindowViewModel : ObservableObject
             item.Severity,
             item.Code,
             item.Message)));
+
+        Editor.SetDiagnostics(native.Diagnostics.Select(ToWeftDiagnostic).ToList());
 
         Status.UpdateProject(new ProjectCompileSummary(
             moduleCount, variableCount, errors, warnings));
@@ -359,6 +375,7 @@ public partial class MainWindowViewModel : ObservableObject
         if (_lastGoodProjection is { } lastProjection)
         {
             Graph.Projection = lastProjection;
+            _editorLanguageService.Projection = lastProjection;
             Graph.StatusText = $"保留上一次可用图 · {errors} 错误 · {warnings} 警告";
             return;
         }
@@ -393,6 +410,19 @@ public partial class MainWindowViewModel : ObservableObject
         var (line, character) = ResolvePosition(filePath, start);
         return new DiagnosticItem(filePath, line, character, severity, code, message);
     }
+
+    private static WeftDiagnostic ToWeftDiagnostic(NativeDiagnostic diagnostic)
+        => new(
+            diagnostic.FilePath,
+            new TextSpan(diagnostic.Start, diagnostic.Length),
+            diagnostic.Severity switch
+            {
+                "error" => WeftDiagnosticSeverity.Error,
+                "warning" => WeftDiagnosticSeverity.Warning,
+                _ => WeftDiagnosticSeverity.Info,
+            },
+            diagnostic.Code,
+            diagnostic.Message);
 
     private (int Line, int Character) ResolvePosition(string filePath, int offset)
     {

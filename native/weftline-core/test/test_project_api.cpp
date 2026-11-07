@@ -31,6 +31,57 @@ TEST(ProjectApi, ReturnsDiagnosticsJson)
     EXPECT_NE(json.find("\"filePath\":\"chapter.weft\""), std::string::npos);
 }
 
+TEST(ProjectApi, ReturnsSymbolsWithDescriptionsAndLocations)
+{
+    WeftProject* project = weft_project_create();
+    ASSERT_NE(project, nullptr);
+
+    weft_project_set_document(
+        project,
+        "story.wstory",
+        "@project 测试\n"
+        "    @chapters\n"
+        "        @chapter 第一章 [开篇。]\n"
+        "    @chars\n"
+        "        @char 萧影 [主角。]\n"
+        "    @vars\n"
+        "        @var 信任 false [是否信任。]\n");
+
+    weft_project_set_document(
+        project,
+        "chapter.weft",
+        "@title 第一章\n"
+        "@vars\n"
+        "    @var 信任 false\n"
+        "@chars\n"
+        "    @char 萧影\n"
+        "@module A\n"
+        "    [{萧影}。]\n"
+        "@next -> END\n");
+
+    char* response = weft_project_compile(project, 0, 1);
+    ASSERT_NE(response, nullptr);
+
+    const std::string json(response);
+    weft_free(response);
+    weft_project_destroy(project);
+
+    EXPECT_NE(json.find("\"symbols\":{"), std::string::npos);
+    EXPECT_NE(
+        json.find("\"variables\":[{\"name\":\"信任\",\"initial\":false"),
+        std::string::npos);
+    EXPECT_NE(json.find("\"description\":\"是否信任。\""), std::string::npos);
+    EXPECT_NE(
+        json.find("\"characters\":[{\"name\":\"萧影\""),
+        std::string::npos);
+    EXPECT_NE(json.find("\"description\":\"主角。\""), std::string::npos);
+    EXPECT_NE(
+        json.find("\"chapters\":[{\"id\":\"第一章\",\"title\":\"第一章\""),
+        std::string::npos);
+    EXPECT_NE(json.find("\"description\":\"开篇。\""), std::string::npos);
+    EXPECT_NE(json.find("\"filePath\":\"chapter.weft\""), std::string::npos);
+}
+
 TEST(ProjectApi, ValidProjectHasNoErrors)
 {
     WeftProject* project = weft_project_create();

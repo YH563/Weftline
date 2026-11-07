@@ -30,7 +30,7 @@ namespace {
     {
         weftline::json::Writer writer;
         writer.begin_object();
-        writer.key("schemaVersion").number(2);
+        writer.key("schemaVersion").number(3);
         writer.key("version").string(weft_version());
         writer.key("hasErrors").boolean(true);
         writer.key("error").string(message);
@@ -38,12 +38,105 @@ namespace {
         return writer.str();
     }
 
+    template <typename Entry, typename WriteExtra>
+    void write_symbol_array(
+        weftline::json::Writer& writer,
+        const weftline::projects::ProjectIndex& index,
+        const std::vector<Entry>& entries,
+        WriteExtra&& write_extra)
+    {
+        writer.begin_array();
+
+        for (const auto& entry : entries) {
+            writer.begin_object();
+            writer.key("name").string(
+                weftline::source::utf16_to_utf8(entry.name));
+            write_extra(writer, entry);
+
+            if (entry.description) {
+                writer.key("description").string(
+                    weftline::source::utf16_to_utf8(*entry.description));
+            }
+
+            const auto found = index.symbols.find(entry.name);
+            if (found != index.symbols.end()) {
+                writer.key("filePath").string(found->second.location.file_path);
+                writer.key("start").number(found->second.location.span.start);
+                writer.key("length").number(found->second.location.span.length);
+            }
+
+            writer.end_object();
+        }
+
+        writer.end_array();
+    }
+
+    void write_project_symbols(
+        weftline::json::Writer& writer,
+        const weftline::projects::ProjectCompilationResult& result)
+    {
+        const auto& index = result.index;
+        const auto& model = result.model;
+
+        writer.begin_object();
+
+        writer.key("variables");
+        write_symbol_array(
+            writer, index, model.symbols.variables,
+            [](weftline::json::Writer& output, const auto& variable) {
+                output.key("initial").boolean(variable.initial);
+            });
+
+        writer.key("characters");
+        write_symbol_array(
+            writer, index, model.symbols.characters,
+            [](weftline::json::Writer&, const auto&) {});
+
+        writer.key("items");
+        write_symbol_array(
+            writer, index, model.symbols.items,
+            [](weftline::json::Writer&, const auto&) {});
+
+        writer.key("scenes");
+        write_symbol_array(
+            writer, index, model.symbols.scenes,
+            [](weftline::json::Writer&, const auto&) {});
+
+        writer.key("chapters").begin_array();
+        for (const auto& chapter : model.chapters) {
+            writer.begin_object();
+            writer.key("id").string(
+                weftline::source::utf16_to_utf8(chapter.id));
+            writer.key("title").string(
+                weftline::source::utf16_to_utf8(chapter.title));
+
+            if (chapter.description) {
+                writer.key("description").string(
+                    weftline::source::utf16_to_utf8(*chapter.description));
+            }
+
+            writer.key("moduleIds").begin_array();
+            for (const auto& module_id : chapter.module_ids) {
+                writer.string(weftline::source::utf16_to_utf8(module_id));
+            }
+            writer.end_array();
+
+            writer.key("filePath").string(chapter.source.file_path);
+            writer.key("start").number(chapter.source.span.start);
+            writer.key("length").number(chapter.source.span.length);
+            writer.end_object();
+        }
+        writer.end_array();
+
+        writer.end_object();
+    }
+
     [[nodiscard]] std::string project_compile_json(
         const weftline::projects::ProjectCompilationResult& result)
     {
         weftline::json::Writer writer;
         writer.begin_object();
-        writer.key("schemaVersion").number(2);
+        writer.key("schemaVersion").number(3);
         writer.key("version").string(weft_version());
         writer.key("hasErrors").boolean(result.has_errors());
         writer.key("projectName").string(
@@ -73,6 +166,9 @@ namespace {
             writer.end_object();
         }
         writer.end_array();
+
+        writer.key("symbols");
+        write_project_symbols(writer, result);
 
         if (result.graph) {
             writer.key("graph").raw(

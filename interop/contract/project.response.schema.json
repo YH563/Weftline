@@ -6,7 +6,7 @@
   "required": ["schemaVersion", "hasErrors", "diagnostics"],
   "properties": {
     "schemaVersion": {
-      "const": 2
+      "const": 3
     },
     "version": {
       "type": "string"
@@ -65,6 +65,42 @@
         "additionalProperties": false
       }
     },
+    "symbols": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/symbol"
+          }
+        },
+        "characters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/symbol"
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/symbol"
+          }
+        },
+        "scenes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/symbol"
+          }
+        },
+        "chapters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/chapter"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "graph": {
       "type": "object",
       "description": "StoryGraph JSON；字段见 docs 或 ir/story_graph.hpp。"
@@ -72,6 +108,68 @@
     "projection": {
       "type": "object",
       "description": "GraphProjection JSON；字段见 ir/graph_projection.hpp。"
+    }
+  },
+  "$defs": {
+    "symbol": {
+      "type": "object",
+      "required": ["name", "filePath", "start", "length"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "initial": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "filePath": {
+          "type": "string"
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "chapter": {
+      "type": "object",
+      "required": ["id", "title", "moduleIds", "filePath", "start", "length"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "moduleIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "filePath": {
+          "type": "string"
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

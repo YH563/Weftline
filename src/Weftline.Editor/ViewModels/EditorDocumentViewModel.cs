@@ -2,15 +2,19 @@ using System.Text.RegularExpressions;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Weftline.App.Services;
+using Weftline.Editor.Services;
+using Weftline.Models;
 
-namespace Weftline.App.ViewModels;
+namespace Weftline.Editor.ViewModels;
 
-public partial class EditorViewModel : ObservableObject
+public partial class EditorDocumentViewModel : ObservableObject
 {
     private static readonly Regex TitleRegex = new(
         @"^\s*@title\s+(?<title>.+?)\s*$",
         RegexOptions.Multiline | RegexOptions.Compiled);
+
+    private readonly IEditorDocumentLoader _loader;
+    private readonly IEditorIconProvider _iconProvider;
 
     [ObservableProperty]
     private string _title = "欢迎使用 Weftline";
@@ -45,20 +49,26 @@ public partial class EditorViewModel : ObservableObject
     [ObservableProperty]
     private IBrush _iconBrush;
 
-    public IRelayCommand? CloseCommand { get; set; }
+    [ObservableProperty]
+    private IReadOnlyList<WeftDiagnostic> _diagnostics = [];
 
-    public EditorViewModel()
+    public EditorDocumentViewModel(IEditorDocumentLoader loader, IEditorIconProvider iconProvider)
     {
-        var icon = FileIconResolver.Resolve("welcome.weft", false, false);
+        _loader = loader;
+        _iconProvider = iconProvider;
+
+        var icon = iconProvider.Resolve("welcome.weft", false, false);
         _iconGeometry = icon.Geometry;
         _iconBrush = icon.Brush;
     }
+
+    public IRelayCommand? CloseCommand { get; set; }
 
     public string FileName => string.IsNullOrEmpty(FilePath) ? Title : Path.GetFileName(FilePath);
 
     public void OpenFile(string path)
     {
-        var text = File.ReadAllText(path);
+        var text = _loader.ReadAllText(path);
         FilePath = path;
         Text = text;
         Title = ParseTitle(text, Path.GetFileName(path));
@@ -97,7 +107,7 @@ public partial class EditorViewModel : ObservableObject
 
     private void UpdateIcon()
     {
-        var icon = FileIconResolver.Resolve(
+        var icon = _iconProvider.Resolve(
             string.IsNullOrEmpty(FilePath) ? "welcome.weft" : FilePath,
             false,
             false);

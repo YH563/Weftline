@@ -2,9 +2,9 @@ using System.Text.RegularExpressions;
 using Avalonia.Media;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Rendering;
-using Weftline.App.Services;
+using Weftline.Editor.Rendering;
 
-namespace Weftline.App.Controls;
+namespace Weftline.Editor.Controls;
 
 public sealed class WeftHighlightingTransformer : DocumentColorizingTransformer
 {
@@ -19,13 +19,13 @@ public sealed class WeftHighlightingTransformer : DocumentColorizingTransformer
     private IBrush _stringBrush = Brushes.Transparent;
     private IBrush _keywordBrush = Brushes.Transparent;
 
-    public void ApplyTheme(ThemePalette palette)
+    public void ApplyTheme(EditorTheme theme)
     {
-        _directiveBrush = palette.Directive;
-        _commentBrush = palette.Comment;
-        _referenceBrush = palette.Reference;
-        _stringBrush = palette.String;
-        _keywordBrush = palette.Directive;
+        _directiveBrush = theme.Directive;
+        _commentBrush = theme.Comment;
+        _referenceBrush = theme.Reference;
+        _stringBrush = theme.String;
+        _keywordBrush = theme.Keyword;
     }
 
     protected override void ColorizeLine(DocumentLine line)

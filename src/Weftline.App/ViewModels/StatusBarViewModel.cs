@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Weftline.Editor.ViewModels;
 
 namespace Weftline.App.ViewModels;
 
@@ -40,7 +41,7 @@ public partial class StatusBarViewModel : ObservableObject
     /// <summary>
     /// 根据当前文档更新行列、语言和模块上下文。
     /// </summary>
-    public void UpdateDocument(EditorViewModel? document)
+    public void UpdateDocument(EditorDocumentViewModel? document)
     {
         if (document is null)
         {
@@ -90,7 +91,7 @@ public partial class StatusBarViewModel : ObservableObject
             _ => "纯文本",
         };
 
-    private static string ResolveContext(EditorViewModel document)
+    private static string ResolveContext(EditorDocumentViewModel document)
     {
         if (Path.GetExtension(document.FilePath).Equals(".wstory", StringComparison.OrdinalIgnoreCase))
         {

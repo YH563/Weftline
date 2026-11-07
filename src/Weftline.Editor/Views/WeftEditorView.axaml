@@ -1,11 +1,11 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:Weftline.App.ViewModels"
+             xmlns:vm="using:Weftline.Editor.ViewModels"
              xmlns:ae="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
-             x:Class="Weftline.App.Views.EditorView"
+             x:Class="Weftline.Editor.Views.WeftEditorView"
              x:DataType="vm:EditorHostViewModel"
              x:CompileBindings="True">
 
@@ -80,7 +80,7 @@
                     </ItemsPanelTemplate>
                 </ListBox.ItemsPanel>
                 <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:EditorViewModel">
+                    <DataTemplate x:DataType="vm:EditorDocumentViewModel">
                         <StackPanel Orientation="Horizontal"
                                     Spacing="6"
                                     ToolTip.Tip="{Binding FilePath}">

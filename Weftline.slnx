@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Weftline.App/Weftline.App.csproj" />
+    <Project Path="src/Weftline.Editor/Weftline.Editor.csproj" />
     <Project Path="src/Weftline.Graph/Weftline.Graph.csproj" />
     <Project Path="src/Weftline.Models/Weftline.Models.csproj" />
     <Project Path="src/Weftline.Native/Weftline.Native.csproj" />

@@ -6,53 +6,55 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
-using Weftline.App.Controls;
-using Weftline.App.Services;
-using Weftline.App.ViewModels;
+using Weftline.Editor.Controls;
+using Weftline.Editor.Rendering;
+using Weftline.Editor.Services;
+using Weftline.Editor.ViewModels;
+using Weftline.Models;
 
-namespace Weftline.App.Views;
+namespace Weftline.Editor.Views;
 
-public partial class EditorView : UserControl
+public partial class WeftEditorView : UserControl
 {
     private readonly WeftHighlightingTransformer _highlighter = new();
+    private readonly DiagnosticRenderer _diagnosticRenderer;
+    private readonly HoverController _hoverController;
+    private readonly CompletionController _completionController;
     private EditorHostViewModel? _host;
+    private IEditorThemeSource? _themeSource;
+    private WeftLineNumberMargin? _lineNumberMargin;
+    private EditorDocumentViewModel? _document;
     private bool _updating;
 
-    public EditorView()
+    public WeftEditorView()
     {
         InitializeComponent();
 
+        _diagnosticRenderer = new DiagnosticRenderer(TextEditor);
+
         TextEditor.TextArea.TextView.LineTransformers.Add(_highlighter);
+        TextEditor.TextArea.TextView.BackgroundRenderers.Add(_diagnosticRenderer);
         ReplaceLeftMargins();
         TextEditor.TextChanged += OnEditorTextChanged;
         TextEditor.TextArea.Caret.PositionChanged += OnCaretPositionChanged;
         TextEditor.TextArea.SelectionChanged += OnSelectionChanged;
+        _hoverController = new HoverController(
+            TextEditor,
+            () => _document?.FilePath,
+            () => _document?.Diagnostics ?? [],
+            () => _host?.LanguageService);
+        _completionController = new CompletionController(
+            TextEditor,
+            () => _document?.FilePath,
+            () => _host?.LanguageService);
         DataContextChanged += OnDataContextChanged;
-        ThemeService.Changed += OnThemeChanged;
-        ApplyTheme(ThemeService.Current);
-    }
-
-    public void OpenFile(string path)
-    {
-        if (DataContext is not EditorHostViewModel host)
-        {
-            host = new EditorHostViewModel();
-            DataContext = host;
-        }
-
-        host.OpenFile(path);
-        LoadSelectedDocument();
-        TextEditor.Focus();
+        ApplyTheme(EditorTheme.Default);
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-
-        if (DataContext is null)
-        {
-            DataContext = new EditorHostViewModel();
-        }
+        LoadSelectedDocument();
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -69,8 +71,27 @@ public partial class EditorView : UserControl
         {
             _host.PropertyChanged += OnHostPropertyChanged;
             _host.NavigationRequested += OnNavigationRequested;
-            LoadSelectedDocument();
         }
+
+        AttachThemeSource(_host?.ThemeSource);
+        LoadSelectedDocument();
+    }
+
+    private void AttachThemeSource(IEditorThemeSource? themeSource)
+    {
+        if (_themeSource is not null)
+        {
+            _themeSource.Changed -= OnThemeChanged;
+        }
+
+        _themeSource = themeSource;
+
+        if (_themeSource is not null)
+        {
+            _themeSource.Changed += OnThemeChanged;
+        }
+
+        ApplyTheme(_themeSource?.Current ?? EditorTheme.Default);
     }
 
     private void OnHostPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -81,7 +102,7 @@ public partial class EditorView : UserControl
         }
     }
 
-    private void OnNavigationRequested(object? sender, EditorViewModel document)
+    private void OnNavigationRequested(object? sender, EditorDocumentViewModel document)
     {
         if (ReferenceEquals(_host?.SelectedDocument, document))
         {
@@ -91,17 +112,21 @@ public partial class EditorView : UserControl
 
     private void LoadSelectedDocument()
     {
+        AttachDocument(_host?.SelectedDocument);
+
         if (_host?.SelectedDocument is not { } document)
         {
             _updating = true;
             TextEditor.Document = new TextDocument();
             _updating = false;
+            ApplyDiagnostics();
             return;
         }
 
         _updating = true;
         TextEditor.Document = new TextDocument(document.Text);
         _updating = false;
+        ApplyDiagnostics();
 
         Dispatcher.UIThread.Post(
             () =>
@@ -116,7 +141,25 @@ public partial class EditorView : UserControl
             DispatcherPriority.Loaded);
     }
 
-    private void SetCaret(EditorViewModel document)
+    private void AttachDocument(EditorDocumentViewModel? document)
+    {
+        if (_document is not null)
+        {
+            _document.PropertyChanged -= OnDocumentPropertyChanged;
+        }
+
+        _document = document;
+        _hoverController.Hide();
+
+        if (_document is not null)
+        {
+            _document.PropertyChanged += OnDocumentPropertyChanged;
+        }
+
+        ApplyDiagnostics();
+    }
+
+    private void SetCaret(EditorDocumentViewModel document)
     {
         if (TextEditor.Document is not { } textDocument || textDocument.LineCount == 0)
         {
@@ -141,11 +184,12 @@ public partial class EditorView : UserControl
         {
             if (margins[index] is LineNumberMargin)
             {
-                margins.RemoveAt(index);
-                margins.Insert(index, new WeftLineNumberMargin
+                _lineNumberMargin = new WeftLineNumberMargin
                 {
                     MinWidthInDigits = 5,
-                });
+                };
+                margins.RemoveAt(index);
+                margins.Insert(index, _lineNumberMargin);
                 continue;
             }
 
@@ -198,21 +242,62 @@ public partial class EditorView : UserControl
         document.SelectionLength = TextEditor.SelectionLength;
     }
 
-    private void OnThemeChanged(object? sender, EventArgs e) => ApplyTheme(ThemeService.Current);
-
-    private void ApplyTheme(ThemePalette palette)
+    private void OnDocumentPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        TextEditor.Background = palette.EditorBackground;
-        TextEditor.Foreground = palette.EditorForeground;
-        TextEditor.LineNumbersForeground = palette.EditorLineNumber;
-        TextEditor.TextArea.TextView.CurrentLineBackground = palette.IsDark
-            ? new SolidColorBrush(Color.Parse("#1D2430"))
-            : new SolidColorBrush(Color.Parse("#F4F8FF"));
-        TextEditor.TextArea.TextView.CurrentLineBorder = new Pen(
-            new SolidColorBrush(Color.Parse(palette.IsDark ? "#2D3A4F" : "#E3ECFA")),
-            1);
+        if (e.PropertyName == nameof(EditorDocumentViewModel.Diagnostics))
+        {
+            ApplyDiagnostics();
+        }
+    }
 
-        _highlighter.ApplyTheme(palette);
+    private void ApplyDiagnostics()
+    {
+        var diagnostics = _document?.Diagnostics ?? [];
+        _diagnosticRenderer.Update(diagnostics);
+
+        HashSet<int> errors = [];
+        HashSet<int> warnings = [];
+        HashSet<int> infos = [];
+
+        if (TextEditor.Document is { } document)
+        {
+            foreach (var diagnostic in diagnostics)
+            {
+                var offset = Math.Clamp(diagnostic.Span.Start, 0, document.TextLength);
+                var line = document.GetLineByOffset(offset).LineNumber;
+
+                switch (diagnostic.Severity)
+                {
+                    case WeftDiagnosticSeverity.Error:
+                        errors.Add(line);
+                        break;
+                    case WeftDiagnosticSeverity.Warning:
+                        warnings.Add(line);
+                        break;
+                    default:
+                        infos.Add(line);
+                        break;
+                }
+            }
+        }
+
+        _lineNumberMargin?.SetMarkers(errors, warnings, infos);
+    }
+
+    private void OnThemeChanged(object? sender, EventArgs e)
+        => ApplyTheme(_themeSource?.Current ?? EditorTheme.Default);
+
+    private void ApplyTheme(EditorTheme theme)
+    {
+        TextEditor.Background = theme.Background;
+        TextEditor.Foreground = theme.Foreground;
+        TextEditor.LineNumbersForeground = theme.LineNumberForeground;
+        TextEditor.TextArea.TextView.CurrentLineBackground = theme.CurrentLineBackground;
+        TextEditor.TextArea.TextView.CurrentLineBorder = new Pen(theme.CurrentLineBorder, 1);
+
+        _lineNumberMargin?.ApplyTheme(theme);
+        _highlighter.ApplyTheme(theme);
+        _diagnosticRenderer.ApplyTheme(theme);
         TextEditor.TextArea.TextView.Redraw();
     }
 }

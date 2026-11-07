@@ -13,8 +13,74 @@ public sealed class NativeProjectResponse
     public string? ProjectName { get; set; }
     public string? Error { get; set; }
     public List<NativeDiagnostic> Diagnostics { get; set; } = [];
+    public NativeProjectSymbols? Symbols { get; set; }
     public NativeStoryGraph? Graph { get; set; }
     public NativeProjection? Projection { get; set; }
+}
+
+/// <summary>
+/// 项目级符号与描述。
+/// </summary>
+public sealed class NativeProjectSymbols
+{
+    public List<NativeSymbolInfo> Variables { get; set; } = [];
+    public List<NativeSymbolInfo> Characters { get; set; } = [];
+    public List<NativeSymbolInfo> Items { get; set; } = [];
+    public List<NativeSymbolInfo> Scenes { get; set; } = [];
+    public List<NativeChapterInfo> Chapters { get; set; } = [];
+
+    /// <summary>
+    /// 转换为编辑器使用的符号模型。
+    /// </summary>
+    public WeftProjectSymbols ToSymbols()
+        => new(
+            Variables.Select(static symbol => ToSymbol(symbol)).ToList(),
+            Characters.Select(static symbol => ToSymbol(symbol)).ToList(),
+            Items.Select(static symbol => ToSymbol(symbol)).ToList(),
+            Scenes.Select(static symbol => ToSymbol(symbol)).ToList(),
+            Chapters.Select(static chapter => new WeftChapterInfo(
+                chapter.Id,
+                chapter.Title,
+                chapter.Description,
+                chapter.ModuleIds,
+                ToSource(chapter.FilePath, chapter.Start, chapter.Length))).ToList());
+
+    private static WeftSymbolInfo ToSymbol(NativeSymbolInfo symbol)
+        => new(
+            symbol.Name,
+            symbol.Initial,
+            symbol.Description,
+            ToSource(symbol.FilePath, symbol.Start, symbol.Length));
+
+    private static SourceLocation ToSource(string filePath, int start, int length)
+        => new(filePath, new TextSpan(start, length));
+}
+
+/// <summary>
+/// 一个符号及其定义位置。
+/// </summary>
+public sealed class NativeSymbolInfo
+{
+    public string Name { get; set; } = string.Empty;
+    public bool? Initial { get; set; }
+    public string? Description { get; set; }
+    public string FilePath { get; set; } = string.Empty;
+    public int Start { get; set; }
+    public int Length { get; set; }
+}
+
+/// <summary>
+/// 一个章节及其描述。
+/// </summary>
+public sealed class NativeChapterInfo
+{
+    public string Id { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public List<string> ModuleIds { get; set; } = [];
+    public string FilePath { get; set; } = string.Empty;
+    public int Start { get; set; }
+    public int Length { get; set; }
 }
 
 /// <summary>

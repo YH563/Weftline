@@ -41,6 +41,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Weftline.Editor\Weftline.Editor.csproj" />
     <ProjectReference Include="..\Weftline.Graph\Weftline.Graph.csproj" />
     <ProjectReference Include="..\Weftline.Models\Weftline.Models.csproj" />
     <ProjectReference Include="..\Weftline.Native\Weftline.Native.csproj" />

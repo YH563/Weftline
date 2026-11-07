@@ -6,6 +6,7 @@
         mc:Ignorable="d"
         x:Class="Weftline.App.Views.MainWindow"
         xmlns:views="using:Weftline.App.Views"
+        xmlns:editor="using:Weftline.Editor.Views"
         xmlns:vm="using:Weftline.App.ViewModels"
         xmlns:graph="using:Weftline.Graph.Controls"
         x:DataType="vm:MainWindowViewModel"
@@ -57,8 +58,8 @@
                     BorderThickness="1"
                     CornerRadius="8"
                     ClipToBounds="True">
-                <views:EditorView x:Name="Editor"
-                                      DataContext="{Binding Editor}" />
+                <editor:WeftEditorView x:Name="Editor"
+                                       DataContext="{Binding Editor}" />
             </Border>
 
             <GridSplitter Grid.Column="3"

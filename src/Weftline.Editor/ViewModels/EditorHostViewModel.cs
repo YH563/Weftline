@@ -2,26 +2,45 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Weftline.Editor.Services;
+using Weftline.Models;
 
-namespace Weftline.App.ViewModels;
+namespace Weftline.Editor.ViewModels;
 
 public partial class EditorHostViewModel : ObservableObject
 {
-    public event EventHandler<EditorViewModel>? DocumentTextChanged;
+    private readonly IEditorDocumentLoader _loader;
+    private readonly IEditorIconProvider _iconProvider;
+    private readonly Dictionary<string, IReadOnlyList<WeftDiagnostic>> _diagnosticsByFile =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    public event EventHandler<EditorDocumentViewModel>? DocumentTextChanged;
 
     /// <summary>
     /// 请求把光标定位到指定文档位置；视图层收到后负责滚动和聚焦。
     /// </summary>
-    public event EventHandler<EditorViewModel>? NavigationRequested;
+    public event EventHandler<EditorDocumentViewModel>? NavigationRequested;
 
     [ObservableProperty]
-    private EditorViewModel? _selectedDocument;
+    private EditorDocumentViewModel? _selectedDocument;
 
-    public EditorHostViewModel()
+    public EditorHostViewModel(
+        IEditorDocumentLoader loader,
+        IEditorIconProvider iconProvider,
+        IEditorThemeSource themeSource,
+        IWeftEditorLanguageService? languageService = null)
     {
+        _loader = loader;
+        _iconProvider = iconProvider;
+        ThemeSource = themeSource;
+        LanguageService = languageService;
     }
 
-    public ObservableCollection<EditorViewModel> Documents { get; } = [];
+    public IEditorThemeSource ThemeSource { get; }
+
+    public IWeftEditorLanguageService? LanguageService { get; }
+
+    public ObservableCollection<EditorDocumentViewModel> Documents { get; } = [];
 
     public bool HasDocument => SelectedDocument is not null;
 
@@ -36,7 +55,7 @@ public partial class EditorHostViewModel : ObservableObject
             return;
         }
 
-        var document = new EditorViewModel();
+        var document = new EditorDocumentViewModel(_loader, _iconProvider);
         document.CloseCommand = new RelayCommand(() => CloseDocument(document));
 
         try
@@ -50,9 +69,38 @@ public partial class EditorHostViewModel : ObservableObject
             document.UpdateText(exception.Message, false);
         }
 
+        if (_diagnosticsByFile.TryGetValue(document.FilePath, out var diagnostics))
+        {
+            document.Diagnostics = diagnostics;
+        }
+
         document.PropertyChanged += OnDocumentPropertyChanged;
         Documents.Add(document);
         SelectedDocument = document;
+    }
+
+    /// <summary>
+    /// 用一次编译结果替换所有文件的诊断；未打开的文件会在打开时应用。
+    /// </summary>
+    public void SetDiagnostics(IReadOnlyList<WeftDiagnostic> diagnostics)
+    {
+        _diagnosticsByFile.Clear();
+
+        foreach (var group in diagnostics.GroupBy(
+                     static item => item.FilePath,
+                     StringComparer.OrdinalIgnoreCase))
+        {
+            _diagnosticsByFile[group.Key] = group.ToList();
+        }
+
+        foreach (var document in Documents)
+        {
+            document.Diagnostics = _diagnosticsByFile.TryGetValue(
+                document.FilePath,
+                out var fileDiagnostics)
+                ? fileDiagnostics
+                : [];
+        }
     }
 
     /// <summary>
@@ -109,7 +157,7 @@ public partial class EditorHostViewModel : ObservableObject
         }
     }
 
-    public void CloseDocument(EditorViewModel document)
+    public void CloseDocument(EditorDocumentViewModel document)
     {
         var index = Documents.IndexOf(document);
 
@@ -129,13 +177,13 @@ public partial class EditorHostViewModel : ObservableObject
         }
     }
 
-    partial void OnSelectedDocumentChanged(EditorViewModel? value)
+    partial void OnSelectedDocumentChanged(EditorDocumentViewModel? value)
         => OnPropertyChanged(nameof(HasDocument));
 
     private void OnDocumentPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(EditorViewModel.Text) &&
-            sender is EditorViewModel document)
+        if (e.PropertyName == nameof(EditorDocumentViewModel.Text) &&
+            sender is EditorDocumentViewModel document)
         {
             DocumentTextChanged?.Invoke(this, document);
         }
