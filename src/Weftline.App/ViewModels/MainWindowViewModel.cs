@@ -95,6 +95,21 @@ public partial class MainWindowViewModel : ObservableObject
             return;
         }
 
+        await OpenProjectCoreAsync(folder).ConfigureAwait(true);
+    }
+
+    public async Task LoadProjectForPreviewAsync(string folder, string? file)
+    {
+        await OpenProjectCoreAsync(folder).ConfigureAwait(true);
+
+        if (!string.IsNullOrWhiteSpace(file))
+        {
+            Editor.OpenFile(file);
+        }
+    }
+
+    private async Task OpenProjectCoreAsync(string folder)
+    {
         Editor.CloseAll();
         Explorer.Load(folder);
         _projectFolder = folder;
