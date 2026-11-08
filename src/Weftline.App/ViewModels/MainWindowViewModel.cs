@@ -104,8 +104,26 @@ public partial class MainWindowViewModel : ObservableObject
 
         if (!string.IsNullOrWhiteSpace(file))
         {
-            Editor.OpenFile(file);
+            Editor.OpenFile(ResolvePreviewFile(folder, file));
         }
+    }
+
+    /// <summary>
+    /// 把 --file 解析成绝对路径。相对路径按项目目录解析，找不到时回退到当前工作目录。
+    /// 必须解析成绝对路径：否则同一个文件会以两个 key 登记两次，
+    /// 让 native core 把每个声明都判成重复。
+    /// </summary>
+    private static string ResolvePreviewFile(string folder, string file)
+    {
+        if (Path.IsPathRooted(file))
+        {
+            return Path.GetFullPath(file);
+        }
+
+        var inProject = Path.GetFullPath(Path.Combine(folder, file));
+        return File.Exists(inProject) || !File.Exists(file)
+            ? inProject
+            : Path.GetFullPath(file);
     }
 
     private async Task OpenProjectCoreAsync(string folder)
