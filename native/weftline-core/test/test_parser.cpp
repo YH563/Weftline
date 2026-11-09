@@ -115,6 +115,64 @@ TEST(Parser, AllowsFirstBranchOnNextLine)
     EXPECT_FALSE(file->modules[0].exit->branches[1].condition.has_value());
 }
 
+TEST(Parser, ParsesFlatDeclarationsWithoutGroups)
+{
+    const auto source = weftline::source::SourceText::from_utf8(
+        "@title T\n"
+        "@var a false\n"
+        "@char 萧影\n"
+        "@item 钥匙\n"
+        "@scene 医院\n"
+        "@module M\n"
+        "    @scene 医院\n"
+        "    [{萧影}]\n"
+        "@next -> END\n");
+    weftline::diagnostics::DiagnosticBag diagnostics;
+
+    const auto script = weftline::syntax::parse(source, diagnostics);
+    EXPECT_TRUE(diagnostics.empty());
+
+    const auto* file = std::get_if<weftline::syntax::WeftFile>(&script);
+    ASSERT_NE(file, nullptr);
+    ASSERT_EQ(file->variables.size(), 1u);
+    EXPECT_EQ(file->variables[0].name, u"a");
+    EXPECT_FALSE(file->variables[0].value);
+    ASSERT_EQ(file->characters.size(), 1u);
+    EXPECT_EQ(file->characters[0].name, u"萧影");
+    ASSERT_EQ(file->items.size(), 1u);
+    EXPECT_EQ(file->items[0].name, u"钥匙");
+    ASSERT_EQ(file->scenes.size(), 1u);
+    EXPECT_EQ(file->scenes[0].name, u"医院");
+    ASSERT_EQ(file->modules.size(), 1u);
+    ASSERT_TRUE(file->modules[0].scene.has_value());
+    EXPECT_EQ(*file->modules[0].scene, u"医院");
+}
+
+TEST(Parser, AcceptsMixedFlatAndGroupedDeclarations)
+{
+    const auto source = weftline::source::SourceText::from_utf8(
+        "@title T\n"
+        "@var a false\n"
+        "@chars\n"
+        "    @char 萧影\n"
+        "@item 钥匙\n"
+        "@scenes\n"
+        "    @scene 医院\n"
+        "@module M\n"
+        "@next -> END\n");
+    weftline::diagnostics::DiagnosticBag diagnostics;
+
+    const auto script = weftline::syntax::parse(source, diagnostics);
+    EXPECT_TRUE(diagnostics.empty());
+
+    const auto* file = std::get_if<weftline::syntax::WeftFile>(&script);
+    ASSERT_NE(file, nullptr);
+    EXPECT_EQ(file->variables.size(), 1u);
+    EXPECT_EQ(file->characters.size(), 1u);
+    EXPECT_EQ(file->items.size(), 1u);
+    EXPECT_EQ(file->scenes.size(), 1u);
+}
+
 TEST(Parser, MatchesCSharpAstForBelieveSample)
 {
     const std::string path = std::string(WEFTLINE_SAMPLES_DIR) + "/believe.weft";

@@ -19,6 +19,20 @@ public sealed class NativeProjectResponse
 }
 
 /// <summary>
+/// 单文件解析的 JSON 响应。
+/// </summary>
+public sealed class NativeParseResponse
+{
+    public int SchemaVersion { get; set; }
+    public string? Version { get; set; }
+    public string? FilePath { get; set; }
+    public long RequestVersion { get; set; }
+    public bool HasErrors { get; set; }
+    public string? Error { get; set; }
+    public List<NativeDiagnostic> Diagnostics { get; set; } = [];
+}
+
+/// <summary>
 /// 项目级符号与描述。
 /// </summary>
 public sealed class NativeProjectSymbols

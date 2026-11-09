@@ -35,6 +35,11 @@ public sealed class DiagnosticRenderer : IBackgroundRenderer
 
     public void Update(IReadOnlyList<WeftDiagnostic> diagnostics)
     {
+        if (_diagnostics.SequenceEqual(diagnostics))
+        {
+            return;
+        }
+
         _diagnostics = diagnostics;
         _editor.TextArea.TextView.InvalidateLayer(Layer);
     }

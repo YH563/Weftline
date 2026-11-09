@@ -109,8 +109,11 @@ Multi-line, with brackets attached to text:
 
 ```ebnf
 WeftFile        ::= "@title" TitleText NEWLINE
-                    DeclarationGroup*
+                    WeftDeclaration*
                     Module*
+
+WeftDeclaration ::= VarDecl | CharDecl | ItemDecl | SceneDecl
+                  | DeclarationGroup
 
 DeclarationGroup ::= VarGroup | CharGroup | ItemGroup | SceneGroup
 VarGroup        ::= "@vars" NEWLINE VarDecl+
@@ -204,12 +207,20 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 
 ### 3.1 File roles
 
-- `.weft`: chapter title + top-level declaration groups + modules.
+- `.weft`: chapter title + top-level declaration area + modules.
 - `.wstory`: project info + descriptions + grouped declarations.
 - `.weft` is the only declaration source.
 - `.wstory` declarations are generated; descriptions are hand-written.
 
-### 3.2 Chapter and module boundaries
+### 3.2 Declaration area
+
+- The declaration area is after `@title` and before the first `@module`.
+- Declarations may be written directly as `@var` / `@char` / `@item` / `@scene`.
+- `@vars` / `@chars` / `@items` / `@scenes` group headers are optional and only provide visual grouping.
+- Flat and grouped declarations may be mixed.
+- Declarations do not carry descriptions; descriptions belong in `.wstory`.
+
+### 3.3 Chapter and module boundaries
 
 - The first line of a `.weft` file must be `@title <chapter>`.
 - Each `@module <module-id>` starts a new module.
@@ -217,7 +228,7 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 - EOF ends the last module.
 - A `.weft` file has exactly one `@title`.
 
-### 3.3 Module header
+### 3.4 Module header
 
 ```text
 @module <module-id>
@@ -227,9 +238,10 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 - Module IDs must be identifiers and are unique across the project.
 - `@scene` is optional and must appear before content.
 - A module has at most one `@scene`.
+- A `@scene` before the first `@module` is a scene declaration; a `@scene` after `@module` is a module tag.
 - Module headers do not declare characters, items, variables, or scenes.
 
-### 3.4 Text blocks
+### 3.5 Text blocks
 
 - `[text]` on one line is inline narration.
 - `character:[text]` on one line is inline dialogue.
@@ -237,7 +249,7 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 - Each line's leading/trailing whitespace is trimmed.
 - `{name}` inside a text block is parsed as a reference.
 
-### 3.5 Exit blocks
+### 3.6 Exit blocks
 
 Full form:
 
@@ -260,7 +272,7 @@ Shorthand:
 - Effect blocks may be inline or multi-line.
 - `@set` is only allowed inside branch effects.
 
-### 3.6 Mode constraints
+### 3.7 Mode constraints
 
 | `@next` header | Mode | Branch requirement |
 |---|---|---|
@@ -270,7 +282,7 @@ Shorthand:
 
 Labels and unlabeled branches cannot be mixed in one exit block.
 
-### 3.7 Fallback
+### 3.8 Fallback
 
 Every exit block needs at least one **unconditional branch** (condition omitted or written as `()`).
 
@@ -281,19 +293,15 @@ Every exit block needs at least one **unconditional branch** (condition omitted 
 ```text
 @title 第一章 雨夜
 
-@vars
-    @var trust_low false
-    @var has_key false
+@var trust_low false
+@var has_key false
 
-@chars
-    @char 萧影
-    @char 影子
+@char 萧影
+@char 影子
 
-@items
-    @item 医院钥匙
+@item 医院钥匙
 
-@scenes
-    @scene 医院
+@scene 医院
 
 @module 相信
     @scene 医院

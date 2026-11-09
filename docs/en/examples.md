@@ -13,12 +13,10 @@ Two examples: a minimal demo without variables, and a complete example with cond
 ```text
 @title 第一章 街道
 
-@chars
-    @char 萧影
+@char 萧影
 
-@scenes
-    @scene 街道
-    @scene 医院
+@scene 街道
+@scene 医院
 
 @module 开场
     @scene 街道
@@ -91,19 +89,15 @@ Two examples: a minimal demo without variables, and a complete example with cond
 ```text
 @title 第一章 雨夜
 
-@vars
-    @var trust_low false
-    @var has_key false
+@var trust_low false
+@var has_key false
 
-@chars
-    @char 萧影
-    @char 影子
+@char 萧影
+@char 影子
 
-@items
-    @item 医院钥匙
+@item 医院钥匙
 
-@scenes
-    @scene 医院
+@scene 医院
 
 @module 序
     @scene 医院
@@ -212,7 +206,7 @@ Two examples: a minimal demo without variables, and a complete example with cond
 
 ## 5. Covered language features
 
-- `.weft` chapter title and top-level `@vars` / `@chars` / `@items` / `@scenes` groups
+- `.weft` chapter title and top-level declaration area (flat declarations or optional `@vars` / `@chars` / `@items` / `@scenes` groups)
 - `.wstory` project info, summary, docs, descriptions
 - `@title` chapter boundaries, `@module` module boundaries, and `@scene` scene tags
 - Inline `[]` narration and `character:[]` dialogue

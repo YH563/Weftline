@@ -20,6 +20,7 @@ public sealed class HoverController : IDisposable
     private readonly Func<IWeftEditorLanguageService?> _languageServiceProvider;
     private readonly DispatcherTimer _timer;
 
+    private CancellationTokenSource? _hoverCts;
     private int _pendingOffset = -1;
     private int _shownOffset = -1;
 
@@ -43,6 +44,8 @@ public sealed class HoverController : IDisposable
 
     public void Hide()
     {
+        _hoverCts?.Cancel();
+        _hoverCts = null;
         _timer.Stop();
         _pendingOffset = -1;
         CloseToolTip();
@@ -116,27 +119,47 @@ public sealed class HoverController : IDisposable
             return;
         }
 
+        _hoverCts?.Cancel();
+
+        var cts = new CancellationTokenSource();
+        _hoverCts = cts;
         var context = new WeftHoverContext(filePath, document.Text, offset);
-        _ = ShowHoverAsync(languageService, context, offset);
+        _ = ShowHoverAsync(languageService, context, offset, cts);
     }
 
     private async Task ShowHoverAsync(
         IWeftEditorLanguageService languageService,
         WeftHoverContext context,
-        int offset)
+        int offset,
+        CancellationTokenSource cts)
     {
         WeftHoverInfo? info;
+        bool cancelled;
 
         try
         {
-            info = await languageService.GetHoverAsync(context, CancellationToken.None);
+            info = await languageService.GetHoverAsync(context, cts.Token);
+            cancelled = cts.IsCancellationRequested;
+        }
+        catch (OperationCanceledException)
+        {
+            return;
         }
         catch
         {
             return;
         }
+        finally
+        {
+            if (ReferenceEquals(_hoverCts, cts))
+            {
+                _hoverCts = null;
+            }
 
-        if (info is null || _pendingOffset != offset)
+            cts.Dispose();
+        }
+
+        if (info is null || cancelled || _pendingOffset != offset)
         {
             return;
         }

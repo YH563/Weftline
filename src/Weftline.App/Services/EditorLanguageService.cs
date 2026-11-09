@@ -1,10 +1,11 @@
 using Weftline.Editor.Services;
 using Weftline.Models;
+using Weftline.Native;
 
 namespace Weftline.App.Services;
 
 /// <summary>
-/// 基于最近一次编译结果的编辑器语言服务：图投影提供模块/场景，符号提供描述。
+/// 编辑器语言服务：单文件语法诊断走 native parse，悬停/补全基于最近一次项目编译结果。
 /// </summary>
 public sealed class EditorLanguageService : IWeftEditorLanguageService
 {
@@ -59,11 +60,39 @@ public sealed class EditorLanguageService : IWeftEditorLanguageService
         }
     }
 
-    public ValueTask<IReadOnlyList<WeftDiagnostic>> GetSyntaxDiagnosticsAsync(
+    public async ValueTask<IReadOnlyList<WeftDiagnostic>> GetSyntaxDiagnosticsAsync(
         string filePath,
         string text,
+        long version,
         CancellationToken cancellationToken)
-        => ValueTask.FromResult<IReadOnlyList<WeftDiagnostic>>([]);
+    {
+        var response = await Task.Run(
+            () => NativeWeftlineClient.Parse(filePath, text, version),
+            cancellationToken).ConfigureAwait(false);
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return [];
+        }
+
+        var resolvedPath = string.IsNullOrEmpty(response.FilePath)
+            ? filePath
+            : response.FilePath;
+
+        return response.Diagnostics
+            .Select(diagnostic => new WeftDiagnostic(
+                resolvedPath,
+                new TextSpan(diagnostic.Start, diagnostic.Length),
+                diagnostic.Severity switch
+                {
+                    "error" => WeftDiagnosticSeverity.Error,
+                    "warning" => WeftDiagnosticSeverity.Warning,
+                    _ => WeftDiagnosticSeverity.Info,
+                },
+                diagnostic.Code,
+                diagnostic.Message))
+            .ToList();
+    }
 
     public ValueTask<WeftHoverInfo?> GetHoverAsync(
         WeftHoverContext context,

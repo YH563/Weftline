@@ -113,19 +113,20 @@ public partial class StatusBarViewModel : ObservableObject
             return "项目总览";
         }
 
-        if (string.IsNullOrWhiteSpace(document.Text))
+        var textDocument = document.Document;
+
+        if (textDocument.TextLength == 0)
         {
             return "无模块";
         }
 
-        var lines = document.Text.Split('\n');
-        var limit = Math.Clamp(document.CaretLine, 1, lines.Length);
+        var limit = Math.Clamp(document.CaretLine, 1, textDocument.LineCount);
         string? module = null;
         string? scene = null;
 
-        for (var index = 0; index < limit; index++)
+        for (var lineNumber = 1; lineNumber <= limit; lineNumber++)
         {
-            var line = lines[index].Trim();
+            var line = textDocument.GetText(textDocument.GetLineByNumber(lineNumber)).Trim();
 
             if (line.StartsWith("@module ", StringComparison.Ordinal))
             {

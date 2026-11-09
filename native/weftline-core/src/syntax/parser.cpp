@@ -189,7 +189,7 @@ namespace weftline::syntax {
                         error(
                             diagnostics::DiagnosticCode::VarOutsideGlobals,
                             line.span,
-                            u"符号声明必须放在模块之前的顶部分组里。");
+                            u"符号声明必须放在第一个 @module 之前。");
                         advance();
                         continue;
                     }
@@ -948,7 +948,7 @@ namespace weftline::syntax {
                         error(
                             diagnostics::DiagnosticCode::VarOutsideGlobals,
                             line.span,
-                            u"符号声明必须放在模块之前的顶部分组里。");
+                            u"符号声明必须放在第一个 @module 之前。");
                         advance();
                         module_end = line.span.end();
                         continue;

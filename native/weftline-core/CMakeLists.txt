@@ -105,6 +105,9 @@ if (BUILD_TESTING)
     add_executable(test_project_api test/test_project_api.cpp)
     target_link_libraries(test_project_api PRIVATE weftline_core_static GTest::gtest_main)
 
+    add_executable(test_parse_api test/test_parse_api.cpp)
+    target_link_libraries(test_parse_api PRIVATE weftline_core_static GTest::gtest_main)
+
     add_executable(test_ir_json test/test_ir_json.cpp)
     target_link_libraries(test_ir_json PRIVATE weftline_core_static GTest::gtest_main)
 
@@ -120,5 +123,6 @@ if (BUILD_TESTING)
     add_test(NAME test_graph_projection COMMAND test_graph_projection)
     add_test(NAME test_project_compiler COMMAND test_project_compiler)
     add_test(NAME test_project_api COMMAND test_project_api)
+    add_test(NAME test_parse_api COMMAND test_parse_api)
     add_test(NAME test_ir_json COMMAND test_ir_json)
 endif()

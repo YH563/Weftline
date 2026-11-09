@@ -27,7 +27,7 @@ public partial class WeftEditorView : UserControl
     private IEditorThemeSource? _themeSource;
     private WeftLineNumberMargin? _lineNumberMargin;
     private EditorDocumentViewModel? _document;
-    private bool _updating;
+    private bool _isLoadingDocument;
 
     public WeftEditorView()
     {
@@ -37,7 +37,6 @@ public partial class WeftEditorView : UserControl
 
         TextEditor.TextArea.TextView.BackgroundRenderers.Add(_diagnosticRenderer);
         ReplaceLeftMargins();
-        TextEditor.TextChanged += OnEditorTextChanged;
         TextEditor.TextArea.Caret.PositionChanged += OnCaretPositionChanged;
         TextEditor.TextArea.SelectionChanged += OnSelectionChanged;
         _hoverController = new HoverController(
@@ -140,18 +139,17 @@ public partial class WeftEditorView : UserControl
 
         if (_host?.SelectedDocument is not { } document)
         {
-            _updating = true;
+            _isLoadingDocument = true;
             TextEditor.Document = new TextDocument();
             TextEditor.SyntaxHighlighting = null;
-            _updating = false;
+            _isLoadingDocument = false;
             ApplyDiagnostics();
             return;
         }
 
-        _updating = true;
-        TextEditor.Document = new TextDocument(document.Text);
+        _isLoadingDocument = true;
+        TextEditor.Document = document.Document;
         TextEditor.SyntaxHighlighting = IsWeftFile(document.FilePath) ? WeftHighlighting : null;
-        _updating = false;
         ApplyDiagnostics();
 
         Dispatcher.UIThread.Post(
@@ -159,10 +157,12 @@ public partial class WeftEditorView : UserControl
             {
                 if (!ReferenceEquals(_host?.SelectedDocument, document))
                 {
+                    _isLoadingDocument = false;
                     return;
                 }
 
-                SetCaret(document);
+                RestoreDocumentState(document);
+                _isLoadingDocument = false;
             },
             DispatcherPriority.Loaded);
     }
@@ -171,6 +171,8 @@ public partial class WeftEditorView : UserControl
     {
         if (_document is not null)
         {
+            _document.ScrollOffsetX = TextEditor.TextArea.TextView.ScrollOffset.X;
+            _document.ScrollOffsetY = TextEditor.TextArea.TextView.ScrollOffset.Y;
             _document.PropertyChanged -= OnDocumentPropertyChanged;
         }
 
@@ -181,11 +183,9 @@ public partial class WeftEditorView : UserControl
         {
             _document.PropertyChanged += OnDocumentPropertyChanged;
         }
-
-        ApplyDiagnostics();
     }
 
-    private void SetCaret(EditorDocumentViewModel document)
+    private void RestoreDocumentState(EditorDocumentViewModel document)
     {
         if (TextEditor.Document is not { } textDocument || textDocument.LineCount == 0)
         {
@@ -195,10 +195,26 @@ public partial class WeftEditorView : UserControl
         var lineNumber = Math.Clamp(document.CaretLine, 1, textDocument.LineCount);
         var line = textDocument.GetLineByNumber(lineNumber);
         var column = Math.Clamp(document.CaretColumn, 1, line.Length + 1);
-        TextEditor.CaretOffset = line.Offset + column - 1;
-        TextEditor.SelectionLength = 0;
-        document.SelectionLength = 0;
-        TextEditor.ScrollToLine(lineNumber);
+        var caretOffset = line.Offset + column - 1;
+
+        var selectionStart = Math.Clamp(document.SelectionStart, 0, textDocument.TextLength);
+        var selectionLength = Math.Clamp(
+            document.SelectionLength,
+            0,
+            textDocument.TextLength - selectionStart);
+
+        if (selectionLength > 0)
+        {
+            TextEditor.Select(selectionStart, selectionLength);
+        }
+        else
+        {
+            TextEditor.CaretOffset = caretOffset;
+            TextEditor.SelectionLength = 0;
+        }
+
+        TextEditor.ScrollToHorizontalOffset(document.ScrollOffsetX);
+        TextEditor.ScrollToVerticalOffset(document.ScrollOffsetY);
         TextEditor.TextArea.Caret.BringCaretToView();
     }
 
@@ -236,35 +252,27 @@ public partial class WeftEditorView : UserControl
         }
     }
 
-    private void OnEditorTextChanged(object? sender, EventArgs e)
-    {
-        if (_updating || _host?.SelectedDocument is not { } document)
-        {
-            return;
-        }
-
-        document.UpdateText(TextEditor.Text, true);
-    }
-
     private void OnCaretPositionChanged(object? sender, EventArgs e)
     {
-        if (_host?.SelectedDocument is not { } document)
+        if (_isLoadingDocument || _host?.SelectedDocument is not { } document)
         {
             return;
         }
 
         document.CaretLine = TextEditor.TextArea.Caret.Line;
         document.CaretColumn = TextEditor.TextArea.Caret.Column;
+        document.SelectionStart = TextEditor.SelectionStart;
         document.SelectionLength = TextEditor.SelectionLength;
     }
 
     private void OnSelectionChanged(object? sender, EventArgs e)
     {
-        if (_host?.SelectedDocument is not { } document)
+        if (_isLoadingDocument || _host?.SelectedDocument is not { } document)
         {
             return;
         }
 
+        document.SelectionStart = TextEditor.SelectionStart;
         document.SelectionLength = TextEditor.SelectionLength;
     }
 

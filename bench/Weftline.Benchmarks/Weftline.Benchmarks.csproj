@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Weftline.Editor\Weftline.Editor.csproj" />
+    <ProjectReference Include="..\..\src\Weftline.Native\Weftline.Native.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)../../native/out/build/release/weftline-core/libweftline_core.so')">
+    <None Include="$(MSBuildThisFileDirectory)../../native/out/build/release/weftline-core/libweftline_core.so">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>libweftline_core.so</Link>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows')) And Exists('$(MSBuildThisFileDirectory)../../native/out/build/release/weftline-core/weftline_core.dll')">
+    <None Include="$(MSBuildThisFileDirectory)../../native/out/build/release/weftline-core/weftline_core.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>weftline_core.dll</Link>
+    </None>
+  </ItemGroup>
+
+</Project>

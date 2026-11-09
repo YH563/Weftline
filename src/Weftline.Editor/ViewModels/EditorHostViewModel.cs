@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Weftline.Editor.Services;
@@ -11,6 +10,7 @@ public partial class EditorHostViewModel : ObservableObject
 {
     private readonly IEditorDocumentLoader _loader;
     private readonly IEditorIconProvider _iconProvider;
+    private readonly SyntaxAnalysisScheduler? _syntaxScheduler;
     private readonly Dictionary<string, IReadOnlyList<WeftDiagnostic>> _diagnosticsByFile =
         new(StringComparer.OrdinalIgnoreCase);
 
@@ -34,6 +34,9 @@ public partial class EditorHostViewModel : ObservableObject
         _iconProvider = iconProvider;
         ThemeSource = themeSource;
         LanguageService = languageService;
+        _syntaxScheduler = languageService is null
+            ? null
+            : new SyntaxAnalysisScheduler(languageService);
     }
 
     public IEditorThemeSource ThemeSource { get; }
@@ -71,16 +74,18 @@ public partial class EditorHostViewModel : ObservableObject
 
         if (_diagnosticsByFile.TryGetValue(document.FilePath, out var diagnostics))
         {
-            document.Diagnostics = diagnostics;
+            document.SetProjectDiagnostics(diagnostics);
         }
 
-        document.PropertyChanged += OnDocumentPropertyChanged;
+        document.TextChanged += OnDocumentTextChanged;
         Documents.Add(document);
         SelectedDocument = document;
+        _syntaxScheduler?.Schedule(document);
     }
 
     /// <summary>
-    /// 用一次编译结果替换所有文件的诊断；未打开的文件会在打开时应用。
+    /// 用一次项目编译结果更新各文件的项目诊断；未打开的文件会在打开时应用。
+    /// 语法诊断由 SyntaxAnalysisScheduler 单独维护，并在文档层合并。
     /// </summary>
     public void SetDiagnostics(IReadOnlyList<WeftDiagnostic> diagnostics)
     {
@@ -95,11 +100,13 @@ public partial class EditorHostViewModel : ObservableObject
 
         foreach (var document in Documents)
         {
-            document.Diagnostics = _diagnosticsByFile.TryGetValue(
+            var next = _diagnosticsByFile.TryGetValue(
                 document.FilePath,
                 out var fileDiagnostics)
                 ? fileDiagnostics
                 : [];
+
+            document.SetProjectDiagnostics(next);
         }
     }
 
@@ -117,14 +124,18 @@ public partial class EditorHostViewModel : ObservableObject
 
         document.CaretLine = Math.Max(1, line);
         document.CaretColumn = Math.Max(1, column);
+        document.SelectionStart = document.GetOffset(document.CaretLine, document.CaretColumn);
+        document.SelectionLength = 0;
         NavigationRequested?.Invoke(this, document);
     }
 
     public void CloseAll()
     {
+        _syntaxScheduler?.CancelAll();
+
         foreach (var document in Documents)
         {
-            document.PropertyChanged -= OnDocumentPropertyChanged;
+            document.TextChanged -= OnDocumentTextChanged;
         }
 
         Documents.Clear();
@@ -154,6 +165,7 @@ public partial class EditorHostViewModel : ObservableObject
             document.FilePath = relative == "."
                 ? newPath
                 : Path.Combine(newPath, relative);
+            _syntaxScheduler?.Schedule(document);
         }
     }
 
@@ -166,7 +178,8 @@ public partial class EditorHostViewModel : ObservableObject
             return;
         }
 
-        document.PropertyChanged -= OnDocumentPropertyChanged;
+        document.TextChanged -= OnDocumentTextChanged;
+        _syntaxScheduler?.Cancel(document);
         Documents.RemoveAt(index);
 
         if (ReferenceEquals(SelectedDocument, document))
@@ -180,13 +193,15 @@ public partial class EditorHostViewModel : ObservableObject
     partial void OnSelectedDocumentChanged(EditorDocumentViewModel? value)
         => OnPropertyChanged(nameof(HasDocument));
 
-    private void OnDocumentPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnDocumentTextChanged(object? sender, EventArgs e)
     {
-        if (e.PropertyName == nameof(EditorDocumentViewModel.Text) &&
-            sender is EditorDocumentViewModel document)
+        if (sender is not EditorDocumentViewModel document)
         {
-            DocumentTextChanged?.Invoke(this, document);
+            return;
         }
+
+        _syntaxScheduler?.Schedule(document);
+        DocumentTextChanged?.Invoke(this, document);
     }
 
     private static bool IsSameOrUnder(string path, string root)

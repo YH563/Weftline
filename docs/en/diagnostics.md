@@ -21,18 +21,18 @@ The editor shows a diagnostic code at the problem location. This page lists the 
 
 | Code | Meaning | Common fix |
 |---|---|---|
-| WFT2001 | Symbol declaration in the wrong place | Put `@vars` / `@chars` / `@items` / `@scenes` before modules |
+| WFT2001 | Symbol declaration in the wrong place | Declare before the first `@module`; write `@var` / `@char` / `@item` / `@scene` directly or use an optional group |
 | WFT2004 | Duplicate global variable | Remove the duplicate `@var` |
 | WFT2005 | Duplicate module ID | Rename the duplicate `@module` |
 | WFT2006 | Module header directive after content | Move `@scene` before the content |
 | WFT2007 | Empty `@title` / `@module` / `@project` / `@chapter` / `@doc` | Provide a title, module ID, or name |
-| WFT2008 | Dialogue or exit references an undeclared character | Add `@char` under `@chars` in `.weft` |
+| WFT2008 | Dialogue or exit references an undeclared character | Add `@char` before the first `@module` in `.weft` |
 | WFT2009 | Duplicate character | Remove the duplicate `@char` |
 | WFT2010 | Duplicate item | Remove the duplicate `@item` |
 | WFT2011 | Symbol name clashes across kinds | Give the variable/character/item/scene a unique name |
 | WFT2012 | `@set` in `.wstory` | Remove it; variable initial values belong in `.weft` `@var` |
 | WFT2013 | `@set` in content | Put variable changes only in exit branch effects `{ @set ... }` |
-| WFT2014 | `{name}` references an undeclared character or item | Declare it at the top of `.weft`, or fix the name |
+| WFT2014 | `{name}` references an undeclared character or item | Declare it before the first `@module`, or fix the name |
 | WFT2015 | Duplicate scene | Remove the duplicate `@scene` |
 | WFT2016 | Invalid scene name | Use a valid identifier such as `医院` |
 | WFT2017 | `.weft` is missing a chapter title | Put `@title <chapter>` on the first line |
@@ -48,8 +48,8 @@ The editor shows a diagnostic code at the problem location. This page lists the 
 | WFT3003 | Choice and automatic modes mixed | Choice branches all have `[label]`; automatic branches have none |
 | WFT3004 | Label does not match the mode | Add `[label]` in choice mode; remove it in automatic mode |
 | WFT3005 | Content after the exit block | Move the content before `@next` |
-| WFT3006 | Condition references an undeclared variable | Add `@var` under `@vars` in `.weft` |
-| WFT3007 | `@set` references an undeclared variable | Add `@var` under `@vars` in `.weft` |
+| WFT3006 | Condition references an undeclared variable | Add `@var` before the first `@module` in `.weft` |
+| WFT3007 | `@set` references an undeclared variable | Add `@var` before the first `@module` in `.weft` |
 | WFT3008 | Boolean expression syntax error | Check `not` / `and` / `or` and parentheses |
 | WFT3009 | Non-`@set` statement in an effect block | Effect blocks only allow `@set` |
 | WFT3010 | Repeated assignment in one effect block | Later wins; consider removing the duplicate |

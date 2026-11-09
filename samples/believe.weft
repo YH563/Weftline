@@ -1,19 +1,15 @@
 @title 第一章 雨夜
 
-@vars
-    @var trust_low false
-    @var has_key false
+@var trust_low false
+@var has_key false
 
-@chars
-    @char 萧影
-    @char 影子
+@char 萧影
+@char 影子
 
-@items
-    @item 医院钥匙
+@item 医院钥匙
 
-@scenes
-    @scene 街道
-    @scene 医院
+@scene 街道
+@scene 医院
 
 @module 序
     @scene 街道

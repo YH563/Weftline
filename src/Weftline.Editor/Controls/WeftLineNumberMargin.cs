@@ -15,7 +15,11 @@ public sealed class WeftLineNumberMargin : LineNumberMargin
     private static readonly IBrush DefaultBackgroundBrush =
         new SolidColorBrush(Color.Parse("#F5F6F8"));
 
+    private const int LineTextCacheLimit = 512;
+
     private static readonly IReadOnlySet<int> EmptyLines = new HashSet<int>();
+
+    private readonly Dictionary<int, FormattedText> _lineTextCache = [];
 
     private IBrush _backgroundBrush = DefaultBackgroundBrush;
     private IBrush _errorBrush = Brushes.Transparent;
@@ -24,6 +28,10 @@ public sealed class WeftLineNumberMargin : LineNumberMargin
     private IReadOnlySet<int> _errorLines = EmptyLines;
     private IReadOnlySet<int> _warningLines = EmptyLines;
     private IReadOnlySet<int> _infoLines = EmptyLines;
+    private IBrush? _cachedForeground;
+    private double _cachedEmSize;
+    private Typeface _cachedTypeface;
+    private bool _hasCachedTextFormat;
 
     public IBrush BackgroundBrush
     {
@@ -41,6 +49,8 @@ public sealed class WeftLineNumberMargin : LineNumberMargin
         _errorBrush = theme.DiagnosticError;
         _warningBrush = theme.DiagnosticWarning;
         _infoBrush = theme.DiagnosticInfo;
+        _lineTextCache.Clear();
+        _hasCachedTextFormat = false;
         InvalidateVisual();
     }
 
@@ -49,6 +59,13 @@ public sealed class WeftLineNumberMargin : LineNumberMargin
         IReadOnlySet<int> warningLines,
         IReadOnlySet<int> infoLines)
     {
+        if (_errorLines.SetEquals(errorLines) &&
+            _warningLines.SetEquals(warningLines) &&
+            _infoLines.SetEquals(infoLines))
+        {
+            return;
+        }
+
         _errorLines = errorLines;
         _warningLines = warningLines;
         _infoLines = infoLines;
@@ -79,13 +96,7 @@ public sealed class WeftLineNumberMargin : LineNumberMargin
         foreach (var line in textView.VisualLines)
         {
             var lineNumber = line.FirstDocumentLine.LineNumber;
-            var text = new FormattedText(
-                lineNumber.ToString(CultureInfo.CurrentCulture),
-                CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                Typeface,
-                EmSize,
-                foreground);
+            var text = GetLineNumberText(lineNumber, foreground);
             var y = line.GetTextLineVisualYPosition(line.TextLines[0], VisualYPosition.TextTop);
 
             var markerBrush = ResolveMarker(lineNumber);
@@ -98,6 +109,41 @@ public sealed class WeftLineNumberMargin : LineNumberMargin
 
             drawingContext.DrawText(text, new Point(leftPadding, y + offsetY));
         }
+    }
+
+    private FormattedText GetLineNumberText(int lineNumber, IBrush? foreground)
+    {
+        if (!_hasCachedTextFormat ||
+            !Equals(_cachedForeground, foreground) ||
+            _cachedEmSize != EmSize ||
+            !Equals(_cachedTypeface, Typeface))
+        {
+            _lineTextCache.Clear();
+            _cachedForeground = foreground;
+            _cachedEmSize = EmSize;
+            _cachedTypeface = Typeface;
+            _hasCachedTextFormat = true;
+        }
+
+        if (_lineTextCache.TryGetValue(lineNumber, out var text))
+        {
+            return text;
+        }
+
+        if (_lineTextCache.Count >= LineTextCacheLimit)
+        {
+            _lineTextCache.Clear();
+        }
+
+        text = new FormattedText(
+            lineNumber.ToString(CultureInfo.CurrentCulture),
+            CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            Typeface,
+            EmSize,
+            foreground);
+        _lineTextCache[lineNumber] = text;
+        return text;
     }
 
     private IBrush? ResolveMarker(int lineNumber)

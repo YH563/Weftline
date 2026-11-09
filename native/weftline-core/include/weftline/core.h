@@ -34,9 +34,26 @@ extern "C" {
     WEFTLINE_API char* weft_compile_json(const char* request_json);
 
     /**
-     * @brief 释放 weft_compile_json() 返回的缓冲区。
+     * @brief 释放 core 返回的文本缓冲区。
+     *
+     * 适用于 weft_compile_json / weft_parse_json / weft_project_compile。
      */
     WEFTLINE_API void weft_free(char* pointer);
+
+    /**
+     * @brief 解析单个脚本文件并返回 UTF-8 JSON 诊断。
+     *
+     * 只做 lexer/parser，返回语法诊断；语义、符号和图仍由项目编译负责。
+     * start/length 以 UTF-16 code unit 计量，与 C#/ArkTS 字符串偏移一致。
+     *
+     * @param path 文件路径，仅用于回显与诊断定位。
+     * @param text UTF-8 源码文本；NULL 视为空文本。
+     * @param version 调用方的文档版本号，原样回显。
+     * @return JSON；由 core 分配，调用方必须用 weft_free() 释放。
+     *         仅当响应缓冲区分配失败时返回 NULL。
+     */
+    WEFTLINE_API char* weft_parse_json(
+        const char* path, const char* text, long long version);
 
     /**
      * @brief 不透明项目句柄，用于实时诊断。

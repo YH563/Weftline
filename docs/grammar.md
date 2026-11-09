@@ -109,8 +109,11 @@ BoolLiteral := "true" | "false"
 
 ```ebnf
 WeftFile        ::= "@title" TitleText NEWLINE
-                    DeclarationGroup*
+                    WeftDeclaration*
                     Module*
+
+WeftDeclaration ::= VarDecl | CharDecl | ItemDecl | SceneDecl
+                  | DeclarationGroup
 
 DeclarationGroup ::= VarGroup | CharGroup | ItemGroup | SceneGroup
 VarGroup        ::= "@vars" NEWLINE VarDecl+
@@ -204,13 +207,21 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 
 ### 3.1 文件角色
 
-- `.weft`：顶部声明分组 + 模块。
+- `.weft`：顶部声明区 + 模块。
 - `.wstory`：项目信息 + 描述 + 分组声明。
-- `.weft` 第一行是章节标题，后面是声明分组和模块。
+- `.weft` 第一行是章节标题，后面是声明区和模块。
 - `.weft` 是符号声明的唯一来源。
 - `.wstory` 的声明由工具生成；描述手写。
 
-### 3.2 章节与模块边界
+### 3.2 声明区
+
+- 声明区位于 `@title` 之后、第一个 `@module` 之前。
+- 可直接写 `@var` / `@char` / `@item` / `@scene`。
+- `@vars` / `@chars` / `@items` / `@scenes` 分组头可选，仅用于视觉分区。
+- 平铺声明和分组声明可以混用。
+- 声明区不写描述；描述写在 `.wstory`。
+
+### 3.3 章节与模块边界
 
 - `.weft` 第一行必须是 `@title <章节标题>`。
 - 每个 `@module <模块ID>` 开始一个新模块。
@@ -218,7 +229,7 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 - 文件结束（EOF）结束最后一个模块。
 - 一个 `.weft` 文件只能有一个 `@title`。
 
-### 3.3 模块头
+### 3.4 模块头
 
 ```text
 @module <模块ID>
@@ -228,9 +239,10 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 - 模块 ID 必须是标识符，项目内唯一。
 - `@scene` 可选，只能出现在内容之前。
 - 一个模块最多一个 `@scene`。
+- 第一个 `@module` 之前的 `@scene` 是场景声明；`@module` 之后的 `@scene` 是模块标签。
 - 模块头不再声明角色、道具、变量或场景。
 
-### 3.4 正文块
+### 3.5 正文块
 
 - `[文本]` 在同一行 → 单行正文。
 - `角色:[文本]` 在同一行 → 单行对话。
@@ -238,7 +250,7 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 - 多行块每一行首尾空白会被去掉。
 - `{名字}` 在正文块内解析为引用。
 
-### 3.5 出口块
+### 3.6 出口块
 
 完整形式：
 
@@ -261,7 +273,7 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 - 效果块可以同行，也可以换行。
 - `@set` 只允许出现在分支效果中。
 
-### 3.6 模式约束
+### 3.7 模式约束
 
 | `@next` 头 | 模式 | 分支要求 |
 |---|---|---|
@@ -271,7 +283,7 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 
 同一出口块内不得混用带文案与不带文案的分支。
 
-### 3.7 兜底
+### 3.8 兜底
 
 每个出口块至少包含一条**无条件分支**（省略条件，或条件写作 `()`）。
 
@@ -282,19 +294,15 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 ```text
 @title 第一章 雨夜
 
-@vars
-    @var trust_low false
-    @var has_key false
+@var trust_low false
+@var has_key false
 
-@chars
-    @char 萧影
-    @char 影子
+@char 萧影
+@char 影子
 
-@items
-    @item 医院钥匙
+@item 医院钥匙
 
-@scenes
-    @scene 医院
+@scene 医院
 
 @module 相信
     @scene 医院

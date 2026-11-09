@@ -13,12 +13,10 @@
 ```text
 @title 第一章 街道
 
-@chars
-    @char 萧影
+@char 萧影
 
-@scenes
-    @scene 街道
-    @scene 医院
+@scene 街道
+@scene 医院
 
 @module 开场
     @scene 街道
@@ -91,19 +89,15 @@
 ```text
 @title 第一章 雨夜
 
-@vars
-    @var trust_low false
-    @var has_key false
+@var trust_low false
+@var has_key false
 
-@chars
-    @char 萧影
-    @char 影子
+@char 萧影
+@char 影子
 
-@items
-    @item 医院钥匙
+@item 医院钥匙
 
-@scenes
-    @scene 医院
+@scene 医院
 
 @module 序
     @scene 医院
@@ -212,7 +206,7 @@
 
 ## 5. 覆盖的语言特性
 
-- `.weft` 章节标题与顶部 `@vars` / `@chars` / `@items` / `@scenes` 分组
+- `.weft` 章节标题与顶部声明区（可直接声明，也可使用可选的 `@vars` / `@chars` / `@items` / `@scenes` 分组）
 - `.wstory` 项目信息、概要、章节、设定文档、描述
 - `@title` 章节边界、`@module` 模块边界与 `@scene` 场景标签
 - 行内 `[]` 旁白与 `角色:[]` 对话

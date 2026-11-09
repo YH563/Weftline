@@ -38,6 +38,41 @@ public sealed class NativeWeftlineClient : IDisposable
         => Marshal.PtrToStringUTF8(NativeMethods.weft_version()) ?? string.Empty;
 
     /// <summary>
+    /// 解析单个脚本文件，只返回语法诊断。
+    /// </summary>
+    public static NativeParseResponse Parse(
+        string filePath,
+        string text,
+        long version)
+    {
+        var pointer = NativeMethods.weft_parse_json(filePath, text, version);
+
+        if (pointer == IntPtr.Zero)
+        {
+            throw new InvalidOperationException("weft_parse_json returned null.");
+        }
+
+        try
+        {
+            var json = Marshal.PtrToStringUTF8(pointer) ?? string.Empty;
+            var response = JsonSerializer.Deserialize<NativeParseResponse>(
+                json, JsonOptions)
+                ?? throw new InvalidOperationException("Native parse response was empty.");
+
+            if (!string.IsNullOrEmpty(response.Error))
+            {
+                throw new InvalidOperationException(response.Error);
+            }
+
+            return response;
+        }
+        finally
+        {
+            NativeMethods.weft_free(pointer);
+        }
+    }
+
+    /// <summary>
     /// 同步顶层 .weft/.wstory：打开文档优先，未打开文件按时间戳增量读取。
     /// </summary>
     /// <param name="reloadFromDisk">

@@ -18,18 +18,17 @@ public partial class MainWindowViewModel : ObservableObject
 {
     private readonly IDialogService _dialogs;
     private readonly EditorLanguageService _editorLanguageService;
-    private readonly SemaphoreSlim _compileGate = new(1, 1);
+    private readonly ProjectAnalysisScheduler _analysisScheduler;
+    private readonly Dictionary<string, DocumentSnapshotEntry> _documentSnapshots =
+        new(StringComparer.Ordinal);
     private readonly DispatcherTimer _statusContextTimer;
     private readonly DispatcherTimer _statusCaretTimer;
     private EditorDocumentViewModel? _observedDocument;
     private EditorDocumentViewModel? _pendingStatusDocument;
     private EditorDocumentViewModel? _pendingCaretDocument;
-    private CancellationTokenSource? _compileCts;
-    private NativeWeftlineClient? _nativeClient;
     private GraphProjection? _lastGoodProjection;
     private string? _lastGraphSignature;
     private string? _projectFolder;
-    private long _editVersion;
 
     public MainWindowViewModel(IDialogService dialogs)
     {
@@ -56,11 +55,20 @@ public partial class MainWindowViewModel : ObservableObject
         Status = new StatusBarViewModel();
         Graph = new GraphViewModel();
 
+        _analysisScheduler = new ProjectAnalysisScheduler(CreateDocumentMap);
+        _analysisScheduler.Started += OnAnalysisStarted;
+        _analysisScheduler.Completed += OnAnalysisCompleted;
+        _analysisScheduler.Failed += OnAnalysisFailed;
+
         Explorer.FileOpenRequested += OnFileOpenRequested;
         Explorer.FileSystemChanged += OnFileSystemChanged;
         Editor.PropertyChanged += OnEditorPropertyChanged;
         Editor.DocumentTextChanged += OnDocumentTextChanged;
-        Editor.Documents.CollectionChanged += (_, _) => ScheduleCompile();
+        Editor.Documents.CollectionChanged += (_, _) =>
+        {
+            _documentSnapshots.Clear();
+            ScheduleCompile();
+        };
         Status.UpdateDocument(Editor.SelectedDocument);
 
         _projectFolder = Explorer.RootPath;
@@ -128,7 +136,9 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task OpenProjectCoreAsync(string folder)
     {
+        _analysisScheduler.Cancel();
         Editor.CloseAll();
+        _documentSnapshots.Clear();
         Explorer.Load(folder);
         _projectFolder = folder;
         _lastGoodProjection = null;
@@ -155,7 +165,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            await File.WriteAllTextAsync(document.FilePath, document.Text).ConfigureAwait(true);
+            await File.WriteAllTextAsync(document.FilePath, document.GetTextSnapshot()).ConfigureAwait(true);
             document.IsModified = false;
             await CompileNowAsync().ConfigureAwait(true);
             Status.SetStatus($"已保存：{Path.GetFileName(document.FilePath)}");
@@ -273,13 +283,7 @@ public partial class MainWindowViewModel : ObservableObject
             case nameof(EditorDocumentViewModel.CaretLine):
             case nameof(EditorDocumentViewModel.CaretColumn):
             case nameof(EditorDocumentViewModel.SelectionLength):
-            case nameof(EditorDocumentViewModel.Text):
-                _pendingCaretDocument = document;
-                _statusCaretTimer.Stop();
-                _statusCaretTimer.Start();
-                _pendingStatusDocument = document;
-                _statusContextTimer.Stop();
-                _statusContextTimer.Start();
+                ScheduleStatus(document);
                 break;
             case nameof(EditorDocumentViewModel.FilePath):
                 Status.UpdateDocument(document);
@@ -314,7 +318,20 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     private void OnDocumentTextChanged(object? sender, EditorDocumentViewModel document)
-        => ScheduleCompile();
+    {
+        ScheduleCompile();
+        ScheduleStatus(document);
+    }
+
+    private void ScheduleStatus(EditorDocumentViewModel document)
+    {
+        _pendingCaretDocument = document;
+        _statusCaretTimer.Stop();
+        _statusCaretTimer.Start();
+        _pendingStatusDocument = document;
+        _statusContextTimer.Stop();
+        _statusContextTimer.Start();
+    }
 
     private void ScheduleCompile()
     {
@@ -323,24 +340,7 @@ public partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _compileCts?.Cancel();
-
-        var cts = new CancellationTokenSource();
-        _compileCts = cts;
-        var version = Interlocked.Increment(ref _editVersion);
-        _ = CompileAfterDelayAsync(version, cts);
-    }
-
-    private async Task CompileAfterDelayAsync(long version, CancellationTokenSource cts)
-    {
-        try
-        {
-            await Task.Delay(150, cts.Token).ConfigureAwait(true);
-            await CompileCoreAsync(version, cts, reloadFromDisk: false).ConfigureAwait(true);
-        }
-        catch (OperationCanceledException)
-        {
-        }
+        _analysisScheduler.Schedule(_projectFolder, reloadFromDisk: false);
     }
 
     private async Task CompileNowAsync()
@@ -351,98 +351,25 @@ public partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _compileCts?.Cancel();
-
-        var cts = new CancellationTokenSource();
-        _compileCts = cts;
-        var version = Interlocked.Increment(ref _editVersion);
-        await CompileCoreAsync(version, cts, reloadFromDisk: true).ConfigureAwait(true);
+        await _analysisScheduler
+            .RunNowAsync(_projectFolder, reloadFromDisk: true)
+            .ConfigureAwait(true);
     }
 
-    private async Task CompileCoreAsync(
-        long version,
-        CancellationTokenSource cts,
-        bool reloadFromDisk)
+    private void OnAnalysisStarted()
+        => Status.SetStatus("正在分析项目…");
+
+    private void OnAnalysisCompleted(ProjectAnalysisResult result)
+        => ApplyNativeResult(result);
+
+    private void OnAnalysisFailed(Exception exception)
     {
-        var folder = _projectFolder;
-
-        if (string.IsNullOrWhiteSpace(folder))
-        {
-            return;
-        }
-
-        Status.SetStatus("正在分析项目…");
-        await CompileWithNativeAsync(folder, version, cts, reloadFromDisk).ConfigureAwait(true);
-    }
-
-    private async Task CompileWithNativeAsync(
-        string folder,
-        long version,
-        CancellationTokenSource cts,
-        bool reloadFromDisk)
-    {
-        CompileOutput output;
-
-        // UI 线程先抓取文档快照，避免后台线程遍历 ObservableCollection。
-        var documents = CreateDocumentMap();
-
-        try
-        {
-            await _compileGate.WaitAsync(cts.Token).ConfigureAwait(true);
-
-            try
-            {
-                cts.Token.ThrowIfCancellationRequested();
-
-                output = await Task.Run(
-                    () =>
-                    {
-                        _nativeClient ??= new NativeWeftlineClient();
-                        var projectDocuments = _nativeClient.LoadFolder(
-                            folder, documents, reloadFromDisk);
-                        cts.Token.ThrowIfCancellationRequested();
-
-                        var native = _nativeClient.Compile(
-                            allowPartial: true, buildProjection: true);
-
-                        return new CompileOutput(
-                            native,
-                            native.Projection?.ToGraphProjection(),
-                            native.Symbols?.ToSymbols(),
-                            projectDocuments);
-                    },
-                    cts.Token).ConfigureAwait(true);
-            }
-            finally
-            {
-                _compileGate.Release();
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-        catch (Exception exception)
-        {
-            if (!cts.IsCancellationRequested)
-            {
-                UpdateDiagnostics([]);
-                Editor.SetDiagnostics([]);
-                _editorLanguageService.Projection = null;
-                _editorLanguageService.Symbols = null;
-                Status.UpdateProject(null);
-                Status.SetStatus($"分析失败：{exception.Message}");
-            }
-
-            return;
-        }
-
-        if (cts.IsCancellationRequested || version != _editVersion)
-        {
-            return;
-        }
-
-        ApplyNativeResult(output);
+        UpdateDiagnostics([]);
+        Editor.SetDiagnostics([]);
+        _editorLanguageService.Projection = null;
+        _editorLanguageService.Symbols = null;
+        Status.UpdateProject(null);
+        Status.SetStatus($"分析失败：{exception.Message}");
     }
 
     private Dictionary<string, string> CreateDocumentMap()
@@ -451,22 +378,36 @@ public partial class MainWindowViewModel : ObservableObject
 
         foreach (var document in Editor.Documents)
         {
-            if (!string.IsNullOrWhiteSpace(document.FilePath))
+            if (string.IsNullOrWhiteSpace(document.FilePath))
             {
-                documents[document.FilePath] = document.Text;
+                continue;
             }
+
+            if (_documentSnapshots.TryGetValue(document.FilePath, out var snapshot) &&
+                ReferenceEquals(snapshot.Owner, document) &&
+                snapshot.Version == document.Version)
+            {
+                documents[document.FilePath] = snapshot.Text;
+                continue;
+            }
+
+            var text = document.GetTextSnapshot();
+            _documentSnapshots[document.FilePath] = new DocumentSnapshotEntry(
+                document,
+                document.Version,
+                text);
+            documents[document.FilePath] = text;
         }
 
         return documents;
     }
 
-    private sealed record CompileOutput(
-        NativeProjectResponse Native,
-        GraphProjection? Projection,
-        WeftProjectSymbols? Symbols,
-        IReadOnlyDictionary<string, string> Documents);
+    private readonly record struct DocumentSnapshotEntry(
+        EditorDocumentViewModel Owner,
+        long Version,
+        string Text);
 
-    private void ApplyNativeResult(CompileOutput output)
+    private void ApplyNativeResult(ProjectAnalysisResult output)
     {
         var native = output.Native;
         var projection = output.Projection;
@@ -673,7 +614,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         if (document is not null)
         {
-            return document.Text;
+            return document.GetTextSnapshot();
         }
 
         try

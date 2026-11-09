@@ -35,7 +35,7 @@ END    = 唯一汇点
 ```text
 my-story/
   project.wstory     项目总览：项目信息 + 生成的声明 + 手写描述
-  chapter1.weft      章节文件：章节标题 + 顶部声明 + 模块
+  chapter1.weft      章节文件：章节标题 + 顶部声明区 + 模块
   chapter2.weft
   assets/            图片资源
   .weftline/         索引缓存，建议 gitignore
@@ -47,24 +47,20 @@ my-story/
 - `.weft` 是符号声明的唯一来源。
 - `.wstory` 是生成的项目总览；声明由工具生成，描述由作者手写并保留。
 
-### 2.2 `.weft` 章节与顶部声明
+### 2.2 `.weft` 章节与顶部声明区
 
 ```text
 @title 第一章 雨夜
 
-@vars
-    @var 信任 false
-    @var 有钥匙 false
+@var 信任 false
+@var 有钥匙 false
 
-@chars
-    @char 萧影
-    @char 影子
+@char 萧影
+@char 影子
 
-@items
-    @item 医院钥匙
+@item 医院钥匙
 
-@scenes
-    @scene 医院
+@scene 医院
 
 @module 序
     @scene 医院
@@ -80,10 +76,12 @@ my-story/
 规则：
 
 - 文件第一行必须是 `@title`，一个文件一个章节标题。
-- 所有符号声明都在章节标题之后、模块之前的顶部分组里。
-- 分组为 `@vars` / `@chars` / `@items` / `@scenes`。
+- 符号声明在章节标题之后、第一个 `@module` 之前。
+- 声明可直接写 `@var` / `@char` / `@item` / `@scene`。
+- `@vars` / `@chars` / `@items` / `@scenes` 分组头可选，仅用于视觉分区；平铺和分组可以混用。
+- 第一个 `@module` 之前的 `@scene` 是场景声明；`@module` 之后的 `@scene` 是模块标签。
 - 变量必须带初始值；`@var 信任` 缺值报错。
-- 声明区不写描述。
+- 声明区不写描述；描述写在 `.wstory`。
 - 符号名项目内唯一，跨类型也不能重名。
 - 缺失符号只报错，工具不自动补声明。
 

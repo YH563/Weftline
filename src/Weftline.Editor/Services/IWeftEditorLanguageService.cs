@@ -7,6 +7,7 @@ public interface IWeftEditorLanguageService
     ValueTask<IReadOnlyList<WeftDiagnostic>> GetSyntaxDiagnosticsAsync(
         string filePath,
         string text,
+        long version,
         CancellationToken cancellationToken);
 
     ValueTask<WeftHoverInfo?> GetHoverAsync(

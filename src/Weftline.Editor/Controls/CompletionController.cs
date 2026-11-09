@@ -28,6 +28,7 @@ public sealed class CompletionController
     private readonly Func<string?> _filePathProvider;
     private readonly Func<IWeftEditorLanguageService?> _languageServiceProvider;
     private CompletionWindow? _window;
+    private CancellationTokenSource? _completionCts;
 
     public CompletionController(
         TextEditor editor,
@@ -61,6 +62,7 @@ public sealed class CompletionController
                 return;
             }
 
+            _completionCts?.Cancel();
             _window.Close();
             _window = null;
         }
@@ -111,25 +113,50 @@ public sealed class CompletionController
             return;
         }
 
+        _completionCts?.Cancel();
+
+        var cts = new CancellationTokenSource();
+        _completionCts = cts;
+        var token = cts.Token;
         var offset = _editor.CaretOffset;
         var wordStart = FindWordStart(document.Text, offset);
         var context = new WeftCompletionContext(filePath, document.Text, offset, wordStart);
 
         WeftCompletionResult result;
+        bool cancelled;
 
         try
         {
-            result = await languageService.GetCompletionsAsync(context, CancellationToken.None);
+            result = await languageService.GetCompletionsAsync(context, token);
+            cancelled = token.IsCancellationRequested;
+        }
+        catch (OperationCanceledException)
+        {
+            return;
         }
         catch
         {
             return;
         }
+        finally
+        {
+            if (ReferenceEquals(_completionCts, cts))
+            {
+                _completionCts = null;
+            }
 
-        if (result.Items.Count == 0 || _editor.CaretOffset != offset)
+            cts.Dispose();
+        }
+
+        if (cancelled ||
+            result.Items.Count == 0 ||
+            _editor.CaretOffset != offset)
         {
             return;
         }
+
+        _window?.Close();
+        _window = null;
 
         var window = new CompletionWindow(_editor.TextArea)
         {
@@ -143,7 +170,13 @@ public sealed class CompletionController
             window.CompletionList.CompletionData.Add(new WeftCompletionData(item));
         }
 
-        window.Closed += (_, _) => _window = null;
+        window.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_window, window))
+            {
+                _window = null;
+            }
+        };
         window.Opened += (_, _) => ApplyCompletionTheme(window);
         window.CompletionList.TemplateApplied += (_, _) => ApplyCompletionTheme(window);
         _window = window;

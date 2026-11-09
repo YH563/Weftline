@@ -35,7 +35,7 @@ A flat folder is one story:
 ```text
 my-story/
   project.wstory     project overview: project info + chapters + generated declarations + hand-written descriptions
-  chapter1.weft      chapter script: chapter title + top-level declarations + modules
+  chapter1.weft      chapter script: chapter title + top-level declaration area + modules
   chapter2.weft
   assets/            image assets
   .weftline/         index cache, recommended gitignore
@@ -47,24 +47,20 @@ my-story/
 - `.weft` is the only declaration source.
 - `.wstory` is a generated overview; declarations are generated, descriptions are hand-written and preserved.
 
-### 2.2 `.weft` chapter and top-level declarations
+### 2.2 `.weft` chapter and top-level declaration area
 
 ```text
 @title 第一章 雨夜
 
-@vars
-    @var 信任 false
-    @var 有钥匙 false
+@var 信任 false
+@var 有钥匙 false
 
-@chars
-    @char 萧影
-    @char 影子
+@char 萧影
+@char 影子
 
-@items
-    @item 医院钥匙
+@item 医院钥匙
 
-@scenes
-    @scene 医院
+@scene 医院
 
 @module 序
     @scene 医院
@@ -80,10 +76,12 @@ my-story/
 Rules:
 
 - The first line of a `.weft` file must be `@title <chapter>`.
-- All symbol declarations appear in top-level groups after the chapter title and before modules.
-- Groups are `@vars` / `@chars` / `@items` / `@scenes`.
+- Symbol declarations appear after the chapter title and before the first `@module`.
+- Declarations may be written directly as `@var` / `@char` / `@item` / `@scene`.
+- `@vars` / `@chars` / `@items` / `@scenes` group headers are optional and only provide visual grouping; flat and grouped declarations may be mixed.
+- A `@scene` before the first `@module` is a scene declaration; a `@scene` after `@module` is a module tag.
 - Variables must provide an initial value; `@var 信任` without a value is an error.
-- Declarations do not carry descriptions.
+- Declarations do not carry descriptions; descriptions belong in `.wstory`.
 - Symbol names are unique across the project, including across kinds.
 - Missing symbols are errors; the tool does not auto-create declarations.
 

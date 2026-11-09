@@ -6,4 +6,10 @@
     <Project Path="src/Weftline.Models/Weftline.Models.csproj" />
     <Project Path="src/Weftline.Native/Weftline.Native.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Weftline.Editor.Tests/Weftline.Editor.Tests.csproj" />
+  </Folder>
+  <Folder Name="/bench/">
+    <Project Path="bench/Weftline.Benchmarks/Weftline.Benchmarks.csproj" />
+  </Folder>
 </Solution>

@@ -8,7 +8,7 @@ Weftline is a text format and tool for game scripts. It aims for three things:
 2. The story structure maps directly to a graph.
 3. A playable HTML demo will be exportable with one command (planned for the C++ core).
 
-Current stage: the C++ language core and desktop editor are usable, and the main window includes a live story graph, diagnostics, hover, and completion; HTML export will be implemented in C++ later.
+Current stage: the C++ language core and desktop editor are usable. The main window includes single-file syntax diagnostics, project semantic analysis, merged diagnostics, a live story graph, hover, and completion; HTML export will be implemented in C++ later.
 
 ---
 
@@ -31,7 +31,7 @@ Non-goals: portraits, audio, saves, localization, voice, RPG stats/inventory, re
 
 | Extension | Role |
 |---|---|
-| `.weft` | Chapter script: chapter title + top-level symbol declarations + modules |
+| `.weft` | Chapter script: chapter title + top-level declaration area (optional groups) + modules |
 | `.wstory` | Project overview: project info + chapters + declarations generated from `.weft` + hand-written descriptions |
 
 - One `.weft` file is one chapter.
@@ -61,11 +61,9 @@ Non-goals: portraits, audio, saves, localization, voice, RPG stats/inventory, re
 ```text
 @title 第一章 街道
 
-@chars
-    @char 萧影
+@char 萧影
 
-@scenes
-    @scene 街道
+@scene 街道
 
 @module 开场
     @scene 街道

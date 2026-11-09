@@ -38,5 +38,11 @@ internal static class NativeMethods
         int buildProjection);
 
     [DllImport(Library)]
+    internal static extern IntPtr weft_parse_json(
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string path,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string text,
+        long version);
+
+    [DllImport(Library)]
     internal static extern void weft_free(IntPtr pointer);
 }

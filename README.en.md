@@ -4,13 +4,13 @@
 
 Weftline is a story demo / narrative demonstration tool: write scripts, inspect the story graph, and export a playable HTML demo (planned for the C++ core).
 
-Current stage: the C++ language core and desktop editor are usable. The desktop app now has an IDE-style shell: project explorer, multi-tab AvaloniaEdit editor, live analysis, diagnostics, hover, completion, status bar, folder switching, and basic file operations. Edits are debounced and compiled in the background, with only changed documents synced incrementally. The story graph UI and Problems panel are wired up; HTML export will be implemented in C++ later.
+Current stage: the C++ language core and desktop editor are usable. The desktop app now has an IDE-style shell: project explorer, multi-tab AvaloniaEdit editor, dual-lane syntax/project analysis, merged diagnostics, hover, completion, status bar, folder switching, and basic file operations. Single-file syntax diagnostics and project semantics are scheduled independently and applied by version; project compilation syncs only changed documents incrementally. The story graph UI and Problems panel are wired up; HTML export will be implemented in C++ later.
 
 ## File types
 
 | Extension | Role |
 |---|---|
-| `.weft` | Chapter script: chapter title + top-level symbol declarations + modules |
+| `.weft` | Chapter script: chapter title + top-level declaration area (optional groups) + modules |
 | `.wstory` | Project overview: project info + chapters + declarations generated from `.weft` + hand-written descriptions |
 
 - One `.weft` file is one chapter.
@@ -23,7 +23,7 @@ Current stage: the C++ language core and desktop editor are usable. The desktop 
 
 - Top menu bar, resizable project explorer, central editor area, and bottom status bar.
 - Project explorer: directory/file tree with lazy loading and extension-based icons; supports new file, new folder, rename, delete, and switching the project folder from the menu.
-- Editor: multi-file AvaloniaEdit tabs with close buttons, Weft syntax highlighting, line numbers, current-line highlight, a solid gutter separator, and modified markers; diagnostics, hover, and completion are included.
+- Editor: multi-file AvaloniaEdit tabs with close buttons, Weft syntax highlighting, line numbers, current-line highlight, a solid gutter separator, and modified markers; includes merged syntax/project diagnostics, squiggles, hover, and completion.
 - Status bar: caret position, selection length, language, current module/scene, module/variable counts, diagnostics summary, and operation status.
 - Theme: SukiUI light theme; Inter for UI text and JetBrains Mono for the editor when available.
 - The story graph and Problems panel are wired up; Output/Project Info panels are not yet.
@@ -40,6 +40,16 @@ dotnet run --project src/Weftline.App
 ```
 
 On Windows, run the same commands from the “x64 Native Tools Command Prompt for VS 2022”; `Weftline.App.csproj` copies `weftline_core.dll` to the output directory automatically. On Linux it copies `libweftline_core.so`.
+
+### Tests and benchmarks
+
+```bash
+dotnet test Weftline.slnx
+dotnet run --project bench/Weftline.Benchmarks -c Release
+```
+
+- `tests/Weftline.Editor.Tests` covers diagnostic merging, host integration, and syntax-analysis scheduling.
+- `bench/Weftline.Benchmarks` covers 10KB / 100KB / 1MB single-file parsing, project compilation, and `TextDocument` snapshots.
 
 ### Main UI packages
 

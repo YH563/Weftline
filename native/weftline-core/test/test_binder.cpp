@@ -93,6 +93,28 @@ TEST(Binder, ResolvesDeclaredSymbols)
     EXPECT_TRUE(diagnostics.empty());
 }
 
+TEST(Binder, ResolvesFlatDeclarations)
+{
+    DiagnosticBag diagnostics;
+    const auto file = parse_weft(R"(@title 第28章
+@var a false
+@char 萧影
+@item 钥匙
+@scene 医院
+
+@module 测试
+    @scene 医院
+    [{萧影}拿着{钥匙}。]
+    萧影:[你好。]
+@next(萧影):(a)[继续] -> END { @set a true }
+    ()[结束] -> END
+)", "test.weft", diagnostics);
+    ASSERT_TRUE(diagnostics.empty());
+
+    weftline::binding::bind(file, diagnostics, "test.weft");
+    EXPECT_TRUE(diagnostics.empty());
+}
+
 TEST(Binder, ReportsUndeclaredCharacterInDialogue)
 {
     DiagnosticBag diagnostics;
@@ -247,6 +269,33 @@ TEST(ProjectBinder, ResolvesDeclarationsAcrossFiles)
 
 @scenes
     @scene 医院
+)");
+    auto story = project_file("story.weft", R"(@title 第41章
+@module 测试
+    @scene 医院
+    [{萧影}来了。]
+    萧影:[你好。]
+@next(萧影):(信任)[继续] -> END
+    ()[结束] -> END
+)");
+
+    std::vector<ProjectFile> files;
+    files.push_back(std::move(declarations));
+    files.push_back(std::move(story));
+    const auto result = weftline::projects::bind(std::move(files), nullptr, {});
+
+    EXPECT_TRUE(result.diagnostics.empty());
+    EXPECT_NE(result.index.symbols.find(u"萧影"), result.index.symbols.end());
+    EXPECT_NE(result.index.symbols.find(u"信任"), result.index.symbols.end());
+    EXPECT_NE(result.index.modules.find(u"测试"), result.index.modules.end());
+}
+
+TEST(ProjectBinder, ResolvesFlatDeclarationsAcrossFiles)
+{
+    auto declarations = project_file("decl.weft", R"(@title 第40章
+@var 信任 false
+@char 萧影
+@scene 医院
 )");
     auto story = project_file("story.weft", R"(@title 第41章
 @module 测试
