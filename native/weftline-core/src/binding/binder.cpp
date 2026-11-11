@@ -12,6 +12,7 @@
 namespace weftline::binding {
     namespace {
 
+        // 正文里的 {名字} 只能引用角色或道具；变量只能出现在条件/效果里。
         void validate_segments(
             const std::vector<syntax::TextSegment>& segments,
             const SymbolTable& symbols,
@@ -38,6 +39,7 @@ namespace weftline::binding {
             }
         }
 
+        // 条件表达式只允许引用布尔变量。
         void validate_condition(
             const syntax::BoolExpr& expression,
             const SymbolTable& symbols,
@@ -103,6 +105,7 @@ namespace weftline::binding {
         return u"符号";
     }
 
+    // 先声明者获胜；重复声明返回 false，由调用方补充错误信息。
     bool declare(
         SymbolTable& symbols,
         std::u16string name,
@@ -146,6 +149,7 @@ namespace weftline::binding {
         return false;
     }
 
+    // 模块绑定只检查引用是否存在，不修改 AST。
     void bind_module(
         const syntax::Module& module,
         SymbolTable& symbols,
@@ -205,6 +209,8 @@ namespace weftline::binding {
         }
     }
 
+    // 单文件绑定：先建立本文件符号表，再检查所有模块引用。
+    // 项目级跨文件解析在 ProjectBinder 中完成。
     void bind(
         const syntax::WeftFile& file,
         diagnostics::DiagnosticBag& diagnostics,
@@ -238,6 +244,7 @@ namespace weftline::binding {
         }
     }
 
+    // .wstory 只检查章节标题和声明是否重复；不参与 .weft 符号解析。
     void bind(
         const syntax::WStoryFile& file,
         diagnostics::DiagnosticBag& diagnostics,

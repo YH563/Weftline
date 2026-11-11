@@ -15,6 +15,7 @@ namespace weftline::generation {
 
         using DescriptionMap = std::unordered_map<std::u16string, std::u16string>;
 
+        // 保留作者写的描述；空描述也输出 []，让生成结果结构稳定。
         [[nodiscard]] std::u16string format_description(std::u16string_view text)
         {
             if (text.empty()) {
@@ -34,6 +35,7 @@ namespace weftline::generation {
             return found == descriptions.end() ? std::u16string{} : found->second;
         }
 
+        // 从旧 .wstory 收集“名字 → 描述”，生成时只覆盖声明部分，描述原样保留。
         template <typename Entry>
         [[nodiscard]] DescriptionMap build_description_map(
             const std::vector<Entry>& entries,
@@ -48,6 +50,7 @@ namespace weftline::generation {
             return map;
         }
 
+        // 输出一个声明分组；没有条目时整组省略。
         void write_group(
             std::u16string& builder,
             std::u16string_view group,
@@ -77,6 +80,7 @@ namespace weftline::generation {
 
     } // namespace
 
+    // .wstory 生成器：声明以 .weft 为准，描述/概要/文档从 existing 继承。
     std::u16string generate(
         std::span<const syntax::WeftFile> weft_files,
         const syntax::WStoryFile* existing,
@@ -94,6 +98,7 @@ namespace weftline::generation {
         std::unordered_set<std::u16string> seen_items;
         std::unordered_set<std::u16string> seen_scenes;
 
+        // 声明去重且保持首次出现顺序，与 ProjectBinder 的规则一致。
         for (const auto& weft : weft_files) {
             if (seen_chapters.insert(weft.title).second) {
                 chapters.push_back(weft.title);
@@ -130,6 +135,7 @@ namespace weftline::generation {
         DescriptionMap scene_descriptions;
         DescriptionMap variable_descriptions;
 
+        // 先取出旧描述，后面只改变量初始值和声明列表，不丢作者内容。
         if (existing != nullptr) {
             chapter_descriptions = build_description_map(
                 existing->chapters,

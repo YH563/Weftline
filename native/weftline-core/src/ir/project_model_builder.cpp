@@ -36,6 +36,7 @@ namespace weftline::ir {
             return source::utf8_to_utf16(std::string(folder.substr(start, end - start)));
         }
 
+        // .wstory 描述按名字索引；没有描述时保留空 optional。
         template <typename Entry>
         [[nodiscard]] DescriptionMap build_description_map(
             const std::vector<Entry>& entries,
@@ -59,6 +60,8 @@ namespace weftline::ir {
             return found == descriptions.end() ? Description{} : found->second;
         }
 
+        // 章节顺序按 .weft 文件中的首次出现；模块列表保持源顺序。
+        // 描述来自 .wstory，但章节 ID/位置仍来自 .weft 声明。
         [[nodiscard]] std::vector<ProjectChapter> build_chapters(
             const projects::LoadedProject& project,
             const projects::ProjectIndex& index,
@@ -106,6 +109,7 @@ namespace weftline::ir {
             return chapters;
         }
 
+        // 声明跨文件去重，顺序按第一次出现；.wstory 只补充描述。
         [[nodiscard]] ProjectSymbols build_symbols(
             const projects::LoadedProject& project,
             const DescriptionMap& variable_descriptions,
@@ -160,12 +164,14 @@ namespace weftline::ir {
 
     } // namespace
 
+    // 把 LoadedProject + ProjectIndex 规约成图阶段需要的源级模型。
     ProjectModel build_project_model(
         const projects::LoadedProject& project,
         const projects::ProjectIndex& index)
     {
         const auto* wstory = project.wstory ? &*project.wstory : nullptr;
 
+        // 项目名优先取 .wstory；没有时回退到文件夹名。
         std::u16string project_name;
         if (wstory != nullptr && !source::trim(wstory->project_name).empty()) {
             project_name = wstory->project_name;
@@ -176,6 +182,7 @@ namespace weftline::ir {
         std::optional<std::u16string> summary;
         std::vector<Doc> docs;
 
+        // 概要和设定文档只存在于 .wstory，原样复制到模型。
         if (wstory != nullptr) {
             if (wstory->summary) {
                 summary = wstory->summary->text;

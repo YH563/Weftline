@@ -10,6 +10,8 @@
 namespace weftline::ir {
     namespace {
 
+        // 所有源码位置统一写成 { filePath, span: { start, length } }，
+        // start/length 是 UTF-16 code unit。
         void write_source(
             json::Writer& writer,
             const source::SourceLocation& location)
@@ -23,6 +25,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // IR 布尔表达式按 kind 递归输出；子节点是 shared_ptr，可安全共享。
         void write_bool_expr(json::Writer& writer, const IrBoolExpr& expression)
         {
             writer.begin_object();
@@ -60,6 +63,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // 正文片段只有两种：text 或 ref（{名字}）。
         void write_segment(json::Writer& writer, const IrTextSegment& segment)
         {
             writer.begin_object();
@@ -74,6 +78,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // 内容块：旁白/对话带 segments，对话额外带 speaker，图片带 path。
         void write_content(json::Writer& writer, const IrContentBlock& content)
         {
             writer.begin_object();
@@ -99,6 +104,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // @set 效果统一为 name + boolean value。
         void write_effect(json::Writer& writer, const IrAssignment& effect)
         {
             writer.begin_object();
@@ -107,6 +113,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // 出口分支：可选条件/文案、目标、效果数组和源码位置。
         void write_branch(json::Writer& writer, const IrExitBranch& branch)
         {
             writer.begin_object();
@@ -133,6 +140,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // 出口块：模式、可选角色、分支列表和自己的源码位置。
         void write_exit(json::Writer& writer, const IrExitBlock& exit)
         {
             writer.begin_object();
@@ -154,6 +162,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // 模块完整展开正文和出口；这是 StoryGraph JSON，不是压缩投影。
         void write_module(json::Writer& writer, const IrModule& module)
         {
             writer.begin_object();
@@ -181,6 +190,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // 角标用字符串数组输出，避免 C# 依赖位值。
         void write_chapter_flags(
             json::Writer& writer, GraphChapterFlags flags)
         {
@@ -219,6 +229,7 @@ namespace weftline::ir {
             writer.end_array();
         }
 
+        // 悬停摘要：首行可选，对话/选项数量始终存在。
         void write_summary(
             json::Writer& writer, const GraphModuleSummary& summary)
         {
@@ -232,6 +243,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // 章节容器：ID、标题、模块顺序和角标。
         void write_chapter(json::Writer& writer, const GraphChapter& chapter)
         {
             writer.begin_object();
@@ -248,6 +260,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // 模块节点：图视图显示所需的元数据，不含正文。
         void write_module_node(
             json::Writer& writer, const GraphModuleNode& module)
         {
@@ -271,6 +284,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // 一条真实模块边；external 表示目标在另一章节。
         void write_module_edge(
             json::Writer& writer, const GraphModuleEdge& edge)
         {
@@ -293,6 +307,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // 章节聚合边下的底层模块分支，保留条件和源码位置。
         void write_chapter_edge_detail(
             json::Writer& writer, const ChapterEdgeDetail& detail)
         {
@@ -314,6 +329,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // 章节边按源/目标章节聚合，details 保留底层模块对。
         void write_chapter_edge(json::Writer& writer, const ChapterEdge& edge)
         {
             writer.begin_object();
@@ -331,6 +347,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // 引用索引：名字 → 模块 ID 列表，供 C# 筛选面板反查。
         void write_reference_map(
             json::Writer& writer,
             const std::unordered_map<std::u16string, std::vector<std::u16string>>& map)
@@ -348,6 +365,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // 四类引用并列输出；没有引用的类别输出空对象。
         void write_references(json::Writer& writer, const ReferenceIndex& references)
         {
             writer.begin_object();
@@ -364,6 +382,7 @@ namespace weftline::ir {
 
     } // namespace
 
+    // StoryGraph JSON 用于调试和 HTML 载荷，包含完整正文。
     std::string story_graph_to_json(const StoryGraph& graph)
     {
         json::Writer writer;
@@ -394,6 +413,7 @@ namespace weftline::ir {
         return writer.str();
     }
 
+    // GraphProjection JSON 是图视图的压缩载荷：不含完整正文。
     std::string graph_projection_to_json(const GraphProjection& projection)
     {
         json::Writer writer;

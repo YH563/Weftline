@@ -18,6 +18,7 @@
 namespace weftline::projects {
     namespace {
 
+        // 只有 error 会阻止产出正式图；warning 不影响编译。
         [[nodiscard]] bool has_error_diagnostics(
             const std::vector<ProjectDiagnostic>& diagnostics)
         {
@@ -28,6 +29,8 @@ namespace weftline::projects {
                 });
         }
 
+        // 图缓存 key：路径一致且 AST 指针一致才算同一结构。
+        // AST 指针来自解析缓存，文本未变时保持不变。
         [[nodiscard]] bool same_files(
             const std::vector<ProjectFile>& left,
             const std::vector<ProjectFile>& right)
@@ -58,7 +61,10 @@ namespace weftline::projects {
         const CompilationOptions& options,
         CompilationCache* cache)
     {
+        // 阶段 1：加载并把未变化文件命中解析缓存。
         auto project = load(snapshot, cache);
+
+        // 阶段 2：跨文件声明与模块引用；绑定缓存按符号签名选择性复用。
         auto binding = weftline::projects::bind(
             project.weft_files,
             project.wstory ? &*project.wstory : nullptr,
@@ -78,10 +84,12 @@ namespace weftline::projects {
             binding.diagnostics.begin(),
             binding.diagnostics.end());
 
+        // 阶段 3：项目级校验（入口、目标、可达性等）。
         auto validation = validate(project, binding.index);
         diagnostics.insert(
             diagnostics.end(), validation.begin(), validation.end());
 
+        // 阶段 4：构建源级模型；图阶段只依赖这里的章节/声明和 AST。
         auto model = ir::build_project_model(project, binding.index);
         const bool errors = has_error_diagnostics(diagnostics);
 
@@ -89,6 +97,7 @@ namespace weftline::projects {
         std::optional<std::shared_ptr<const ir::GraphAnalysis>> analysis;
         std::optional<std::shared_ptr<const ir::GraphProjection>> projection;
 
+        // 阶段 5：图/分析/投影。strict 模式有 error 时不产出正式图。
         if (!errors || options.allow_partial) {
             auto* cached = cache != nullptr ? &cache->graph_cache() : nullptr;
             const bool can_reuse = cached != nullptr
@@ -97,6 +106,7 @@ namespace weftline::projects {
                 && same_files(cached->files, project.weft_files);
 
             if (can_reuse) {
+                // .weft AST 集合未变：图和分析可以整块复用（例如只改 .wstory 描述）。
                 graph = cached->graph;
                 analysis = cached->analysis;
 
@@ -104,6 +114,7 @@ namespace weftline::projects {
                     if (cached->has_projection && cached->projection != nullptr) {
                         projection = cached->projection;
                     } else {
+                        // 缓存里只有图，没有投影：只补建投影，不重算图和分析。
                         auto built = std::make_shared<ir::GraphProjection>(
                             ir::build_graph_projection(
                                 model, *cached->graph, *cached->analysis));
@@ -113,6 +124,7 @@ namespace weftline::projects {
                     }
                 }
             } else {
+                // 结构变化：重建图和分析；投影按请求决定是否构建。
                 auto built_graph = std::make_shared<ir::StoryGraph>(
                     ir::build_story_graph(project, model));
                 auto built_analysis = std::make_shared<ir::GraphAnalysis>(
@@ -136,6 +148,7 @@ namespace weftline::projects {
                     cached->has_projection = false;
                 }
 
+                // 更新缓存 key 和结果，供下一次编译复用。
                 if (cached != nullptr) {
                     cached->files = project.weft_files;
                     cached->graph = built_graph;

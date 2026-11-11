@@ -16,7 +16,8 @@
 namespace weftline::projects {
     namespace {
 
-        [[nodiscard]] bool ends_with_ignore_case(
+        [[nodiscard]]
+        bool ends_with_ignore_case(
             std::string_view text, std::string_view suffix) noexcept
         {
             if (text.size() < suffix.size()) {
@@ -43,6 +44,7 @@ namespace weftline::projects {
 
     } // namespace
 
+    // 只消费 snapshot 中的内存文档；.weft 按路径排序，.wstory 取排序后的第一个。
     LoadedProject load(const ProjectSnapshot& snapshot, CompilationCache* cache)
     {
         LoadedProject project;
@@ -51,6 +53,7 @@ namespace weftline::projects {
         std::vector<std::string> weft_paths;
         std::string wstory_path;
 
+        // 先分类文件，避免在后续循环里反复判断扩展名。
         for (const auto& [path, text] : snapshot.documents) {
             static_cast<void>(text);
             if (ends_with_ignore_case(path, ".weft")) {
@@ -67,6 +70,7 @@ namespace weftline::projects {
         for (const auto& path : weft_paths) {
             const auto& text = snapshot.documents.at(path);
 
+            // path + 完整文本命中缓存时直接复用 AST 和解析诊断。
             if (cache != nullptr) {
                 if (const auto* cached = cache->find_weft(path, text)) {
                     if (cached->ast) {
@@ -92,6 +96,7 @@ namespace weftline::projects {
                     ProjectDiagnostic{path, diagnostic});
             }
 
+            // parse 返回 variant；只有确认是 .weft 才保留 AST，.wstory 误入时不进入项目文件列表。
             std::shared_ptr<const syntax::WeftFile> ast;
             if (auto* weft = std::get_if<syntax::WeftFile>(&script)) {
                 ast = std::make_shared<const syntax::WeftFile>(std::move(*weft));
@@ -106,6 +111,7 @@ namespace weftline::projects {
             }
         }
 
+        // .wstory 不是声明入口，只提供项目信息和描述；缓存逻辑与 .weft 相同。
         if (!wstory_path.empty()) {
             const auto& text = snapshot.documents.at(wstory_path);
 

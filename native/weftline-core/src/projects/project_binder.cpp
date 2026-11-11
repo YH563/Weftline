@@ -16,6 +16,7 @@
 namespace weftline::projects {
     namespace {
 
+        // 跨文件建立章节表；重复标题只在重复出现的文件上报错，related 指向首次声明。
         void declare_chapter(
             const ProjectFile& file,
             std::unordered_map<std::u16string, ChapterDefinition>& chapters,
@@ -46,6 +47,7 @@ namespace weftline::projects {
                     ast.title, file.file_path, ast.span, ast.title_span});
         }
 
+        // 跨文件声明符号；同名不同类型也视为重复。
         void declare_symbol(
             const ProjectFile& file,
             binding::SymbolTable& symbols,
@@ -171,6 +173,7 @@ namespace weftline::projects {
             }
         }
 
+        // 全局声明指纹：只关心名字和种类。签名不变时模块引用诊断仍有效。
         [[nodiscard]] std::size_t declaration_signature(
             const std::vector<ProjectFile>& files)
         {
@@ -205,6 +208,7 @@ namespace weftline::projects {
             return hash;
         }
 
+        // 单文件模块绑定；生成诊断时保留该文件路径，方便后续按文件归属。
         [[nodiscard]] std::vector<ProjectDiagnostic> bind_modules(
             const ProjectFile& file,
             binding::SymbolTable& symbols)
@@ -235,12 +239,14 @@ namespace weftline::projects {
         std::unordered_map<std::u16string, ChapterDefinition> chapters;
         std::unordered_map<std::u16string, ModuleDefinition> modules;
 
+        // 第一阶段：所有文件的声明先合并，保证前向引用可见。
         for (const auto& file : files) {
             declare_chapter(file, chapters, out);
             declare_symbols(file, symbols, out);
             declare_modules(file, modules, out);
         }
 
+        // .wstory 只做自身重复检查；它不会把声明加入符号表。
         if (wstory != nullptr) {
             diagnostics::DiagnosticBag bag;
             binding::bind(*wstory, bag, wstory_path);
@@ -250,6 +256,7 @@ namespace weftline::projects {
             }
         }
 
+        // 第二阶段：模块引用。符号签名不变时，未变化文件可复用旧诊断。
         const auto signature = declaration_signature(files);
         const bool can_reuse = cache != nullptr
             && cache->has_symbol_signature
@@ -259,6 +266,7 @@ namespace weftline::projects {
         for (const auto& file : files) {
             active_files.insert(file.file_path);
 
+            // AST 指针相同说明该文件文本没变；只有签名相同才允许走复用。
             if (can_reuse) {
                 const auto found = cache->files.find(file.file_path);
                 if (found != cache->files.end()
@@ -280,6 +288,7 @@ namespace weftline::projects {
             }
         }
 
+        // 删除已经不在项目里的缓存项，避免项目缩小时保留无用 AST。
         if (cache != nullptr) {
             for (auto it = cache->files.begin(); it != cache->files.end();) {
                 if (active_files.find(it->first) == active_files.end()) {

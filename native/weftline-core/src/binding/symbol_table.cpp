@@ -4,12 +4,14 @@
 
 namespace weftline::binding {
 
+    // 符号名在项目内全局唯一；已存在时保留首次声明，返回 false。
     bool SymbolTable::try_declare(SymbolEntry entry)
     {
         if (symbols_.find(entry.name) != symbols_.end()) {
             return false;
         }
 
+        // 同时维护按种类的索引，供 has_variable/has_character/... 快速查询。
         switch (entry.kind) {
             case SymbolKind::Variable:
                 variables_.insert(entry.name);

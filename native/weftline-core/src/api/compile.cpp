@@ -14,7 +14,8 @@ namespace weftline::api {
     namespace {
 
         // 最小 JSON 字符串反转义；只服务于当前占位请求解析。
-        [[nodiscard]] std::string unescape_json(std::string_view input)
+        [[nodiscard]]
+        std::string unescape_json(std::string_view input)
         {
             std::string result;
             result.reserve(input.size());
@@ -99,7 +100,8 @@ namespace weftline::api {
         }
 
         // 在请求 JSON 中查找字符串字段；不处理嵌套对象。
-        [[nodiscard]] bool extract_string_field(
+        [[nodiscard]]
+        bool extract_string_field(
             std::string_view json, std::string_view key, std::string& out)
         {
             const std::string quoted_key = "\"" + std::string(key) + "\"";
@@ -167,7 +169,7 @@ namespace weftline::api {
         writer.key("filePath").string(file_path);
         writer.key("length").number(source.length());
 
-        // token 文本经 UTF-16 -> UTF-8 后写入 JSON。
+        // token 文本经 UTF-16 -> UTF-8 后写入 JSON；span 保持 UTF-16 offset。
         writer.key("tokens").begin_array();
         for (const auto& token : lexed.tokens) {
             writer.begin_object();
@@ -206,7 +208,7 @@ namespace weftline::api {
         static_cast<void>(extract_string_field(request_json, "filePath", file_path));
 
         // 缺少 text 时返回结构化错误，而不是空响应。
-    if (!has_text) {
+        if (!has_text) {
             return error_json("missing required field: text");
         }
 

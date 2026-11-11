@@ -14,6 +14,7 @@
 
 namespace {
 
+    // 单文件解析失败时仍返回同一 schema，C# 端不需要区分异常路径。
     [[nodiscard]] std::string parse_error_json(
         std::string_view file_path,
         std::int64_t request_version,
@@ -37,10 +38,12 @@ namespace {
         std::string_view source_utf8,
         std::int64_t request_version)
     {
+        // 外部 UTF-8 统一转 UTF-16，诊断 span 才是 C# 可直接使用的偏移。
         const auto source =
             weftline::source::SourceText::from_utf8(
                 source_utf8, std::string(file_path));
 
+        // 这里只跑单文件语法；语义、符号和图由项目编译负责。
         weftline::diagnostics::DiagnosticBag diagnostics;
         static_cast<void>(weftline::syntax::parse(source, diagnostics));
 
@@ -52,6 +55,7 @@ namespace {
         writer.key("requestVersion").number(request_version);
         writer.key("hasErrors").boolean(diagnostics.has_errors());
 
+        // 只暴露稳定字段；message 从 UTF-16 转回 UTF-8 供 JSON 传输。
         writer.key("diagnostics").begin_array();
         for (const auto& diagnostic : diagnostics) {
             writer.begin_object();
@@ -70,6 +74,7 @@ namespace {
         return writer.str();
     }
 
+    // 与 weft_free() 的 free 配对；不能用 new[]。
     [[nodiscard]] char* duplicate_string(const std::string& value)
     {
         auto* result = static_cast<char*>(std::malloc(value.size() + 1));
@@ -86,6 +91,7 @@ extern "C" {
 
 char* weft_parse_json(const char* path, const char* text, long long version)
 {
+    // NULL 文本按空文件处理；version 原样回显，用于 C# 端丢弃过期结果。
     const std::string_view file_path = path != nullptr ? path : "";
     const std::string_view source = text != nullptr ? text : "";
     const auto request_version = static_cast<std::int64_t>(version);
@@ -93,6 +99,7 @@ char* weft_parse_json(const char* path, const char* text, long long version)
     try {
         return duplicate_string(
             parse_to_json(file_path, source, request_version));
+    // C ABI 不能抛异常：解析错误也转换成 JSON。
     } catch (const std::exception& error) {
         return duplicate_string(
             parse_error_json(file_path, request_version, error.what()));

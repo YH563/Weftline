@@ -12,6 +12,7 @@
 namespace weftline::syntax {
     namespace {
 
+        // 调试输出使用固定 4 空格缩进；AST 打印不参与编译流程。
         void append_line(std::u16string& out, int depth, std::u16string_view text)
         {
             out.append(static_cast<std::size_t>(depth) * 4, u' ');
@@ -19,6 +20,7 @@ namespace weftline::syntax {
             out.push_back(u'\n');
         }
 
+        // 把正文压成单行并截断，避免调试输出被大段文本淹没。
         std::u16string short_text(std::u16string_view text)
         {
             std::u16string flattened;
@@ -136,6 +138,7 @@ namespace weftline::syntax {
                 content);
         }
 
+        // .wstory 只打印项目信息、章节、声明和文档；描述保留原文便于核对。
         void print_wstory(std::u16string& out, const WStoryFile& wstory)
         {
             std::u16string header = u"WStory \"";
@@ -202,6 +205,7 @@ namespace weftline::syntax {
             }
         }
 
+        // .weft 按源顺序打印声明与模块，出口块展开成分支列表。
         void print_weft(std::u16string& out, const WeftFile& weft)
         {
             append_line(out, 0, u"WeftFile");

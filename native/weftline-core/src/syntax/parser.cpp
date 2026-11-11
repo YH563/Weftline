@@ -19,6 +19,8 @@ namespace weftline::syntax {
 
         constexpr auto npos = std::u16string_view::npos;
 
+        // 行导向的手写解析器：按行扫描，@ 指令决定后续区域，正文块跨行收集。
+        // 解析错误写入 DiagnosticBag 后尽量继续，不抛异常。
         class WeftParser
         {
         public:
@@ -50,6 +52,7 @@ namespace weftline::syntax {
                 return false;
             }
 
+            // .weft 结构：@title → 顶部声明区 → 若干 @module。
             [[nodiscard]] WeftFile parse_weft()
             {
                 skip_blank_and_comments();
@@ -221,6 +224,7 @@ namespace weftline::syntax {
                 };
             }
 
+            // .wstory 结构：@project → 可选的概要/章节/文档/声明描述。
             [[nodiscard]] WStoryFile parse_wstory()
             {
                 WStoryFile wstory;
@@ -349,6 +353,7 @@ namespace weftline::syntax {
                 return wstory;
             }
 
+            // @summary [文本]：方括号内可以单行，也可以跨行。
             [[nodiscard]] TextBlock parse_summary(const source::SourceLine& line)
             {
                 const auto text = source_.line_text(line);
@@ -365,6 +370,7 @@ namespace weftline::syntax {
                 return parse_plain_text_block_from(line, bracket);
             }
 
+            // 连续读取 @chapters 下的 @chapter 条目，遇到其他指令即停止。
             void parse_chapters(std::vector<WStoryChapter>& chapters)
             {
                 while (true) {
@@ -416,6 +422,7 @@ namespace weftline::syntax {
                 }
             }
 
+            // @docs 下连续读取 @doc <标题> [正文]。
             void parse_docs(std::vector<Doc>& docs)
             {
                 while (true) {
@@ -471,6 +478,7 @@ namespace weftline::syntax {
                 }
             }
 
+            // .wstory 的角色/道具/场景声明共用：名称 + 可选描述。
             template <typename T, typename Factory>
             void parse_wstory_names(
                 std::u16string_view keyword,
@@ -529,6 +537,7 @@ namespace weftline::syntax {
                 }
             }
 
+            // .wstory 变量只提供描述和初始值；声明来源仍是 .weft。
             void parse_wstory_variables(std::vector<WStoryVariable>& variables)
             {
                 while (true) {
@@ -583,6 +592,7 @@ namespace weftline::syntax {
                 }
             }
 
+            // 从 '[' 开始读取文本块：优先匹配同一行 ']'，否则逐行收集到闭合行。
             [[nodiscard]] TextBlock parse_plain_text_block_from(
                 const source::SourceLine& opening_line,
                 std::size_t open_bracket)
@@ -687,6 +697,7 @@ namespace weftline::syntax {
                 return source_.lines().empty() ? 0 : source_.lines().back().span.end();
             }
 
+            // 解析器把空行和整行注释视为透明，不改变当前状态。
             void skip_blank_and_comments()
             {
                 while (!is_at_end()) {
@@ -699,6 +710,7 @@ namespace weftline::syntax {
                 }
             }
 
+            // 指令必须后面跟空白、'('、':' 或 '['，避免 @var 命中 @variable。
             [[nodiscard]] static bool is_directive(
                 std::u16string_view trimmed, std::u16string_view keyword) noexcept
             {
@@ -712,6 +724,7 @@ namespace weftline::syntax {
                 return is_space(next) || next == u'(' || next == u':' || next == u'[';
             }
 
+            // 出口分支的三种开头：->、条件括号、以及带条件的 [文案] 行。
             [[nodiscard]] static bool is_branch_start(std::u16string_view trimmed) noexcept
             {
                 if (source::starts_with(trimmed, u"->")) {
@@ -773,6 +786,7 @@ namespace weftline::syntax {
                 }
             }
 
+            // 在指令行中定位 token 的源码 span；找不到时退回整行 span。
             [[nodiscard]] source::TextSpan span_after(
                 const source::SourceLine& line,
                 std::u16string_view keyword,
@@ -867,6 +881,7 @@ namespace weftline::syntax {
                 target.push_back(factory(std::move(name), line.span));
             }
 
+            // 模块内部顺序：可选 @scene → 正文/图片 → 必须的 @next 出口块。
             [[nodiscard]] Module parse_module()
             {
                 const auto module_line = *current();
@@ -1021,6 +1036,7 @@ namespace weftline::syntax {
                 };
             }
 
+            // 模块 ID 是全局唯一节点 ID；END 保留，不能作为普通模块。
             void validate_module_title(
                 std::u16string_view title, const source::SourceLine& module_line)
             {
@@ -1064,6 +1080,7 @@ namespace weftline::syntax {
                 }
             }
 
+            // 旁白：整块正文都在 [] 内。
             [[nodiscard]] Narration parse_narration()
             {
                 const auto opening_line = *current();
@@ -1076,6 +1093,7 @@ namespace weftline::syntax {
                     source::TextSpan::from_bounds(opening_line.span.start, end)};
             }
 
+            // 对话：说话人 + ':' + [] 正文；说话人已由调用方切出。
             [[nodiscard]] Dialogue parse_dialogue(
                 const source::SourceLine& opening_line, const std::u16string& speaker)
             {
@@ -1090,6 +1108,7 @@ namespace weftline::syntax {
                     source::TextSpan::from_bounds(opening_line.span.start, end)};
             }
 
+            // 收集跨行正文，并在行与行之间补显式的换行片段，保持原始段落感。
             [[nodiscard]] std::vector<TextSegment> parse_text_block_segments(
                 const source::SourceLine& opening_line,
                 std::size_t open_bracket,
@@ -1180,6 +1199,7 @@ namespace weftline::syntax {
                 return segments;
             }
 
+            // 把正文拆成 TextLiteral / TextReference；{{ 和 }} 是字面量大括号。
             [[nodiscard]] std::vector<TextSegment> parse_segments(
                 std::u16string_view text,
                 std::int32_t absolute_start,
@@ -1289,6 +1309,7 @@ namespace weftline::syntax {
                 return segments;
             }
 
+            // 只裁掉首尾空白，并同步修正对应 TextLiteral 的 span。
             static void trim_segments(std::vector<TextSegment>& segments)
             {
                 if (segments.empty()) {
@@ -1330,6 +1351,7 @@ namespace weftline::syntax {
                 }
             }
 
+            // @fig "path"：路径字符串只做简单 " 和 \ 反转义。
             [[nodiscard]] std::optional<Figure> parse_figure()
             {
                 const auto line = *current();
@@ -1350,6 +1372,7 @@ namespace weftline::syntax {
                     line.span};
             }
 
+            // 出口块有两种写法：简写 @next -> 目标，或 @next(角色): 后跟多行分支。
             [[nodiscard]] Exit parse_exit()
             {
                 const auto start_line = *current();
@@ -1498,6 +1521,7 @@ namespace weftline::syntax {
                     source::TextSpan::from_bounds(start_line.span.start, end)};
             }
 
+            // 一条分支：可选 (条件)、可选 [文案]、-> 目标、可选 { @set ... } 效果块。
             [[nodiscard]] std::optional<ExitBranch> parse_branch(
                 const source::SourceLine& line,
                 std::size_t content_start,
@@ -1711,6 +1735,7 @@ namespace weftline::syntax {
                 };
             }
 
+            // 效果块内按 ';' 分割多条 @set；同一块内重复赋值给 warning。
             void parse_effect_statements(
                 std::u16string_view text,
                 std::size_t start,
@@ -1797,6 +1822,7 @@ namespace weftline::syntax {
                 }
             }
 
+            // 出口语义校验：至少一条分支、必须有兜底、选择/自动模式不能混用。
             void validate_exit(
                 const std::optional<std::u16string>& character,
                 const std::vector<ExitBranch>& branches,
@@ -1863,6 +1889,7 @@ namespace weftline::syntax {
                 }
             }
 
+            // 简写出口只能有一条分支；跳过后续内容并只报告一次错误。
             void consume_after_shorthand()
             {
                 bool reported = false;
@@ -1889,6 +1916,7 @@ namespace weftline::syntax {
                 }
             }
 
+            // 错误恢复：丢弃当前出口块的剩余内容，直到下一个模块或文件结束。
             void consume_to_next_module_or_end()
             {
                 while (!is_at_end()) {
@@ -1901,6 +1929,7 @@ namespace weftline::syntax {
                 }
             }
 
+            // 解析 "@var name true|false" 的 name/value 部分。
             [[nodiscard]] bool try_parse_assignment(
                 std::u16string_view trimmed,
                 std::u16string_view keyword,
@@ -1932,6 +1961,7 @@ namespace weftline::syntax {
                 return true;
             }
 
+            // 解析 "@char name" 这类单名称声明。
             [[nodiscard]] bool try_parse_single_name(
                 std::u16string_view trimmed,
                 std::u16string_view keyword,
@@ -1957,6 +1987,7 @@ namespace weftline::syntax {
                 return true;
             }
 
+            // 判断一行是否以 "角色:[" 开头；否则按旁白/未知行处理。
             [[nodiscard]] static bool try_get_dialogue_prefix(
                 std::u16string_view text,
                 std::u16string& speaker,
@@ -1985,6 +2016,7 @@ namespace weftline::syntax {
                 return true;
             }
 
+            // 图片路径只需处理 " 和 \，其余反斜杠保持原样。
             [[nodiscard]] static std::u16string unescape(std::u16string_view text)
             {
                 std::u16string result;
@@ -2014,6 +2046,7 @@ namespace weftline::syntax {
 
     } // namespace
 
+    // 统一入口：先按扩展名/首行判断 .wstory，再选择对应解析路径。
     ScriptFile parse(
         const source::SourceText& source,
         diagnostics::DiagnosticBag& diagnostics)

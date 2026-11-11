@@ -8,6 +8,8 @@
 
 namespace weftline::ir {
 
+    // 枚举简单路径：on_path 防止环，limit 控制组合爆炸。
+    // 当前图视图只用最短路径；这个接口留给后续“全部路径/结局”功能。
     std::vector<std::vector<std::u16string>> GraphAnalysis::find_paths(
         std::u16string_view from,
         std::u16string_view to,
@@ -24,6 +26,7 @@ namespace weftline::ir {
             return results;
         }
 
+        // 递归回溯：进入节点时记录，回溯时撤销，保证同一路径不重复访问节点。
         std::vector<std::u16string> path;
         std::unordered_set<std::u16string> on_path;
 

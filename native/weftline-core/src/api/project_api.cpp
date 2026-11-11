@@ -37,8 +37,10 @@ namespace {
      *
      * 保持与正常响应相同的 schemaVersion/version/hasErrors 字段，方便 C# 统一解析。
      */
-    [[nodiscard]] std::string project_error_json(std::string_view message)
+    [[nodiscard]]
+    std::string project_error_json(std::string_view message)
     {
+        // 失败响应只保留最小字段；调用方仍按同一 schemaVersion 解析。
         weftline::json::Writer writer;
         writer.begin_object();
         writer.key("schemaVersion").number(3);
@@ -64,6 +66,7 @@ namespace {
     {
         writer.begin_array();
 
+        // 每个声明独立成对象；种类特有的字段由 write_extra 补写。
         for (const auto& entry : entries) {
             writer.begin_object();
             writer.key("name").string(
@@ -75,6 +78,7 @@ namespace {
                     weftline::source::utf16_to_utf8(*entry.description));
             }
 
+            // 定义位置要从 .weft 绑定索引回查，ProjectSymbols 本身只有名字和描述。
             const auto found = index.symbols.find(entry.name);
             if (found != index.symbols.end()) {
                 writer.key("filePath").string(found->second.location.file_path);
@@ -102,6 +106,7 @@ namespace {
 
         writer.begin_object();
 
+        // 变量比其他声明多一个初始值。
         writer.key("variables");
         write_symbol_array(
             writer, index, model.symbols.variables,
@@ -124,6 +129,7 @@ namespace {
             writer, index, model.symbols.scenes,
             [](weftline::json::Writer&, const auto&) {});
 
+        // 章节不在 ProjectSymbols 里，单独输出标题、模块列表和源码位置。
         writer.key("chapters").begin_array();
         for (const auto& chapter : model.chapters) {
             writer.begin_object();
@@ -137,6 +143,7 @@ namespace {
                     weftline::source::utf16_to_utf8(*chapter.description));
             }
 
+            // 保持模块在源文件中的出现顺序。
             writer.key("moduleIds").begin_array();
             for (const auto& module_id : chapter.module_ids) {
                 writer.string(weftline::source::utf16_to_utf8(module_id));
@@ -160,9 +167,11 @@ namespace {
      * CompilationCache 的复用结果，因此这里只做序列化，不再复制 IR。
      * 所有 start/length 都是 UTF-16 code unit。
      */
-    [[nodiscard]] std::string project_compile_json(
+    [[nodiscard]]
+    std::string project_compile_json(
         const weftline::projects::ProjectCompilationResult& result)
     {
+        // 固定头部：schema、core 版本、是否有 error、项目名。
         weftline::json::Writer writer;
         writer.begin_object();
         writer.key("schemaVersion").number(3);
@@ -171,6 +180,7 @@ namespace {
         writer.key("projectName").string(
             weftline::source::utf16_to_utf8(result.model.project.name));
 
+        // 诊断平铺成项目级数组，文件路径由编译阶段回填。
         writer.key("diagnostics").begin_array();
         for (const auto& item : result.diagnostics) {
             const auto& diagnostic = item.diagnostic;
@@ -184,6 +194,7 @@ namespace {
             writer.key("start").number(diagnostic.span.start);
             writer.key("length").number(diagnostic.span.length);
 
+            // related 用于重复声明等二次定位，例如首次声明的位置。
             if (diagnostic.related) {
                 writer.key("related").begin_object();
                 writer.key("filePath").string(diagnostic.related->file_path);
@@ -196,14 +207,17 @@ namespace {
         }
         writer.end_array();
 
+        // 编辑器需要的符号、章节和 .wstory 描述。
         writer.key("symbols");
         write_project_symbols(writer, result);
 
+        // 有 error 且 allow_partial=false 时不会走到这里；值可能来自编译缓存。
         if (result.graph) {
             writer.key("graph").raw(
                 weftline::ir::story_graph_to_json(*result.graph.value()));
         }
 
+        // projection 只在请求构建且成功时出现。
         if (result.projection) {
             writer.key("projection").raw(
                 weftline::ir::graph_projection_to_json(*result.projection.value()));
@@ -218,8 +232,10 @@ namespace {
      *
      * 返回的缓冲区必须由调用方使用 weft_free() 释放；分配失败返回 nullptr。
      */
-    [[nodiscard]] char* duplicate_string(const std::string& value)
+    [[nodiscard]]
+    char* duplicate_string(const std::string& value)
     {
+        // 必须和 weft_free() 的 free 配对，不能改用 new[]。
         auto* result = static_cast<char*>(std::malloc(value.size() + 1));
         if (result == nullptr) {
             return nullptr;
@@ -236,11 +252,13 @@ extern "C" {
 
 WeftProject* weft_project_create(void)
 {
+    // 分配失败返回 nullptr；空快照可以直接开始 set_document。
     return new (std::nothrow) WeftProject{};
 }
 
 void weft_project_destroy(WeftProject* project)
 {
+    // delete nullptr 安全；文档文本、AST、绑定和图缓存随句柄析构。
     delete project;
 }
 
@@ -249,6 +267,7 @@ void weft_project_set_folder(WeftProject* project, const char* folder)
     if (project == nullptr || folder == nullptr) {
         return;
     }
+    // folder 只影响缓存边界和项目名兜底，core 不扫描磁盘。
     // 缓存 key 是文档路径；换项目后旧 AST/绑定/图结果不可复用。
     if (project->snapshot.folder != folder) {
         project->cache.clear();
@@ -261,6 +280,7 @@ void weft_project_set_document(WeftProject* project, const char* path, const cha
     if (project == nullptr || path == nullptr) {
         return;
     }
+    // 覆盖写：同一路径的新文本会替换旧文本。
     // 文本是内存快照，不由 core 访问磁盘；版本号用于最新的编译结果判定。
     project->snapshot.documents[path] = text != nullptr ? text : "";
     ++project->snapshot.version;
@@ -271,6 +291,7 @@ void weft_project_remove_document(WeftProject* project, const char* path)
     if (project == nullptr || path == nullptr) {
         return;
     }
+    // 不存在时 erase 是空操作；版本号仍递增，确保下次编译重新评估。
     project->snapshot.documents.erase(path);
     ++project->snapshot.version;
 }
@@ -279,6 +300,7 @@ char* weft_project_compile(WeftProject* project, int allow_partial, int build_pr
 {
     // 不向 C ABI 抛异常：所有失败都转换成可解析的 JSON 响应。
     try {
+        // 空句柄也返回 JSON，而不是让调用方收到崩溃或异常。
         if (project == nullptr) {
             return duplicate_string(project_error_json("project is null"));
         }
@@ -292,6 +314,7 @@ char* weft_project_compile(WeftProject* project, int allow_partial, int build_pr
             weftline::projects::compile(
                 project->snapshot, options, &project->cache);
 
+        // 返回缓冲区由调用方 weft_free；异常也统一转成 error JSON。
         return duplicate_string(project_compile_json(result));
     } catch (const std::exception& error) {
         return duplicate_string(project_error_json(error.what()));

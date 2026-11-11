@@ -18,6 +18,7 @@ namespace weftline::projects {
         using ModuleMap =
             std::unordered_map<std::u16string, const syntax::Module*>;
 
+        // 语言没有显式入口声明：默认取第一个文件中的第一个模块。
         [[nodiscard]] std::optional<std::u16string> get_entry(
             const LoadedProject& project)
         {
@@ -29,6 +30,7 @@ namespace weftline::projects {
             return std::nullopt;
         }
 
+        // 只保留“真正属于该文件”的模块，避免同名模块跨文件时指针错位。
         [[nodiscard]] ModuleMap build_syntax_map(
             const LoadedProject& project,
             const ProjectIndex& index)
@@ -54,6 +56,7 @@ namespace weftline::projects {
             return map;
         }
 
+        // 检查所有 -> 目标是否存在；END 是内建汇点，不需要定义。
         void validate_targets(
             const LoadedProject& project,
             const ProjectIndex& index,
@@ -89,6 +92,7 @@ namespace weftline::projects {
             }
         }
 
+        // 从入口做 BFS，忽略 END 和不存在的目标模块。
         [[nodiscard]] std::unordered_set<std::u16string> reachable_from(
             const std::u16string& entry,
             const ModuleMap& syntax_by_title,
@@ -127,6 +131,7 @@ namespace weftline::projects {
             return visited;
         }
 
+        // 在反向邻接表上从 END 反推，得到所有能到达结局的模块。
         [[nodiscard]] std::unordered_set<std::u16string> can_reach_end(
             const ModuleMap& syntax_by_title,
             const ProjectIndex& index)
@@ -197,6 +202,7 @@ namespace weftline::projects {
             return out;
         }
 
+        // 先检查目标存在性；可达性分析只依赖语法树中的出口边。
         const auto entry = get_entry(project);
         const auto syntax_by_title = build_syntax_map(project, index);
 
@@ -222,6 +228,7 @@ namespace weftline::projects {
             }
         }
 
+        // 可达性和“能否到 END”分别给 warning；不阻断编译。
         const auto reaches_end = can_reach_end(syntax_by_title, index);
         for (const auto& [title, module] : index.modules) {
             if (reaches_end.find(title) == reaches_end.end()) {

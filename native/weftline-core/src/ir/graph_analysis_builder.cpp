@@ -26,6 +26,7 @@ namespace weftline::ir {
             return modules;
         }
 
+        // 每个模块的出边目标去重；END 也在邻接表里，作为路径终点。
         [[nodiscard]] std::unordered_map<std::u16string, StringList> build_adjacency(
             const StoryGraph& graph)
         {
@@ -49,6 +50,7 @@ namespace weftline::ir {
             return adjacency;
         }
 
+        // 反向邻接用于从 END 反推“能否到达结局”。
         [[nodiscard]] std::unordered_map<std::u16string, StringList> build_reverse_adjacency(
             const std::unordered_map<std::u16string, StringList>& adjacency)
         {
@@ -66,6 +68,7 @@ namespace weftline::ir {
             return reverse;
         }
 
+        // 从入口 BFS；不存在的目标模块和 END 不进入可达集合。
         [[nodiscard]] std::unordered_set<std::u16string> compute_reachable(
             const StoryGraph& graph,
             const std::unordered_map<std::u16string, const IrModule*>& modules_by_id,
@@ -105,6 +108,7 @@ namespace weftline::ir {
             return reachable;
         }
 
+        // 反向 BFS：先找直接连 END 的模块，再向所有前驱扩散。
         [[nodiscard]] std::unordered_set<std::u16string> compute_can_reach_end(
             const StoryGraph& graph,
             const std::unordered_map<std::u16string, StringList>& reverse_adjacency)
@@ -142,6 +146,7 @@ namespace weftline::ir {
             return can_reach_end;
         }
 
+        // 引用索引保持“名字 → 模块 ID 有序去重列表”，同名引用不会重复记录。
         void add_reference(
             Index& index,
             const std::optional<std::u16string>& name,
@@ -158,6 +163,7 @@ namespace weftline::ir {
         }
 
         template <typename Add>
+        // 条件里的变量引用也算模块依赖，供筛选使用。
         void add_condition_variables(const IrBoolExpr& expression, Add add)
         {
             switch (expression.kind) {
@@ -185,6 +191,7 @@ namespace weftline::ir {
             }
         }
 
+        // 正文 {名字} 由符号表区分是角色还是道具；未声明引用不进入索引。
         void add_segment_references(
             const std::vector<IrTextSegment>& segments,
             const std::u16string& module_id,
@@ -206,6 +213,7 @@ namespace weftline::ir {
             }
         }
 
+        // 扫描正文、对话说话人、出口角色/条件/效果，建立筛选用的引用索引。
         [[nodiscard]] ReferenceIndex build_references(
             const ProjectModel& model,
             const StoryGraph& graph)
@@ -270,6 +278,7 @@ namespace weftline::ir {
             };
         }
 
+        // 把跨章节模块边按 (源章节, 目标章节) 聚合；同章节内部边不进入聚合。
         [[nodiscard]] std::vector<ChapterEdge> build_chapter_edges(
             const StoryGraph& graph,
             const std::unordered_map<std::u16string, const IrModule*>& modules_by_id)
@@ -327,6 +336,7 @@ namespace weftline::ir {
 
     } // namespace
 
+    // 图分析总入口：邻接、反向邻接、可达性、引用和章节聚合边。
     GraphAnalysis build_graph_analysis(
         const ProjectModel& model,
         const StoryGraph& graph)

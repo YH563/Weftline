@@ -25,6 +25,7 @@ namespace weftline::ir {
             return modules;
         }
 
+        // 章节角标：入口、是否有跨章节入/出边、是否有到 END 的边。
         [[nodiscard]] GraphChapter build_chapter(
             std::u16string chapter_id,
             std::u16string title,
@@ -60,6 +61,7 @@ namespace weftline::ir {
             };
         }
 
+        // 章节顺序以 ProjectModel 为准；没有声明章节的模块补一个同名虚拟章节。
         [[nodiscard]] std::vector<GraphChapter> build_chapters(
             const ProjectModel& model,
             const StoryGraph& graph,
@@ -182,6 +184,7 @@ namespace weftline::ir {
             return std::u16string(trimmed);
         }
 
+        // 悬停摘要：首个非空内容块的首行、对话数、选项数。
         [[nodiscard]] GraphModuleSummary build_summary(const IrModule& module)
         {
             std::optional<std::u16string> line;
@@ -211,6 +214,7 @@ namespace weftline::ir {
             };
         }
 
+        // 模块角标：入口、有 END 出口、从入口不可达、无法到达 END。
         [[nodiscard]] GraphModuleFlags build_module_flags(
             const IrModule& module,
             const StoryGraph& graph,
@@ -246,6 +250,7 @@ namespace weftline::ir {
             return flags;
         }
 
+        // 模块节点只带图视图需要的元数据，不复制完整正文。
         [[nodiscard]] std::vector<GraphModuleNode> build_modules(
             const StoryGraph& graph,
             const GraphAnalysis& analysis)
@@ -270,6 +275,7 @@ namespace weftline::ir {
             return modules;
         }
 
+        // 每个出口分支生成一条边；external 标记目标是否在另一章节。
         [[nodiscard]] std::vector<GraphModuleEdge> build_module_edges(
             const StoryGraph& graph,
             const std::unordered_map<std::u16string, const IrModule*>& modules_by_id)
@@ -308,6 +314,7 @@ namespace weftline::ir {
 
     } // namespace
 
+    // 图视图投影：章节容器、模块节点/边、章节聚合边和筛选引用索引。
     GraphProjection build_graph_projection(
         const ProjectModel& model,
         const StoryGraph& graph,

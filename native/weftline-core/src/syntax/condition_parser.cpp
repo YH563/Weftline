@@ -13,6 +13,8 @@
 namespace weftline::syntax {
     namespace {
 
+        // 递归下降解析布尔条件：or > and > not > primary。
+        // 输入是模块文本的局部片段，offset 用于把局部位置换算回文件绝对位置。
         class ConditionParser
         {
         public:
@@ -39,6 +41,7 @@ namespace weftline::syntax {
             }
 
         private:
+            // 优先级最低：a or b or c。
             [[nodiscard]] std::optional<BoolExpr> parse_or()
             {
                 auto left = parse_and();
@@ -68,6 +71,7 @@ namespace weftline::syntax {
                 return left;
             }
 
+            // 优先级高于 or：a and b and c。
             [[nodiscard]] std::optional<BoolExpr> parse_and()
             {
                 auto left = parse_unary();
@@ -97,6 +101,7 @@ namespace weftline::syntax {
                 return left;
             }
 
+            // not 右结合，可以连续写 not not x。
             [[nodiscard]] std::optional<BoolExpr> parse_unary()
             {
                 skip_whitespace();
@@ -119,6 +124,7 @@ namespace weftline::syntax {
                 return parse_primary();
             }
 
+            // primary：括号、变量名或 true/false。
             [[nodiscard]] std::optional<BoolExpr> parse_primary()
             {
                 skip_whitespace();
@@ -180,6 +186,7 @@ namespace weftline::syntax {
                 return std::nullopt;
             }
 
+            // 关键字必须是完整标识符，避免把 "order" 当成 or。
             [[nodiscard]] bool try_consume_keyword(std::u16string_view keyword) noexcept
             {
                 if (position_ + keyword.size() > text_.size()) {
@@ -206,6 +213,7 @@ namespace weftline::syntax {
                 }
             }
 
+            // 局部下标 → 源码绝对偏移，用于诊断和 AST span。
             [[nodiscard]] std::int32_t to_absolute(std::size_t local_position) const noexcept
             {
                 return offset_ + static_cast<std::int32_t>(local_position);

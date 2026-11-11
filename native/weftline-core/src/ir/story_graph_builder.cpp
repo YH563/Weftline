@@ -100,6 +100,7 @@ namespace weftline::ir {
 
     namespace {
 
+        // 语法 AST 的 bool 表达式是递归 variant；这里转成 IR 的扁平 Kind + shared_ptr 子节点。
         [[nodiscard]] IrBoolExpr to_bool_expr(const syntax::BoolExpr& expression)
         {
             return std::visit(
@@ -127,6 +128,7 @@ namespace weftline::ir {
                 expression.node);
         }
 
+        // {名字} 保留为引用片段，HTML/筛选阶段再决定它代表角色还是道具。
         [[nodiscard]] std::vector<IrTextSegment> to_segments(
             const std::vector<syntax::TextSegment>& segments)
         {
@@ -149,6 +151,7 @@ namespace weftline::ir {
             return out;
         }
 
+        // 语法内容块 → IR 内容块：旁白/对话/图片三种保持不变。
         [[nodiscard]] IrContentBlock to_content_block(const syntax::Content& content)
         {
             return std::visit(
@@ -167,6 +170,7 @@ namespace weftline::ir {
                 content);
         }
 
+        // 单个模块：正文、可选出口块和源码范围；模块 ID 就是节点 ID。
         [[nodiscard]] IrModule build_module(
             std::string_view file_path,
             const std::u16string& chapter_id,
@@ -225,6 +229,7 @@ namespace weftline::ir {
 
     } // namespace
 
+    // 按文件顺序展开模块；同名模块只保留第一次出现，避免重复节点。
     StoryGraph build_story_graph(
         const projects::LoadedProject& project,
         const ProjectModel& model,
@@ -248,6 +253,7 @@ namespace weftline::ir {
             globals.push_back(IrGlobal{variable.name, variable.initial});
         }
 
+        // 没有显式入口时，默认使用第一个模块。
         std::optional<std::u16string> resolved_entry;
         if (entry) {
             resolved_entry = std::move(*entry);
