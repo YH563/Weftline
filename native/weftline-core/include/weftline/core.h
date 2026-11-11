@@ -95,7 +95,7 @@ extern "C" {
      * @brief 编译当前项目并返回 UTF-8 JSON 诊断。
      *
      * @param allow_partial 有 error 时是否仍构建图和投影。
-     * @param build_projection 是否构建图投影（当前响应暂只包含诊断）。
+     * @param build_projection 是否在响应中附带 GraphProjection；关闭时仍返回诊断和符号。
      * @return JSON；由 core 分配，调用方必须用 weft_free() 释放。
      */
     WEFTLINE_API char* weft_project_compile(

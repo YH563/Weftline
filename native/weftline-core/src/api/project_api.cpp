@@ -18,6 +18,12 @@
 #include "weftline/projects/project_snapshot.hpp"
 #include "weftline/source/source_text.hpp"
 
+/**
+ * @brief C ABI 项目句柄：持有文档快照与跨次编译缓存。
+ *
+ * 句柄不是线程安全的；文档文本由调用方通过 set_document 传入，core 不访问磁盘。
+ * 缓存包含文件级 AST、选择性绑定结果和图/投影；切换文件夹时必须清空。
+ */
 struct WeftProject
 {
     weftline::projects::ProjectSnapshot snapshot;
@@ -26,6 +32,11 @@ struct WeftProject
 
 namespace {
 
+    /**
+     * @brief 构造项目编译失败时的最小 JSON 响应。
+     *
+     * 保持与正常响应相同的 schemaVersion/version/hasErrors 字段，方便 C# 统一解析。
+     */
     [[nodiscard]] std::string project_error_json(std::string_view message)
     {
         weftline::json::Writer writer;
@@ -38,6 +49,12 @@ namespace {
         return writer.str();
     }
 
+    /**
+     * @brief 写出一组声明符号，并按名字回查定义位置。
+     *
+     * 位置以 UTF-16 code unit 计量；找不到定义时省略 filePath/start/length。
+     * @param write_extra 用于输出该符号类型特有的字段（例如变量 initial）。
+     */
     template <typename Entry, typename WriteExtra>
     void write_symbol_array(
         weftline::json::Writer& writer,
@@ -71,6 +88,11 @@ namespace {
         writer.end_array();
     }
 
+    /**
+     * @brief 输出 C# 编辑器需要的变量/角色/道具/场景/章节及描述。
+     *
+     * .wstory 只提供描述，不改变声明来源；声明与定义位置来自 .weft 索引。
+     */
     void write_project_symbols(
         weftline::json::Writer& writer,
         const weftline::projects::ProjectCompilationResult& result)
@@ -131,6 +153,13 @@ namespace {
         writer.end_object();
     }
 
+    /**
+     * @brief 把一次项目编译结果序列化为 C# 使用的 JSON（schema v3）。
+     *
+     * 响应包含诊断、符号、可选的 graph/projection。graph/projection 可能来自
+     * CompilationCache 的复用结果，因此这里只做序列化，不再复制 IR。
+     * 所有 start/length 都是 UTF-16 code unit。
+     */
     [[nodiscard]] std::string project_compile_json(
         const weftline::projects::ProjectCompilationResult& result)
     {
@@ -184,6 +213,11 @@ namespace {
         return writer.str();
     }
 
+    /**
+     * @brief 用 malloc 复制字符串，交给 C ABI 调用方。
+     *
+     * 返回的缓冲区必须由调用方使用 weft_free() 释放；分配失败返回 nullptr。
+     */
     [[nodiscard]] char* duplicate_string(const std::string& value)
     {
         auto* result = static_cast<char*>(std::malloc(value.size() + 1));
@@ -197,6 +231,8 @@ namespace {
 } // namespace
 
 extern "C" {
+
+// C ABI 语义见 include/weftline/core.h；以下实现只补充生命周期和缓存约束。
 
 WeftProject* weft_project_create(void)
 {
@@ -213,6 +249,7 @@ void weft_project_set_folder(WeftProject* project, const char* folder)
     if (project == nullptr || folder == nullptr) {
         return;
     }
+    // 缓存 key 是文档路径；换项目后旧 AST/绑定/图结果不可复用。
     if (project->snapshot.folder != folder) {
         project->cache.clear();
     }
@@ -224,6 +261,7 @@ void weft_project_set_document(WeftProject* project, const char* path, const cha
     if (project == nullptr || path == nullptr) {
         return;
     }
+    // 文本是内存快照，不由 core 访问磁盘；版本号用于最新的编译结果判定。
     project->snapshot.documents[path] = text != nullptr ? text : "";
     ++project->snapshot.version;
 }
@@ -239,6 +277,7 @@ void weft_project_remove_document(WeftProject* project, const char* path)
 
 char* weft_project_compile(WeftProject* project, int allow_partial, int build_projection)
 {
+    // 不向 C ABI 抛异常：所有失败都转换成可解析的 JSON 响应。
     try {
         if (project == nullptr) {
             return duplicate_string(project_error_json("project is null"));
@@ -248,6 +287,7 @@ char* weft_project_compile(WeftProject* project, int allow_partial, int build_pr
         options.allow_partial = allow_partial != 0;
         options.build_projection = build_projection != 0;
 
+        // 缓存随句柄存活：未变化文件复用 AST/绑定/图结果，变化部分重新编译。
         const auto result =
             weftline::projects::compile(
                 project->snapshot, options, &project->cache);
