@@ -2,47 +2,48 @@ using System.Runtime.InteropServices;
 
 namespace Weftline.Native;
 
-internal static class NativeMethods
+// LibraryImport 在编译期生成 P/Invoke 封送代码；C ABI 字符串统一按 UTF-8 传递。
+internal static partial class NativeMethods
 {
     private const string Library = "weftline_core";
 
-    [DllImport(Library)]
-    internal static extern IntPtr weft_version();
+    [LibraryImport(Library)]
+    internal static partial IntPtr weft_version();
 
-    [DllImport(Library)]
-    internal static extern IntPtr weft_project_create();
+    [LibraryImport(Library)]
+    internal static partial IntPtr weft_project_create();
 
-    [DllImport(Library)]
-    internal static extern void weft_project_destroy(IntPtr project);
+    [LibraryImport(Library)]
+    internal static partial void weft_project_destroy(IntPtr project);
 
-    [DllImport(Library)]
-    internal static extern void weft_project_set_folder(
+    [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial void weft_project_set_folder(
         IntPtr project,
-        [MarshalAs(UnmanagedType.LPUTF8Str)] string folder);
+        string folder);
 
-    [DllImport(Library)]
-    internal static extern void weft_project_set_document(
+    [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial void weft_project_set_document(
         IntPtr project,
-        [MarshalAs(UnmanagedType.LPUTF8Str)] string path,
-        [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        string path,
+        string text);
 
-    [DllImport(Library)]
-    internal static extern void weft_project_remove_document(
+    [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial void weft_project_remove_document(
         IntPtr project,
-        [MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        string path);
 
-    [DllImport(Library)]
-    internal static extern IntPtr weft_project_compile(
+    [LibraryImport(Library)]
+    internal static partial IntPtr weft_project_compile(
         IntPtr project,
         int allowPartial,
         int buildProjection);
 
-    [DllImport(Library)]
-    internal static extern IntPtr weft_parse_json(
-        [MarshalAs(UnmanagedType.LPUTF8Str)] string path,
-        [MarshalAs(UnmanagedType.LPUTF8Str)] string text,
+    [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial IntPtr weft_parse_json(
+        string path,
+        string text,
         long version);
 
-    [DllImport(Library)]
-    internal static extern void weft_free(IntPtr pointer);
+    [LibraryImport(Library)]
+    internal static partial void weft_free(IntPtr pointer);
 }
