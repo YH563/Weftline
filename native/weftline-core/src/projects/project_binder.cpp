@@ -1,13 +1,17 @@
 #include "weftline/projects/project_binder.hpp"
 
+#include <cstddef>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "weftline/binding/binder.hpp"
+#include "weftline/projects/compilation_cache.hpp"
 
 namespace weftline::projects {
     namespace {
@@ -167,12 +171,64 @@ namespace weftline::projects {
             }
         }
 
+        [[nodiscard]] std::size_t declaration_signature(
+            const std::vector<ProjectFile>& files)
+        {
+            std::size_t hash = 1469598103934665603ULL;
+            const auto mix = [&hash](std::size_t value) {
+                hash ^= value;
+                hash *= 1099511628211ULL;
+            };
+            const auto mix_name = [&mix](const std::u16string& name) {
+                mix(std::hash<std::u16string>{}(name));
+            };
+
+            for (const auto& file : files) {
+                for (const auto& variable : file.ast->variables) {
+                    mix_name(variable.name);
+                    mix(static_cast<std::size_t>(binding::SymbolKind::Variable));
+                }
+                for (const auto& character : file.ast->characters) {
+                    mix_name(character.name);
+                    mix(static_cast<std::size_t>(binding::SymbolKind::Character));
+                }
+                for (const auto& item : file.ast->items) {
+                    mix_name(item.name);
+                    mix(static_cast<std::size_t>(binding::SymbolKind::Item));
+                }
+                for (const auto& scene : file.ast->scenes) {
+                    mix_name(scene.name);
+                    mix(static_cast<std::size_t>(binding::SymbolKind::Scene));
+                }
+            }
+
+            return hash;
+        }
+
+        [[nodiscard]] std::vector<ProjectDiagnostic> bind_modules(
+            const ProjectFile& file,
+            binding::SymbolTable& symbols)
+        {
+            std::vector<ProjectDiagnostic> out;
+
+            for (const auto& module : file.ast->modules) {
+                diagnostics::DiagnosticBag bag;
+                binding::bind_module(module, symbols, bag);
+                for (const auto& diagnostic : bag) {
+                    out.push_back(ProjectDiagnostic{file.file_path, diagnostic});
+                }
+            }
+
+            return out;
+        }
+
     } // namespace
 
     ProjectBindingResult bind(
         std::vector<ProjectFile> files,
         const syntax::WStoryFile* wstory,
-        std::string_view wstory_path)
+        std::string_view wstory_path,
+        BindingCache* cache)
     {
         std::vector<ProjectDiagnostic> out;
         binding::SymbolTable symbols;
@@ -194,15 +250,47 @@ namespace weftline::projects {
             }
         }
 
+        const auto signature = declaration_signature(files);
+        const bool can_reuse = cache != nullptr
+            && cache->has_symbol_signature
+            && cache->symbol_signature == signature;
+        std::unordered_set<std::string> active_files;
+
         for (const auto& file : files) {
-            for (const auto& module : file.ast->modules) {
-                diagnostics::DiagnosticBag bag;
-                binding::bind_module(module, symbols, bag);
-                for (const auto& diagnostic : bag) {
-                    out.push_back(ProjectDiagnostic{
-                        file.file_path, diagnostic});
+            active_files.insert(file.file_path);
+
+            if (can_reuse) {
+                const auto found = cache->files.find(file.file_path);
+                if (found != cache->files.end()
+                    && found->second.ast.lock() == file.ast) {
+                    out.insert(
+                        out.end(),
+                        found->second.diagnostics.begin(),
+                        found->second.diagnostics.end());
+                    continue;
                 }
             }
+
+            auto diagnostics = bind_modules(file, symbols);
+            out.insert(out.end(), diagnostics.begin(), diagnostics.end());
+
+            if (cache != nullptr) {
+                cache->files[file.file_path] = CachedModuleBinding{
+                    file.ast, std::move(diagnostics)};
+            }
+        }
+
+        if (cache != nullptr) {
+            for (auto it = cache->files.begin(); it != cache->files.end();) {
+                if (active_files.find(it->first) == active_files.end()) {
+                    it = cache->files.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+
+            cache->symbol_signature = signature;
+            cache->has_symbol_signature = true;
         }
 
         ProjectIndex index{

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -25,7 +26,7 @@ namespace weftline::projects {
     };
 
     /**
-     * @brief 一次项目编译的结果。
+     * @brief 一次项目编译的结果；图/分析/投影可能由缓存复用。
      */
     struct ProjectCompilationResult
     {
@@ -33,9 +34,9 @@ namespace weftline::projects {
         ProjectIndex index;
         ir::ProjectModel model;
         std::vector<ProjectDiagnostic> diagnostics;
-        std::optional<ir::StoryGraph> graph;
-        std::optional<ir::GraphAnalysis> analysis;
-        std::optional<ir::GraphProjection> projection;
+        std::optional<std::shared_ptr<const ir::StoryGraph>> graph;
+        std::optional<std::shared_ptr<const ir::GraphAnalysis>> analysis;
+        std::optional<std::shared_ptr<const ir::GraphProjection>> projection;
 
         /// @brief 是否存在 error 级别的诊断。
         [[nodiscard]] bool has_errors() const;
@@ -45,7 +46,8 @@ namespace weftline::projects {
      * @brief 项目级编译入口：加载、绑定、校验、模型、图和投影。
      *
      * 有 error 且 allow_partial=false 时不产出 StoryGraph。
-     * cache 非空时，文本未变化的文件复用已解析 AST。
+     * cache 非空时：文本未变化的文件复用 AST；符号签名不变时复用未变化文件的
+     * 模块诊断；.weft AST 集合不变时复用图/分析/投影。
      */
     [[nodiscard]] ProjectCompilationResult compile(
         const ProjectSnapshot& snapshot,

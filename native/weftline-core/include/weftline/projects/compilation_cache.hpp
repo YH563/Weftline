@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -7,6 +8,10 @@
 #include <vector>
 
 #include "weftline/diagnostics/diagnostic.hpp"
+#include "weftline/ir/graph_analysis.hpp"
+#include "weftline/ir/graph_projection.hpp"
+#include "weftline/ir/story_graph.hpp"
+#include "weftline/projects/project_index.hpp"
 #include "weftline/syntax/ast.hpp"
 
 namespace weftline::projects {
@@ -32,9 +37,43 @@ namespace weftline::projects {
     };
 
     /**
-     * @brief 解析阶段缓存：路径 + 文本 → AST + 解析诊断。
+     * @brief 单个文件的模块绑定诊断缓存。
+     */
+    struct CachedModuleBinding
+    {
+        std::weak_ptr<const syntax::WeftFile> ast;
+        std::vector<ProjectDiagnostic> diagnostics;
+    };
+
+    /**
+     * @brief 文件级绑定缓存。
      *
-     * 只缓存解析阶段；绑定、校验、图和投影仍然全量重建。
+     * 模块引用诊断只依赖全局符号表；符号表签名不变时，未变化文件可直接复用。
+     */
+    struct BindingCache
+    {
+        bool has_symbol_signature{};
+        std::size_t symbol_signature{};
+        std::unordered_map<std::string, CachedModuleBinding> files;
+    };
+
+    /**
+     * @brief 图/分析/投影缓存；只含 .weft AST，不含 .wstory 描述。
+     */
+    struct CachedGraph
+    {
+        std::vector<ProjectFile> files;
+        std::shared_ptr<const ir::StoryGraph> graph;
+        std::shared_ptr<const ir::GraphAnalysis> analysis;
+        std::shared_ptr<const ir::GraphProjection> projection;
+        bool has_projection{};
+    };
+
+    /**
+     * @brief 解析、绑定和图阶段缓存。
+     *
+     * 解析缓存按 path + text 复用 AST；绑定缓存按全局符号签名 + AST 指针复用模块诊断；
+     * 图缓存按 .weft AST 集合复用它和 GraphAnalysis/GraphProjection。
      * 路径作为不透明 key，不做文件系统归一化。
      */
     class CompilationCache
@@ -62,12 +101,26 @@ namespace weftline::projects {
             std::shared_ptr<const syntax::WStoryFile> ast,
             std::vector<diagnostics::Diagnostic> diagnostics);
 
+        /// @brief 文件级绑定缓存。
+        [[nodiscard]] BindingCache& binding_cache() noexcept
+        {
+            return binding_;
+        }
+
+        /// @brief 图/分析/投影缓存。
+        [[nodiscard]] CachedGraph& graph_cache() noexcept
+        {
+            return graph_;
+        }
+
         /// @brief 清空全部缓存。
         void clear();
 
     private:
         std::unordered_map<std::string, CachedWeft> weft_;
         std::unordered_map<std::string, CachedWStory> wstory_;
+        BindingCache binding_;
+        CachedGraph graph_;
     };
 
 } // namespace weftline::projects

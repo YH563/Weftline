@@ -48,6 +48,8 @@ namespace weftline::projects {
     {
         weft_.clear();
         wstory_.clear();
+        binding_ = BindingCache{};
+        graph_ = CachedGraph{};
     }
 
 } // namespace weftline::projects

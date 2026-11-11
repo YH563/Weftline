@@ -172,12 +172,12 @@ namespace {
 
         if (result.graph) {
             writer.key("graph").raw(
-                weftline::ir::story_graph_to_json(*result.graph));
+                weftline::ir::story_graph_to_json(*result.graph.value()));
         }
 
         if (result.projection) {
             writer.key("projection").raw(
-                weftline::ir::graph_projection_to_json(*result.projection));
+                weftline::ir::graph_projection_to_json(*result.projection.value()));
         }
 
         writer.end_object();

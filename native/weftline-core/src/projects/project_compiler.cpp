@@ -1,6 +1,7 @@
 #include "weftline/projects/project_compiler.hpp"
 
 #include <algorithm>
+#include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -27,6 +28,24 @@ namespace weftline::projects {
                 });
         }
 
+        [[nodiscard]] bool same_files(
+            const std::vector<ProjectFile>& left,
+            const std::vector<ProjectFile>& right)
+        {
+            if (left.size() != right.size()) {
+                return false;
+            }
+
+            for (std::size_t index = 0; index < left.size(); ++index) {
+                if (left[index].file_path != right[index].file_path
+                    || left[index].ast.get() != right[index].ast.get()) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
     } // namespace
 
     bool ProjectCompilationResult::has_errors() const
@@ -43,7 +62,8 @@ namespace weftline::projects {
         auto binding = weftline::projects::bind(
             project.weft_files,
             project.wstory ? &*project.wstory : nullptr,
-            project.wstory_path);
+            project.wstory_path,
+            cache != nullptr ? &cache->binding_cache() : nullptr);
 
         std::vector<ProjectDiagnostic> diagnostics;
         diagnostics.reserve(
@@ -65,16 +85,62 @@ namespace weftline::projects {
         auto model = ir::build_project_model(project, binding.index);
         const bool errors = has_error_diagnostics(diagnostics);
 
-        std::optional<ir::StoryGraph> graph;
-        std::optional<ir::GraphAnalysis> analysis;
-        std::optional<ir::GraphProjection> projection;
+        std::optional<std::shared_ptr<const ir::StoryGraph>> graph;
+        std::optional<std::shared_ptr<const ir::GraphAnalysis>> analysis;
+        std::optional<std::shared_ptr<const ir::GraphProjection>> projection;
 
         if (!errors || options.allow_partial) {
-            graph = ir::build_story_graph(project, model);
-            analysis = ir::build_graph_analysis(model, *graph);
+            auto* cached = cache != nullptr ? &cache->graph_cache() : nullptr;
+            const bool can_reuse = cached != nullptr
+                && cached->graph != nullptr
+                && cached->analysis != nullptr
+                && same_files(cached->files, project.weft_files);
 
-            if (options.build_projection) {
-                projection = ir::build_graph_projection(model, *graph, *analysis);
+            if (can_reuse) {
+                graph = cached->graph;
+                analysis = cached->analysis;
+
+                if (options.build_projection) {
+                    if (cached->has_projection && cached->projection != nullptr) {
+                        projection = cached->projection;
+                    } else {
+                        auto built = std::make_shared<ir::GraphProjection>(
+                            ir::build_graph_projection(
+                                model, *cached->graph, *cached->analysis));
+                        projection = built;
+                        cached->projection = built;
+                        cached->has_projection = true;
+                    }
+                }
+            } else {
+                auto built_graph = std::make_shared<ir::StoryGraph>(
+                    ir::build_story_graph(project, model));
+                auto built_analysis = std::make_shared<ir::GraphAnalysis>(
+                    ir::build_graph_analysis(model, *built_graph));
+
+                graph = built_graph;
+                analysis = built_analysis;
+
+                if (options.build_projection) {
+                    auto built_projection = std::make_shared<ir::GraphProjection>(
+                        ir::build_graph_projection(
+                            model, *built_graph, *built_analysis));
+                    projection = built_projection;
+
+                    if (cached != nullptr) {
+                        cached->projection = built_projection;
+                        cached->has_projection = true;
+                    }
+                } else if (cached != nullptr) {
+                    cached->projection.reset();
+                    cached->has_projection = false;
+                }
+
+                if (cached != nullptr) {
+                    cached->files = project.weft_files;
+                    cached->graph = built_graph;
+                    cached->analysis = built_analysis;
+                }
             }
         }
 

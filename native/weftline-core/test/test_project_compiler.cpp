@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 
@@ -20,6 +21,17 @@ namespace {
         return snapshot;
     }
 
+    [[nodiscard]] bool has_diagnostic(
+        const weftline::projects::ProjectCompilationResult& result,
+        std::string_view code)
+    {
+        return std::any_of(
+            result.diagnostics.begin(), result.diagnostics.end(),
+            [code](const weftline::projects::ProjectDiagnostic& item) {
+                return item.diagnostic.code == code;
+            });
+    }
+
     TEST(ProjectCompiler, BuildsGraphAnalysisAndProjection)
     {
         const auto snapshot = make_snapshot(R"(@title 第一章
@@ -37,8 +49,8 @@ namespace {
         ASSERT_TRUE(result.graph.has_value());
         ASSERT_TRUE(result.analysis.has_value());
         ASSERT_TRUE(result.projection.has_value());
-        EXPECT_EQ(result.graph->modules.size(), 1u);
-        EXPECT_EQ(result.projection->modules.size(), 1u);
+        EXPECT_EQ(result.graph.value()->modules.size(), 1u);
+        EXPECT_EQ(result.projection.value()->modules.size(), 1u);
     }
 
     TEST(ProjectCompiler, StrictModeDropsGraphOnErrors)
@@ -114,6 +126,144 @@ namespace {
         EXPECT_NE(second.project.weft_files[0].ast.get(), first_ast.get());
         ASSERT_EQ(second.model.chapters.size(), 1u);
         EXPECT_EQ(second.model.chapters[0].title, u"第二章");
+    }
+
+    TEST(ProjectCompiler, RebindsChangedFileWithoutDeclarationChanges)
+    {
+        ProjectSnapshot snapshot;
+        snapshot.folder = "test";
+        snapshot.documents["chapter.weft"] = R"(@title 第一章
+@char 小明
+@module A
+    [{小明}。]
+@next -> END
+)";
+
+        weftline::projects::CompilationCache cache;
+        const auto first = weftline::projects::compile(snapshot, {}, &cache);
+        EXPECT_FALSE(has_diagnostic(first, "WFT2014"));
+
+        snapshot.documents["chapter.weft"] = R"(@title 第一章
+@char 小明
+@module A
+    [{小红}。]
+@next -> END
+)";
+
+        const auto second = weftline::projects::compile(snapshot, {}, &cache);
+        EXPECT_TRUE(has_diagnostic(second, "WFT2014"));
+    }
+
+    TEST(ProjectCompiler, RebindsAllFilesWhenDeclarationsChange)
+    {
+        ProjectSnapshot snapshot;
+        snapshot.folder = "test";
+        snapshot.documents["a.weft"] = R"(@title 第一章
+@char 小明
+@module A
+@next -> B
+)";
+        snapshot.documents["b.weft"] = R"(@title 第二章
+@module B
+    [{小明}。]
+@next -> END
+)";
+
+        weftline::projects::CompilationCache cache;
+        const auto first = weftline::projects::compile(snapshot, {}, &cache);
+        EXPECT_FALSE(has_diagnostic(first, "WFT2014"));
+
+        snapshot.documents["a.weft"] = R"(@title 第一章
+@module A
+@next -> B
+)";
+
+        const auto second = weftline::projects::compile(snapshot, {}, &cache);
+        EXPECT_TRUE(has_diagnostic(second, "WFT2014"));
+    }
+
+    TEST(ProjectCompiler, ReusesGraphWhenOnlyWStoryChanges)
+    {
+        ProjectSnapshot snapshot;
+        snapshot.folder = "test";
+        snapshot.documents["chapter.weft"] = R"(@title 第一章
+@module A
+@next -> END
+)";
+        snapshot.documents["story.wstory"] = R"(@project 测试
+    @chapters
+        @chapter 第一章 [旧描述。]
+)";
+
+        CompilationOptions options;
+        options.build_projection = true;
+        weftline::projects::CompilationCache cache;
+
+        const auto first = weftline::projects::compile(snapshot, options, &cache);
+        ASSERT_TRUE(first.graph.has_value());
+        ASSERT_TRUE(first.projection.has_value());
+        const auto first_graph = first.graph.value();
+        const auto first_projection = first.projection.value();
+
+        snapshot.documents["story.wstory"] = R"(@project 测试
+    @chapters
+        @chapter 第一章 [新描述。]
+)";
+
+        const auto second = weftline::projects::compile(snapshot, options, &cache);
+        ASSERT_TRUE(second.graph.has_value());
+        ASSERT_TRUE(second.projection.has_value());
+        EXPECT_EQ(second.graph.value().get(), first_graph.get());
+        EXPECT_EQ(second.projection.value().get(), first_projection.get());
+        ASSERT_EQ(second.model.chapters.size(), 1u);
+        ASSERT_TRUE(second.model.chapters[0].description.has_value());
+        EXPECT_EQ(*second.model.chapters[0].description, u"新描述。");
+    }
+
+    TEST(ProjectCompiler, ReusesGraphAndBuildsProjectionOnDemand)
+    {
+        const auto snapshot = make_snapshot(R"(@title 第一章
+@module A
+@next -> END
+)");
+        weftline::projects::CompilationCache cache;
+
+        const auto first = weftline::projects::compile(snapshot, {}, &cache);
+        ASSERT_TRUE(first.graph.has_value());
+        ASSERT_FALSE(first.projection.has_value());
+        const auto first_graph = first.graph.value();
+
+        CompilationOptions options;
+        options.build_projection = true;
+        const auto second = weftline::projects::compile(snapshot, options, &cache);
+
+        ASSERT_TRUE(second.graph.has_value());
+        ASSERT_TRUE(second.projection.has_value());
+        EXPECT_EQ(second.graph.value().get(), first_graph.get());
+    }
+
+    TEST(ProjectCompiler, InvalidatesGraphWhenWeftChanges)
+    {
+        const auto snapshot = make_snapshot(R"(@title 第一章
+@module A
+@next -> END
+)");
+        weftline::projects::CompilationCache cache;
+
+        const auto first = weftline::projects::compile(snapshot, {}, &cache);
+        ASSERT_TRUE(first.graph.has_value());
+        const auto first_graph = first.graph.value();
+
+        auto changed = snapshot;
+        changed.documents["chapter.weft"] = R"(@title 第一章
+@module A
+    [新正文。]
+@next -> END
+)";
+
+        const auto second = weftline::projects::compile(changed, {}, &cache);
+        ASSERT_TRUE(second.graph.has_value());
+        EXPECT_NE(second.graph.value().get(), first_graph.get());
     }
 
 } // namespace
