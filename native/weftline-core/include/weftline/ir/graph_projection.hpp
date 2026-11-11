@@ -108,7 +108,7 @@ namespace weftline::ir {
     /**
      * @brief 剧情图的压缩投影。
      *
-     * 不复制完整正文；图视图按 module_id 回查 StoryGraph。
+     * 不复制完整正文；自带图视图需要的模块摘要、章节边和引用索引。
      */
     struct GraphProjection
     {
@@ -117,6 +117,7 @@ namespace weftline::ir {
         std::vector<GraphModuleNode> modules;
         std::vector<GraphModuleEdge> module_edges;
         std::vector<ChapterEdge> chapter_edges;
+        ReferenceIndex references;
     };
 
 } // namespace weftline::ir

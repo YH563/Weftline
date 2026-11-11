@@ -8,7 +8,7 @@ Weftline is a text format and tool for game scripts. It aims for three things:
 2. The story structure maps directly to a graph.
 3. A playable HTML demo will be exportable with one command (planned for the C++ core).
 
-Current stage: the C++ language core and desktop editor are usable. The main window includes single-file syntax diagnostics, project semantic analysis, merged diagnostics, a live story graph, hover, and completion; HTML export will be implemented in C++ later.
+Current stage: the C++ language core and desktop editor are usable. The main window includes single-file syntax diagnostics, project semantic analysis, merged diagnostics, a live story graph with layout sidecars, filters and path highlighting, hover, and completion; HTML export will be implemented in C++ later.
 
 ---
 

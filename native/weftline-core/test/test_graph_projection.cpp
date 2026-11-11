@@ -183,6 +183,18 @@ namespace {
         }
 
         EXPECT_EQ(projection.chapter_edges.size(), 2u);
+
+        const auto character = projection.references.characters.find(u"小明");
+        ASSERT_NE(character, projection.references.characters.end());
+        EXPECT_EQ(character->second, (std::vector<std::u16string>{u"A"}));
+
+        const auto scene = projection.references.scenes.find(u"房间");
+        ASSERT_NE(scene, projection.references.scenes.end());
+        EXPECT_EQ(scene->second, (std::vector<std::u16string>{u"A"}));
+
+        const auto variable = projection.references.variables.find(u"x");
+        ASSERT_NE(variable, projection.references.variables.end());
+        EXPECT_EQ(variable->second, (std::vector<std::u16string>{u"A", u"B"}));
     }
 
     TEST(GraphProjection, MarksUnreachableAndCannotReachEndModules)

@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
@@ -9,6 +11,7 @@ using CommunityToolkit.Mvvm.Input;
 using Weftline.App.Models;
 using Weftline.App.Services;
 using Weftline.Editor.ViewModels;
+using Weftline.Graph.Layout;
 using Weftline.Models;
 using Weftline.Native;
 
@@ -16,6 +19,16 @@ namespace Weftline.App.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject
 {
+    private const string LayoutFileName = "weftline.layout.json";
+
+    private static readonly JsonSerializerOptions LayoutJsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
     private readonly IDialogService _dialogs;
     private readonly EditorLanguageService _editorLanguageService;
     private readonly ProjectAnalysisScheduler _analysisScheduler;
@@ -27,6 +40,7 @@ public partial class MainWindowViewModel : ObservableObject
     private EditorDocumentViewModel? _pendingStatusDocument;
     private EditorDocumentViewModel? _pendingCaretDocument;
     private GraphProjection? _lastGoodProjection;
+    private WeftProjectSymbols? _lastSymbols;
     private string? _lastGraphSignature;
     private string? _projectFolder;
 
@@ -93,6 +107,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     public event EventHandler? ProjectOpened;
 
+    public event EventHandler? LayoutSaveRequested;
+
     [RelayCommand]
     private async Task OpenProjectAsync()
     {
@@ -142,6 +158,7 @@ public partial class MainWindowViewModel : ObservableObject
         Explorer.Load(folder);
         _projectFolder = folder;
         _lastGoodProjection = null;
+        _lastSymbols = null;
         _lastGraphSignature = null;
         _editorLanguageService.Projection = null;
         _editorLanguageService.Symbols = null;
@@ -177,7 +194,90 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void SaveLayout() => Status.SetStatus("布局保存待实现");
+    private void SaveLayout() => LayoutSaveRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>
+    /// 把视图导出的布局快照写入当前项目的侧车文件。
+    /// Writes a layout snapshot exported by the view to the current project sidecar.
+    /// </summary>
+    public void SaveLayout(GraphLayoutSnapshot snapshot)
+    {
+        if (string.IsNullOrWhiteSpace(_projectFolder))
+        {
+            Status.SetStatus("没有打开项目");
+            return;
+        }
+
+        try
+        {
+            var path = Path.Combine(_projectFolder, LayoutFileName);
+            var document = ProjectLayoutDocument.FromSnapshot(snapshot);
+            File.WriteAllText(path, JsonSerializer.Serialize(document, LayoutJsonOptions));
+            Status.SetStatus("已保存布局");
+        }
+        catch (Exception exception)
+        {
+            Status.SetStatus($"保存布局失败：{exception.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 读取当前项目的布局侧车；不存在或损坏时返回 null。
+    /// Loads the current project layout sidecar; returns null when missing or invalid.
+    /// </summary>
+    public GraphLayoutSnapshot? LoadLayout()
+    {
+        if (string.IsNullOrWhiteSpace(_projectFolder))
+        {
+            return null;
+        }
+
+        var path = Path.Combine(_projectFolder, LayoutFileName);
+
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            var document = JsonSerializer.Deserialize<ProjectLayoutDocument>(File.ReadAllText(path));
+            return document?.ToSnapshot();
+        }
+        catch (Exception exception)
+        {
+            Status.SetStatus($"布局加载失败：{exception.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 删除当前项目的布局侧车，配合「重置布局」。
+    /// Deletes the current project layout sidecar, used by Reset Layout.
+    /// </summary>
+    public void ClearSavedLayout()
+    {
+        if (string.IsNullOrWhiteSpace(_projectFolder))
+        {
+            return;
+        }
+
+        try
+        {
+            var path = Path.Combine(_projectFolder, LayoutFileName);
+
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+
+            Status.SetStatus("布局已重置");
+        }
+        catch (Exception exception)
+        {
+            Status.SetStatus($"清除布局失败：{exception.Message}");
+        }
+    }
 
     [RelayCommand]
     private void Exit()
@@ -366,6 +466,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         UpdateDiagnostics([]);
         Editor.SetDiagnostics([]);
+        _lastSymbols = null;
         _editorLanguageService.Projection = null;
         _editorLanguageService.Symbols = null;
         Status.UpdateProject(null);
@@ -411,6 +512,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         var native = output.Native;
         var projection = output.Projection;
+        _lastSymbols = output.Symbols;
         _editorLanguageService.Projection = projection;
         _editorLanguageService.Symbols = output.Symbols;
 
@@ -484,27 +586,162 @@ public partial class MainWindowViewModel : ObservableObject
         foreach (var module in projection.Modules)
         {
             builder.Append(module.ModuleId).Append('~')
-                .Append((int)module.Flags).Append('|');
+                .Append((int)module.Flags).Append('~')
+                .Append(module.Scene).Append('~')
+                .Append(module.Summary.FirstLine).Append('~')
+                .Append(module.Summary.DialogueCount).Append('~')
+                .Append(module.Summary.ChoiceCount).Append('~');
+            AppendSource(builder, module.Source);
+            builder.Append('|');
         }
 
         foreach (var edge in projection.ModuleEdges)
         {
-            builder.Append(edge.FromModule).Append('>').Append(edge.ToModule).Append('|');
+            builder.Append(edge.FromModule).Append('>').Append(edge.ToModule).Append('~')
+                .Append((int)edge.Mode).Append('~')
+                .Append(edge.Label).Append('~')
+                .Append(edge.Condition).Append('~');
+            AppendSource(builder, edge.Source);
+            builder.Append('|');
         }
 
         foreach (var edge in projection.ChapterEdges)
         {
-            builder.Append(edge.FromChapter).Append('>').Append(edge.ToChapter).Append('|');
+            builder.Append(edge.FromChapter).Append('>').Append(edge.ToChapter).Append(':');
+
+            foreach (var detail in edge.Details)
+            {
+                builder.Append(detail.FromModule).Append('>').Append(detail.ToModule).Append('~')
+                    .Append((int)detail.Mode).Append('~')
+                    .Append(detail.Label).Append('~')
+                    .Append(detail.Condition).Append('~');
+                AppendSource(builder, detail.Source);
+                builder.Append(',');
+            }
+
+            builder.Append('|');
         }
+
+        AppendReferenceMap(builder, 'c', projection.References.Characters);
+        AppendReferenceMap(builder, 'i', projection.References.Items);
+        AppendReferenceMap(builder, 's', projection.References.Scenes);
+        AppendReferenceMap(builder, 'v', projection.References.Variables);
 
         return builder.ToString();
     }
+
+    private static void AppendReferenceMap(
+        StringBuilder builder,
+        char kind,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> references)
+    {
+        builder.Append(kind).Append(':');
+
+        foreach (var (name, modules) in references.OrderBy(
+                     static pair => pair.Key,
+                     StringComparer.Ordinal))
+        {
+            builder.Append(name).Append('=');
+
+            foreach (var moduleId in modules)
+            {
+                builder.Append(moduleId).Append(',');
+            }
+
+            builder.Append(';');
+        }
+
+        builder.Append('|');
+    }
+
+    private static void AppendSource(StringBuilder builder, SourceLocation source)
+        => builder.Append(source.FilePath).Append('@')
+            .Append(source.Span.Start).Append(':')
+            .Append(source.Span.Length);
 
     /// <summary>
     /// 打开诊断对应的文件并定位到源码位置。
     /// </summary>
     public void NavigateToDiagnostic(DiagnosticItem diagnostic)
         => Editor.NavigateTo(diagnostic.FilePath, diagnostic.Line, diagnostic.Character);
+
+    /// <summary>
+    /// 双击模块：打开所属 .weft 并定位到 @module。
+    /// Double-clicking a module opens its .weft file at the module declaration.
+    /// </summary>
+    public void ActivateModule(GraphModuleNode module)
+        => NavigateToSource(module.Source, $"模块 {module.ModuleId}");
+
+    /// <summary>
+    /// 双击模块边：定位到对应分支行。
+    /// Double-clicking a module edge navigates to the branch line.
+    /// </summary>
+    public void ActivateModuleEdge(GraphModuleEdge edge)
+        => NavigateToSource(edge.Source, $"{edge.FromModule} → {edge.ToModule}");
+
+    /// <summary>
+    /// 双击章节边：展示底层模块对明细。
+    /// Double-clicking a chapter edge shows its underlying module branches.
+    /// </summary>
+    public void ActivateChapterEdge(ChapterEdge edge)
+    {
+        Graph.ShowChapterEdgeDetails(
+            $"{edge.FromChapter} → {edge.ToChapter}",
+            $"{edge.Count} 条模块分支",
+            edge.Details);
+        Status.SetStatus($"章节边：{edge.FromChapter} → {edge.ToChapter}");
+    }
+
+    /// <summary>
+    /// 悬停模块时更新摘要；离开模块时隐藏。
+    /// Updates the hover summary for a module; hides it when leaving modules.
+    /// </summary>
+    public void UpdateModuleHover(GraphModuleNode? module)
+    {
+        if (module is null)
+        {
+            Graph.ClearHover();
+            return;
+        }
+
+        var chapter = _lastSymbols?.Chapters.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, module.ChapterId, StringComparison.Ordinal));
+
+        var meta = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(module.Scene))
+        {
+            meta.Add($"场景 {module.Scene}");
+        }
+
+        meta.Add($"{module.Summary.DialogueCount} 句对话");
+        meta.Add($"{module.Summary.ChoiceCount} 个选项");
+
+        Graph.ShowHover(
+            module.ModuleId,
+            module.Summary.FirstLine,
+            string.Join(" · ", meta),
+            chapter?.Description);
+    }
+
+    private void NavigateToSource(SourceLocation location, string label)
+    {
+        if (string.IsNullOrWhiteSpace(location.FilePath))
+        {
+            return;
+        }
+
+        var (line, character) = (1, 1);
+        var text = GetDocumentText(location.FilePath);
+
+        if (text is not null)
+        {
+            (line, character) = new LineIndex(text).Resolve(location.Span.Start);
+        }
+
+        Editor.NavigateTo(location.FilePath, line, character);
+        Status.SetStatus($"已定位：{label}");
+    }
 
     private void UpdateDiagnostics(IEnumerable<DiagnosticItem> diagnostics)
     {

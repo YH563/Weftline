@@ -119,6 +119,9 @@ namespace {
         EXPECT_NE(json.find("\"firstLine\":\"hello\""), std::string::npos);
         EXPECT_NE(json.find("\"moduleEdges\":["), std::string::npos);
         EXPECT_NE(json.find("\"chapterEdges\":["), std::string::npos);
+        EXPECT_NE(json.find("\"references\":{"), std::string::npos);
+        EXPECT_NE(json.find("\"variables\":{\"a\":[\"M\"]}"),
+                  std::string::npos);
     }
 
 } // namespace

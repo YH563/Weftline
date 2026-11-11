@@ -52,7 +52,25 @@ public sealed record GraphProjection(
     IReadOnlyList<GraphChapter> Chapters,
     IReadOnlyList<GraphModuleNode> Modules,
     IReadOnlyList<GraphModuleEdge> ModuleEdges,
-    IReadOnlyList<ChapterEdge> ChapterEdges);
+    IReadOnlyList<ChapterEdge> ChapterEdges,
+    GraphReferenceIndex References);
+
+/// <summary>
+/// 符号 → 模块 ID 的引用索引，供筛选使用。
+/// Symbol-to-module reference index used by filters.
+/// </summary>
+public sealed record GraphReferenceIndex(
+    IReadOnlyDictionary<string, IReadOnlyList<string>> Characters,
+    IReadOnlyDictionary<string, IReadOnlyList<string>> Items,
+    IReadOnlyDictionary<string, IReadOnlyList<string>> Scenes,
+    IReadOnlyDictionary<string, IReadOnlyList<string>> Variables)
+{
+    public static GraphReferenceIndex Empty { get; } = new(
+        new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal),
+        new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal),
+        new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal),
+        new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal));
+}
 
 /// <summary>
 /// 章节容器：标题、有序模块 ID 和状态标记。

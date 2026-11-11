@@ -3,9 +3,9 @@ using Avalonia;
 namespace Weftline.Graph.Layout;
 
 /// <summary>
-/// 用户对布局的手工覆盖。当前只覆盖模块矩形；章节容器由模块包围盒推导。
-/// Manual layout overrides. Currently only module rectangles are overridden;
-/// chapter containers are derived from the module bounds.
+/// 用户对布局的手工覆盖：模块/章节矩形与 END 位置；未覆盖的章节仍由模块包围盒推导。
+/// Manual layout overrides: module/chapter rectangles and the END position;
+/// chapters without overrides are still derived from module bounds.
 /// </summary>
 public sealed record GraphLayoutOptions(
     IReadOnlyDictionary<string, Rect>? ModuleBounds = null,

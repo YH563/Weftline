@@ -76,7 +76,7 @@
                     ClipToBounds="True">
                 <Grid RowDefinitions="Auto,*">
                     <Grid Grid.Row="0"
-                          ColumnDefinitions="*,Auto"
+                          ColumnDefinitions="*,Auto,Auto"
                           Margin="12,8">
                         <StackPanel Spacing="2">
                             <TextBlock Text="剧情图"
@@ -88,17 +88,170 @@
                                        Foreground="#5F6B7A" />
                         </StackPanel>
                         <Button Grid.Column="1"
+                                Content="{Binding Graph.FilterButtonText}"
+                                Padding="10,4"
+                                Margin="0,0,6,0">
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedRight">
+                                    <ScrollViewer MaxHeight="420">
+                                        <StackPanel Width="240" Spacing="10">
+                                            <TextBlock Text="筛选"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#2B3038" />
+                                            <TextBlock Text="同维度 OR，跨维度 AND"
+                                                       FontSize="11"
+                                                       Foreground="#5F6B7A" />
+                                            <TextBlock Text="角色"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#3F4A59" />
+                                            <ItemsControl ItemsSource="{Binding Graph.CharacterOptions}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:GraphFilterOption">
+                                                        <CheckBox Content="{Binding Name}"
+                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                  FontSize="12" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <TextBlock Text="场景"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#3F4A59" />
+                                            <ItemsControl ItemsSource="{Binding Graph.SceneOptions}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:GraphFilterOption">
+                                                        <CheckBox Content="{Binding Name}"
+                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                  FontSize="12" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <TextBlock Text="变量"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#3F4A59" />
+                                            <ItemsControl ItemsSource="{Binding Graph.VariableOptions}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:GraphFilterOption">
+                                                        <CheckBox Content="{Binding Name}"
+                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                  FontSize="12" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <Button Content="清除筛选"
+                                                    Command="{Binding Graph.ClearFilterCommand}"
+                                                    HorizontalAlignment="Right"
+                                                    Padding="10,3" />
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                        <Button Grid.Column="2"
                                 Content="重置布局"
                                 Padding="10,4"
                                 Click="OnResetGraphLayout" />
                     </Grid>
 
-                    <ScrollViewer Grid.Row="1"
-                                  HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto">
-                        <graph:StoryGraphView x:Name="GraphView"
-                                              Projection="{Binding Graph.Projection}" />
-                    </ScrollViewer>
+                    <Grid Grid.Row="1">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Auto">
+                            <graph:StoryGraphView x:Name="GraphView"
+                                                  Projection="{Binding Graph.Projection}"
+                                                  Filter="{Binding Graph.Filter}" />
+                        </ScrollViewer>
+
+                        <Border IsVisible="{Binding Graph.IsHoverSummaryVisible}"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Bottom"
+                                Margin="12"
+                                MaxWidth="360"
+                                Padding="10,8"
+                                Background="#FFFFFF"
+                                BorderBrush="#D8DCE3"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                IsHitTestVisible="False">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{Binding Graph.HoverTitle}"
+                                           FontWeight="SemiBold"
+                                           Foreground="#2B3038"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding Graph.HoverFirstLine}"
+                                           IsVisible="{Binding Graph.HasHoverFirstLine}"
+                                           FontStyle="Italic"
+                                           Foreground="#3F4A59"
+                                           TextWrapping="Wrap"
+                                           MaxLines="3" />
+                                <TextBlock Text="{Binding Graph.HoverMeta}"
+                                           FontSize="12"
+                                           Foreground="#5F6B7A" />
+                                <TextBlock Text="{Binding Graph.HoverDescription}"
+                                           IsVisible="{Binding Graph.HasHoverDescription}"
+                                           FontSize="12"
+                                           Foreground="#5F6B7A"
+                                           TextWrapping="Wrap"
+                                           MaxLines="4" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border IsVisible="{Binding Graph.IsChapterEdgeDetailsVisible}"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                Margin="12"
+                                MaxWidth="380"
+                                Background="#FFFFFF"
+                                BorderBrush="#D8DCE3"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                            <Grid RowDefinitions="Auto,*">
+                                <Grid Grid.Row="0"
+                                      ColumnDefinitions="*,Auto"
+                                      Margin="10,8,8,4">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{Binding Graph.ChapterEdgeTitle}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#2B3038"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Graph.ChapterEdgeSubtitle}"
+                                                   FontSize="12"
+                                                   Foreground="#5F6B7A" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1"
+                                            Content="×"
+                                            Command="{Binding Graph.CloseChapterEdgeDetailsCommand}"
+                                            Width="24"
+                                            Height="24"
+                                            Padding="0"
+                                            FontSize="13"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Foreground="#5F6B7A"
+                                            Focusable="False" />
+                                </Grid>
+
+                                <ScrollViewer Grid.Row="1"
+                                              MaxHeight="180"
+                                              VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding Graph.ChapterEdgeDetails}"
+                                                  Margin="10,0,10,10">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:ChapterEdgeDetailItem">
+                                                <TextBlock Text="{Binding Text}"
+                                                           FontSize="12"
+                                                           Foreground="#3F4A59"
+                                                           TextWrapping="Wrap"
+                                                           Margin="0,1" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </Grid>
             </Border>
         </Grid>

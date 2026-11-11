@@ -8,6 +8,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Weftline.Editor.Tests/Weftline.Editor.Tests.csproj" />
+    <Project Path="tests/Weftline.Graph.Tests/Weftline.Graph.Tests.csproj" />
   </Folder>
   <Folder Name="/bench/">
     <Project Path="bench/Weftline.Benchmarks/Weftline.Benchmarks.csproj" />

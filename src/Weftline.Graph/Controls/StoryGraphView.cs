@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Weftline.Graph.Analysis;
 using Weftline.Graph.Layout;
 using Weftline.Graph.Rendering;
 using Weftline.Models;
@@ -16,7 +17,7 @@ namespace Weftline.Graph.Controls;
 ///
 /// 用法：
 /// <code>
-/// var projection = GraphProjectionBuilder.Build(model, graph, analysis);
+/// var projection = response.Projection?.ToGraphProjection();
 /// var view = new StoryGraphView { Projection = projection };
 /// </code>
 ///
@@ -28,7 +29,11 @@ public sealed class StoryGraphView : Control
     public static readonly StyledProperty<GraphProjection?> ProjectionProperty =
         AvaloniaProperty.Register<StoryGraphView, GraphProjection?>(nameof(Projection));
 
+    public static readonly StyledProperty<GraphFilterSelection?> FilterProperty =
+        AvaloniaProperty.Register<StoryGraphView, GraphFilterSelection?>(nameof(Filter));
+
     private const double GridSize = 32;
+    private const double DimOpacity = 0.22;
     private const double ArrowLength = 9;
     private const double ArrowHalfWidth = 4.5;
     private const double ChapterAnchorRadius = 6.5;
@@ -39,6 +44,7 @@ public sealed class StoryGraphView : Control
     private const double MinModuleHeight = 30;
     private const double MinChapterWidth = 140;
     private const double MinChapterHeight = 90;
+    private const double EdgeHitTolerance = 8;
 
     private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
     private static readonly Cursor ArrowCursor = new(StandardCursorType.Arrow);
@@ -48,6 +54,8 @@ public sealed class StoryGraphView : Control
     private readonly Dictionary<string, Rect> _moduleBounds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Rect> _chapterBounds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Rect> _previewModuleBounds = new(StringComparer.Ordinal);
+    private GraphPathHighlight _pathHighlight = GraphPathHighlight.Empty;
+    private GraphFilterMatch _filterMatch = GraphFilterMatch.Empty;
 
     private GraphLayout? _layout;
     private ScrollViewer? _scrollViewer;
@@ -82,12 +90,23 @@ public sealed class StoryGraphView : Control
     {
         AffectsMeasure<StoryGraphView>(ProjectionProperty);
         AffectsRender<StoryGraphView>(ProjectionProperty);
+        AffectsRender<StoryGraphView>(FilterProperty);
     }
 
     public GraphProjection? Projection
     {
         get => GetValue(ProjectionProperty);
         set => SetValue(ProjectionProperty, value);
+    }
+
+    /// <summary>
+    /// 按角色/场景/变量筛选；空值或空集合表示不筛选。
+    /// Filters by character/scene/variable; null or empty means no filtering.
+    /// </summary>
+    public GraphFilterSelection? Filter
+    {
+        get => GetValue(FilterProperty);
+        set => SetValue(FilterProperty, value);
     }
 
     /// <summary>
@@ -177,24 +196,54 @@ public sealed class StoryGraphView : Control
 
         if (change.Property == ProjectionProperty)
         {
-            _baseLayout = null;
-            _previewModuleBounds.Clear();
-            _previewChapterId = null;
-            _previewChapterBounds = null;
-            _previewEndBounds = null;
-            _hoveredModuleId = null;
-            _hoveredChapterId = null;
-            _hoveredEnd = false;
-            _selectedModuleId = null;
-            _selectedChapterId = null;
-            _selectedEnd = false;
-            _dragModuleId = null;
-            _dragChapterId = null;
-            _dragging = false;
-            _resizing = false;
-            _draggingChapter = false;
-            _resizingChapter = false;
-            _draggingEnd = false;
+            var oldProjection = change.OldValue as GraphProjection;
+            var newProjection = change.NewValue as GraphProjection;
+            var sameStructure = HasSameStructure(oldProjection, newProjection);
+            var hadModuleHover = _hoveredModuleId is not null;
+
+            if (!sameStructure)
+            {
+                _baseLayout = null;
+                _previewModuleBounds.Clear();
+                _previewChapterId = null;
+                _previewChapterBounds = null;
+                _previewEndBounds = null;
+                _hoveredModuleId = null;
+                _hoveredChapterId = null;
+                _hoveredEnd = false;
+                _selectedModuleId = null;
+                _selectedChapterId = null;
+                _selectedEnd = false;
+                _dragModuleId = null;
+                _dragChapterId = null;
+                _dragging = false;
+                _resizing = false;
+                _draggingChapter = false;
+                _resizingChapter = false;
+                _draggingEnd = false;
+            }
+
+            UpdatePathHighlight();
+            UpdateFilterMatches();
+
+            if (hadModuleHover)
+            {
+                ModuleHoverChanged?.Invoke(
+                    this,
+                    new ModuleHoverChangedEventArgs(
+                        _hoveredModuleId is { } hoveredId
+                            ? FindCurrentModule(hoveredId)
+                            : null));
+            }
+
+            InvalidateVisual();
+            return;
+        }
+
+        if (change.Property == FilterProperty)
+        {
+            UpdateFilterMatches();
+            InvalidateVisual();
         }
     }
 
@@ -249,6 +298,8 @@ public sealed class StoryGraphView : Control
     /// </summary>
     public void ResetLayout()
     {
+        var hadModuleHover = _hoveredModuleId is not null;
+
         _moduleBounds.Clear();
         _chapterBounds.Clear();
         _previewModuleBounds.Clear();
@@ -263,15 +314,242 @@ public sealed class StoryGraphView : Control
         _selectedChapterId = null;
         _selectedEnd = false;
         Zoom = 1;
+        UpdatePathHighlight();
+        InvalidateMeasure();
+        InvalidateVisual();
+
+        if (hadModuleHover)
+        {
+            ModuleHoverChanged?.Invoke(this, new ModuleHoverChangedEventArgs(null));
+        }
+    }
+
+    /// <summary>
+    /// 导出当前手工布局覆盖；未知或已删除的节点会被丢弃。
+    /// Exports current manual overrides; stale node ids are dropped.
+    /// </summary>
+    public GraphLayoutSnapshot ExportLayout()
+    {
+        var moduleIds = Projection?.Modules
+            .Select(static module => module.ModuleId)
+            .ToHashSet(StringComparer.Ordinal);
+        var chapterIds = Projection?.Chapters
+            .Select(static chapter => chapter.ChapterId)
+            .ToHashSet(StringComparer.Ordinal);
+
+        return new GraphLayoutSnapshot(
+            FilterBounds(_moduleBounds, moduleIds),
+            FilterBounds(_chapterBounds, chapterIds),
+            _endBoundsOverride,
+            Zoom);
+    }
+
+    /// <summary>
+    /// 应用持久化的手工布局覆盖；非法矩形会被忽略。
+    /// Applies persisted manual overrides; invalid rectangles are ignored.
+    /// </summary>
+    public void ApplyLayout(GraphLayoutSnapshot snapshot)
+    {
+        _moduleBounds.Clear();
+        _chapterBounds.Clear();
+
+        foreach (var (moduleId, bounds) in snapshot.ModuleBounds)
+        {
+            if (IsUsable(bounds))
+            {
+                _moduleBounds[moduleId] = bounds;
+            }
+        }
+
+        foreach (var (chapterId, bounds) in snapshot.ChapterBounds)
+        {
+            if (IsUsable(bounds))
+            {
+                _chapterBounds[chapterId] = bounds;
+            }
+        }
+
+        _endBoundsOverride = snapshot.EndBounds is { } endBounds && IsUsable(endBounds)
+            ? endBounds
+            : null;
+
+        Zoom = double.IsFinite(snapshot.Zoom) && snapshot.Zoom > 0
+            ? snapshot.Zoom
+            : 1;
+
         InvalidateMeasure();
         InvalidateVisual();
     }
+
+    private static Dictionary<string, Rect> FilterBounds(
+        IReadOnlyDictionary<string, Rect> source,
+        IReadOnlySet<string>? allowedIds)
+    {
+        var result = new Dictionary<string, Rect>(StringComparer.Ordinal);
+
+        foreach (var (id, bounds) in source)
+        {
+            if ((allowedIds is null || allowedIds.Contains(id)) && IsUsable(bounds))
+            {
+                result[id] = bounds;
+            }
+        }
+
+        return result;
+    }
+
+    private static bool IsUsable(Rect bounds)
+        => double.IsFinite(bounds.X) &&
+           double.IsFinite(bounds.Y) &&
+           double.IsFinite(bounds.Width) &&
+           double.IsFinite(bounds.Height) &&
+           bounds.Width > 0 &&
+           bounds.Height > 0;
+
+    private bool IsFilterActive => Filter is { IsEmpty: false };
+
+    private static bool HasSameStructure(
+        GraphProjection? left,
+        GraphProjection? right)
+    {
+        if (ReferenceEquals(left, right))
+        {
+            return true;
+        }
+
+        if (left is null || right is null)
+        {
+            return false;
+        }
+
+        if (!string.Equals(left.EntryModuleId, right.EntryModuleId, StringComparison.Ordinal) ||
+            left.Chapters.Count != right.Chapters.Count ||
+            left.Modules.Count != right.Modules.Count ||
+            left.ModuleEdges.Count != right.ModuleEdges.Count ||
+            left.ChapterEdges.Count != right.ChapterEdges.Count)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < left.Chapters.Count; index++)
+        {
+            var oldChapter = left.Chapters[index];
+            var newChapter = right.Chapters[index];
+
+            if (!string.Equals(oldChapter.ChapterId, newChapter.ChapterId, StringComparison.Ordinal) ||
+                !string.Equals(oldChapter.Title, newChapter.Title, StringComparison.Ordinal) ||
+                oldChapter.Flags != newChapter.Flags ||
+                !oldChapter.ModuleIds.SequenceEqual(newChapter.ModuleIds))
+            {
+                return false;
+            }
+        }
+
+        for (var index = 0; index < left.Modules.Count; index++)
+        {
+            var oldModule = left.Modules[index];
+            var newModule = right.Modules[index];
+
+            if (!string.Equals(oldModule.ModuleId, newModule.ModuleId, StringComparison.Ordinal) ||
+                !string.Equals(oldModule.ChapterId, newModule.ChapterId, StringComparison.Ordinal) ||
+                oldModule.Flags != newModule.Flags)
+            {
+                return false;
+            }
+        }
+
+        for (var index = 0; index < left.ModuleEdges.Count; index++)
+        {
+            var oldEdge = left.ModuleEdges[index];
+            var newEdge = right.ModuleEdges[index];
+
+            if (!string.Equals(oldEdge.FromModule, newEdge.FromModule, StringComparison.Ordinal) ||
+                !string.Equals(oldEdge.ToModule, newEdge.ToModule, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        for (var index = 0; index < left.ChapterEdges.Count; index++)
+        {
+            var oldEdge = left.ChapterEdges[index];
+            var newEdge = right.ChapterEdges[index];
+
+            if (!string.Equals(oldEdge.FromChapter, newEdge.FromChapter, StringComparison.Ordinal) ||
+                !string.Equals(oldEdge.ToChapter, newEdge.ToChapter, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private GraphModuleNode? FindCurrentModule(string moduleId)
+        => Projection?.Modules.FirstOrDefault(module =>
+            string.Equals(module.ModuleId, moduleId, StringComparison.Ordinal));
+
+    private GraphModuleEdge FindCurrentModuleEdge(GraphModuleEdge layoutEdge)
+    {
+        if (Projection is null)
+        {
+            return layoutEdge;
+        }
+
+        return Projection.ModuleEdges.FirstOrDefault(edge =>
+            string.Equals(edge.FromModule, layoutEdge.FromModule, StringComparison.Ordinal) &&
+            string.Equals(edge.ToModule, layoutEdge.ToModule, StringComparison.Ordinal))
+            ?? layoutEdge;
+    }
+
+    private ChapterEdge FindCurrentChapterEdge(ChapterEdge layoutEdge)
+    {
+        if (Projection is null)
+        {
+            return layoutEdge;
+        }
+
+        return Projection.ChapterEdges.FirstOrDefault(edge =>
+            string.Equals(edge.FromChapter, layoutEdge.FromChapter, StringComparison.Ordinal) &&
+            string.Equals(edge.ToChapter, layoutEdge.ToChapter, StringComparison.Ordinal))
+            ?? layoutEdge;
+    }
+
+    private void UpdatePathHighlight()
+        => _pathHighlight = GraphPathAnalyzer.Build(Projection, _selectedModuleId);
+
+    private void UpdateFilterMatches()
+        => _filterMatch = GraphFilterMatcher.Match(Projection, Filter);
 
     /// <summary>
     /// 用户完成一次拖动或缩放后触发。
     /// Raised after the user finishes a drag or resize.
     /// </summary>
     public event EventHandler? LayoutChanged;
+
+    /// <summary>
+    /// 双击模块时触发。
+    /// Raised when a module is double-clicked.
+    /// </summary>
+    public event EventHandler<ModuleActivatedEventArgs>? ModuleActivated;
+
+    /// <summary>
+    /// 双击模块边时触发。
+    /// Raised when a module edge is double-clicked.
+    /// </summary>
+    public event EventHandler<ModuleEdgeActivatedEventArgs>? ModuleEdgeActivated;
+
+    /// <summary>
+    /// 双击章节聚合边时触发。
+    /// Raised when a chapter edge is double-clicked.
+    /// </summary>
+    public event EventHandler<ChapterEdgeActivatedEventArgs>? ChapterEdgeActivated;
+
+    /// <summary>
+    /// 悬停模块变化时触发；离开模块时参数为 null。
+    /// Raised when the hovered module changes; null when leaving modules.
+    /// </summary>
+    public event EventHandler<ModuleHoverChangedEventArgs>? ModuleHoverChanged;
 
     public override void Render(DrawingContext context)
     {
@@ -312,6 +590,13 @@ public sealed class StoryGraphView : Control
         _previewEndBounds = null;
 
         var point = ToLayoutPoint(e.GetPosition(this));
+
+        if (e.ClickCount == 2 && TryActivate(point))
+        {
+            e.Handled = true;
+            return;
+        }
+
         var module = HitTestModule(point);
 
         if (module is not null)
@@ -321,6 +606,7 @@ public sealed class StoryGraphView : Control
             _selectedModuleId = moduleId;
             _selectedChapterId = null;
             _selectedEnd = false;
+            UpdatePathHighlight();
             _dragModuleId = moduleId;
             _dragStart = point;
             _dragStartBounds = _moduleBounds.TryGetValue(moduleId, out var manual)
@@ -347,6 +633,7 @@ public sealed class StoryGraphView : Control
             _selectedChapterId = chapterId;
             _selectedModuleId = null;
             _selectedEnd = false;
+            UpdatePathHighlight();
             _dragChapterId = chapterId;
             _dragStart = point;
             _dragStartBounds = _chapterBounds.TryGetValue(chapterId, out var manualChapter)
@@ -376,6 +663,7 @@ public sealed class StoryGraphView : Control
             _selectedModuleId = null;
             _selectedChapterId = null;
             _selectedEnd = true;
+            UpdatePathHighlight();
             _draggingEnd = true;
             _dragStart = point;
             _dragEndStartBounds = GetEndBounds();
@@ -389,6 +677,7 @@ public sealed class StoryGraphView : Control
         _selectedModuleId = null;
         _selectedChapterId = null;
         _selectedEnd = false;
+        UpdatePathHighlight();
         InvalidateVisual();
     }
 
@@ -497,10 +786,25 @@ public sealed class StoryGraphView : Control
             !string.Equals(hoveredChapter, _hoveredChapterId, StringComparison.Ordinal) ||
             hoveredEnd != _hoveredEnd)
         {
+            var moduleHoverChanged = !string.Equals(
+                hoveredModule,
+                _hoveredModuleId,
+                StringComparison.Ordinal);
+
             _hoveredModuleId = hoveredModule;
             _hoveredChapterId = hoveredChapter;
             _hoveredEnd = hoveredEnd;
             ScheduleHoverRedraw();
+
+            if (moduleHoverChanged)
+            {
+                ModuleHoverChanged?.Invoke(
+                    this,
+                    new ModuleHoverChangedEventArgs(
+                        hoveredModule is { } hoveredId
+                            ? FindCurrentModule(hoveredId)
+                            : null));
+            }
         }
 
         var overResizeHandle =
@@ -588,10 +892,17 @@ public sealed class StoryGraphView : Control
 
         if (_hoveredModuleId is not null || _hoveredChapterId is not null || _hoveredEnd)
         {
+            var hadModuleHover = _hoveredModuleId is not null;
+
             _hoveredModuleId = null;
             _hoveredChapterId = null;
             _hoveredEnd = false;
             ScheduleHoverRedraw();
+
+            if (hadModuleHover)
+            {
+                ModuleHoverChanged?.Invoke(this, new ModuleHoverChangedEventArgs(null));
+            }
         }
 
         Cursor = ArrowCursor;
@@ -704,6 +1015,271 @@ public sealed class StoryGraphView : Control
 
     private bool HitTestEnd(Point point)
         => _layout is not null && GetEndBounds().Contains(point);
+
+    private bool TryActivate(Point point)
+    {
+        if (_layout is not { } layout)
+        {
+            return false;
+        }
+
+        if (HitTestModule(point) is { } module)
+        {
+            ModuleActivated?.Invoke(
+                this,
+                new ModuleActivatedEventArgs(
+                    FindCurrentModule(module.Node.ModuleId) ?? module.Node));
+            return true;
+        }
+
+        var chapter = HitTestChapter(point);
+
+        if (chapter is not null && IsChapterHeader(chapter.Bounds, point))
+        {
+            return false;
+        }
+
+        if (HitTestEnd(point))
+        {
+            return false;
+        }
+
+        if (HitTestModuleEdge(layout, point) is { } edge)
+        {
+            ModuleEdgeActivated?.Invoke(
+                this,
+                new ModuleEdgeActivatedEventArgs(FindCurrentModuleEdge(edge)));
+            return true;
+        }
+
+        if (HitTestChapterEdge(layout, point) is { } chapterEdge)
+        {
+            ChapterEdgeActivated?.Invoke(
+                this,
+                new ChapterEdgeActivatedEventArgs(FindCurrentChapterEdge(chapterEdge)));
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryGetModuleWire(
+        IReadOnlyDictionary<string, GraphModuleLayout> modules,
+        GraphModuleEdge edge,
+        out WireGeometry wire)
+    {
+        if (!modules.TryGetValue(edge.FromModule, out var from) ||
+            !modules.TryGetValue(edge.ToModule, out var to))
+        {
+            wire = default;
+            return false;
+        }
+
+        var fromBounds = GetModuleBounds(from);
+        var toBounds = GetModuleBounds(to);
+
+        var start = new Point(
+            fromBounds.X + (fromBounds.Width / 2),
+            fromBounds.Bottom);
+
+        var end = new Point(
+            toBounds.X + (toBounds.Width / 2),
+            toBounds.Y);
+
+        var dx = end.X - start.X;
+        var dy = end.Y - start.Y;
+        var vertical = dy >= 0 ? 1 : -1;
+        var horizontal = Math.Clamp(Math.Abs(dx) * 0.35, 0, 80);
+        var horizontalSign = dx >= 0 ? 1 : -1;
+        var handle = Math.Clamp(Math.Abs(dy) * 0.45, 26, 90);
+
+        wire = new WireGeometry(
+            start,
+            new Point(
+                start.X + (horizontal * horizontalSign),
+                start.Y + (handle * vertical)),
+            new Point(
+                end.X - (horizontal * horizontalSign),
+                end.Y - (handle * vertical)),
+            end,
+            5);
+        return true;
+    }
+
+    private bool TryGetChapterWire(
+        GraphLayout layout,
+        IReadOnlyDictionary<string, GraphChapterLayout> chaptersById,
+        GraphChapterEdgeLayout edgeLayout,
+        out WireGeometry wire)
+    {
+        var edge = edgeLayout.Edge;
+
+        if (!chaptersById.TryGetValue(edge.FromChapter, out var from))
+        {
+            wire = default;
+            return false;
+        }
+
+        var fromBounds = GetChapterBounds(from);
+        var start = new Point(
+            fromBounds.Right,
+            fromBounds.Y + (fromBounds.Height / 2));
+
+        Point end;
+
+        if (edge.ToChapter == "END")
+        {
+            var endBounds = GetEndBounds();
+            end = new Point(
+                endBounds.X,
+                endBounds.Y + (endBounds.Height / 2));
+        }
+        else if (chaptersById.TryGetValue(edge.ToChapter, out var to))
+        {
+            var toBounds = GetChapterBounds(to);
+            end = new Point(
+                toBounds.X,
+                toBounds.Y + (toBounds.Height / 2));
+        }
+        else
+        {
+            wire = default;
+            return false;
+        }
+
+        var arrowInset = ChapterAnchorRadius + 3;
+
+        if (end.X < start.X)
+        {
+            var top = Math.Min(start.Y, end.Y) - 96;
+
+            wire = new WireGeometry(
+                start,
+                new Point(start.X + 80, top),
+                new Point(end.X - 80, top),
+                end,
+                arrowInset);
+            return true;
+        }
+
+        var handle = Math.Clamp(
+            Math.Abs(end.X - start.X) * 0.4,
+            70,
+            190);
+
+        var dy = end.Y - start.Y;
+        var verticalOffset = Math.Clamp(Math.Abs(dy) * 0.25, 0, 60) * (dy >= 0 ? 1 : -1);
+
+        wire = new WireGeometry(
+            start,
+            new Point(start.X + handle, start.Y + (verticalOffset * 0.5)),
+            new Point(end.X - handle, end.Y - verticalOffset),
+            end,
+            arrowInset);
+        return true;
+    }
+
+    private GraphModuleEdge? HitTestModuleEdge(GraphLayout layout, Point point)
+    {
+        var modules = layout.Modules.ToDictionary(
+            static module => module.Node.ModuleId,
+            StringComparer.Ordinal);
+
+        foreach (var edge in layout.ModuleEdges)
+        {
+            if (TryGetModuleWire(modules, edge, out var wire) &&
+                DistanceToWire(point, wire) <= EdgeHitTolerance)
+            {
+                return edge;
+            }
+        }
+
+        return null;
+    }
+
+    private ChapterEdge? HitTestChapterEdge(GraphLayout layout, Point point)
+    {
+        var chaptersById = layout.Chapters.ToDictionary(
+            static chapter => chapter.Chapter.ChapterId,
+            StringComparer.Ordinal);
+
+        foreach (var edgeLayout in layout.ChapterEdges)
+        {
+            if (TryGetChapterWire(layout, chaptersById, edgeLayout, out var wire) &&
+                DistanceToWire(point, wire) <= EdgeHitTolerance)
+            {
+                return edgeLayout.Edge;
+            }
+        }
+
+        return null;
+    }
+
+    private static double DistanceToWire(Point point, WireGeometry wire)
+    {
+        const int steps = 24;
+
+        var previous = wire.Start;
+        var best = double.MaxValue;
+
+        for (var index = 1; index <= steps; index++)
+        {
+            var t = index / (double)steps;
+            var current = PointOnCubic(t, wire);
+            best = Math.Min(best, DistanceToSegment(point, previous, current));
+            previous = current;
+        }
+
+        return best;
+    }
+
+    private static Point PointOnCubic(double t, WireGeometry wire)
+    {
+        var u = 1 - t;
+        var uu = u * u;
+        var tt = t * t;
+
+        return new Point(
+            (uu * u * wire.Start.X) +
+            (3 * uu * t * wire.Control1.X) +
+            (3 * u * tt * wire.Control2.X) +
+            (tt * t * wire.End.X),
+            (uu * u * wire.Start.Y) +
+            (3 * uu * t * wire.Control1.Y) +
+            (3 * u * tt * wire.Control2.Y) +
+            (tt * t * wire.End.Y));
+    }
+
+    private static double DistanceToSegment(Point point, Point start, Point end)
+    {
+        var dx = end.X - start.X;
+        var dy = end.Y - start.Y;
+        var lengthSquared = (dx * dx) + (dy * dy);
+
+        if (lengthSquared < 0.0001)
+        {
+            return Distance(point, start);
+        }
+
+        var t = (((point.X - start.X) * dx) + ((point.Y - start.Y) * dy)) / lengthSquared;
+        t = Math.Clamp(t, 0, 1);
+
+        return Distance(point, new Point(start.X + (dx * t), start.Y + (dy * t)));
+    }
+
+    private static double Distance(Point left, Point right)
+    {
+        var dx = left.X - right.X;
+        var dy = left.Y - right.Y;
+        return Math.Sqrt((dx * dx) + (dy * dy));
+    }
+
+    private readonly record struct WireGeometry(
+        Point Start,
+        Point Control1,
+        Point Control2,
+        Point End,
+        double ArrowInset);
 
     private static bool IsResizeHandle(Rect bounds, Point point)
         => new Rect(
@@ -970,47 +1546,25 @@ public sealed class StoryGraphView : Control
 
         foreach (var edge in layout.ModuleEdges)
         {
-            if (!modules.TryGetValue(edge.FromModule, out var from) ||
-                !modules.TryGetValue(edge.ToModule, out var to))
+            if (!TryGetModuleWire(modules, edge, out var wire))
             {
                 continue;
             }
 
-            var fromBounds = GetModuleBounds(from);
-            var toBounds = GetModuleBounds(to);
+            var key = (edge.FromModule, edge.ToModule);
+            var isPath = _pathHighlight.ModuleEdges.Contains(key);
+            var dim = IsFilterActive && !isPath && !_filterMatch.ModuleEdges.Contains(key);
 
-            var start = new Point(
-                fromBounds.X + (fromBounds.Width / 2),
-                fromBounds.Bottom);
-
-            var end = new Point(
-                toBounds.X + (toBounds.Width / 2),
-                toBounds.Y);
-
-            var dx = end.X - start.X;
-            var dy = end.Y - start.Y;
-            var vertical = dy >= 0 ? 1 : -1;
-            var horizontal = Math.Clamp(Math.Abs(dx) * 0.35, 0, 80);
-            var horizontalSign = dx >= 0 ? 1 : -1;
-            var handle = Math.Clamp(Math.Abs(dy) * 0.45, 26, 90);
-
-            var control1 = new Point(
-                start.X + (horizontal * horizontalSign),
-                start.Y + (handle * vertical));
-
-            var control2 = new Point(
-                end.X - (horizontal * horizontalSign),
-                end.Y - (handle * vertical));
+            using var opacity = dim
+                ? context.PushOpacity(DimOpacity)
+                : default(DrawingContext.PushedState);
 
             DrawWire(
                 context,
-                start,
-                control1,
-                control2,
-                end,
-                GraphTheme.ModuleWireGlowPen,
-                GraphTheme.ModuleWirePen,
-                GraphTheme.Wire);
+                wire,
+                isPath ? GraphTheme.PathGlowPen : GraphTheme.ModuleWireGlowPen,
+                isPath ? GraphTheme.PathPen : GraphTheme.ModuleWirePen,
+                isPath ? GraphTheme.PathColor : GraphTheme.Wire);
         }
     }
 
@@ -1022,81 +1576,32 @@ public sealed class StoryGraphView : Control
 
         foreach (var edgeLayout in layout.ChapterEdges)
         {
-            var edge = edgeLayout.Edge;
-
-            if (!chaptersById.TryGetValue(edge.FromChapter, out var from))
+            if (!TryGetChapterWire(layout, chaptersById, edgeLayout, out var wire))
             {
                 continue;
             }
 
-            var fromBounds = GetChapterBounds(from);
-            var start = new Point(
-                fromBounds.Right,
-                fromBounds.Y + (fromBounds.Height / 2));
+            var key = (edgeLayout.Edge.FromChapter, edgeLayout.Edge.ToChapter);
+            var isPath = _pathHighlight.ChapterEdges.Contains(key);
+            var dim = IsFilterActive && !isPath && !_filterMatch.ChapterEdges.Contains(key);
 
-            Point end;
+            using var opacity = dim
+                ? context.PushOpacity(DimOpacity)
+                : default(DrawingContext.PushedState);
 
-            if (edge.ToChapter == "END")
-            {
-                var endBounds = GetEndBounds();
-                end = new Point(
-                    endBounds.X,
-                    endBounds.Y + (endBounds.Height / 2));
-            }
-            else if (chaptersById.TryGetValue(edge.ToChapter, out var to))
-            {
-                var toBounds = GetChapterBounds(to);
-                end = new Point(
-                    toBounds.X,
-                    toBounds.Y + (toBounds.Height / 2));
-            }
-            else
-            {
-                continue;
-            }
+            var isBackEdge = wire.End.X < wire.Start.X;
 
-            var isBackEdge = end.X < start.X;
+            IBrush arrow = isPath
+                ? GraphTheme.PathColor
+                : isBackEdge ? GraphTheme.Warning : GraphTheme.ChapterWire;
+            IPen glow = isPath
+                ? GraphTheme.PathGlowPen
+                : isBackEdge ? GraphTheme.BackEdgePen : GraphTheme.ChapterWireGlowPen;
+            IPen core = isPath
+                ? GraphTheme.PathPen
+                : isBackEdge ? GraphTheme.BackEdgePen : GraphTheme.ChapterWirePen;
 
-            IBrush arrow = isBackEdge ? GraphTheme.Warning : GraphTheme.ChapterWire;
-            IPen glow = isBackEdge ? GraphTheme.BackEdgePen : GraphTheme.ChapterWireGlowPen;
-            IPen core = isBackEdge ? GraphTheme.BackEdgePen : GraphTheme.ChapterWirePen;
-
-            if (isBackEdge)
-            {
-                var top = Math.Min(start.Y, end.Y) - 96;
-
-                DrawWire(
-                    context,
-                    start,
-                    new Point(start.X + 80, top),
-                    new Point(end.X - 80, top),
-                    end,
-                    glow,
-                    core,
-                    arrow,
-                    ChapterAnchorRadius + 3);
-            }
-            else
-            {
-                var handle = Math.Clamp(
-                    Math.Abs(end.X - start.X) * 0.4,
-                    70,
-                    190);
-
-                var dy = end.Y - start.Y;
-                var verticalOffset = Math.Clamp(Math.Abs(dy) * 0.25, 0, 60) * (dy >= 0 ? 1 : -1);
-
-                DrawWire(
-                    context,
-                    start,
-                    new Point(start.X + handle, start.Y + (verticalOffset * 0.5)),
-                    new Point(end.X - handle, end.Y - verticalOffset),
-                    end,
-                    glow,
-                    core,
-                    arrow,
-                    ChapterAnchorRadius + 3);
-            }
+            DrawWire(context, wire, glow, core, arrow);
         }
     }
 
@@ -1151,6 +1656,14 @@ public sealed class StoryGraphView : Control
     {
         foreach (var module in layout.Modules)
         {
+            var moduleId = module.Node.ModuleId;
+            var isPath = _pathHighlight.Modules.Contains(moduleId);
+            var dim = IsFilterActive && !isPath && !_filterMatch.Modules.Contains(moduleId);
+
+            using var opacity = dim
+                ? context.PushOpacity(DimOpacity)
+                : default(DrawingContext.PushedState);
+
             DrawModule(context, module);
         }
     }
@@ -1188,17 +1701,22 @@ public sealed class StoryGraphView : Control
             GraphTheme.ModuleTitle,
             bold: true);
 
+        DrawModuleBadges(context, node, bounds);
+
         var isSelected = string.Equals(_selectedModuleId, node.ModuleId, StringComparison.Ordinal);
         var isHovered = string.Equals(_hoveredModuleId, node.ModuleId, StringComparison.Ordinal);
+        var isPath = _pathHighlight.Modules.Contains(node.ModuleId);
 
-        if (!isSelected && !isHovered)
+        if (!isSelected && !isHovered && !isPath)
         {
             return;
         }
 
         context.DrawRectangle(
             null,
-            isSelected ? GraphTheme.SelectedPen : GraphTheme.HoverPen,
+            isSelected
+                ? GraphTheme.SelectedPen
+                : isHovered ? GraphTheme.HoverPen : GraphTheme.PathModulePen,
             new Rect(
                 bounds.X - 2,
                 bounds.Y - 2,
@@ -1222,6 +1740,41 @@ public sealed class StoryGraphView : Control
                 8),
             2,
             2);
+    }
+
+    private static void DrawModuleBadges(
+        DrawingContext context,
+        GraphModuleNode node,
+        Rect bounds)
+    {
+        var badgeX = bounds.Right - 11;
+        var badgeY = bounds.Y + 10;
+
+        if (node.Flags.HasFlag(GraphModuleFlags.Unreachable))
+        {
+            DrawBadge(context, new Point(badgeX, badgeY), GraphTheme.Danger);
+            badgeX -= 17;
+        }
+
+        if (node.Flags.HasFlag(GraphModuleFlags.CannotReachEnd))
+        {
+            DrawBadge(context, new Point(badgeX, badgeY), GraphTheme.Warning);
+        }
+    }
+
+    private static void DrawBadge(
+        DrawingContext context,
+        Point center,
+        IBrush fill)
+    {
+        context.DrawEllipse(fill, null, center, 7, 7);
+
+        var text = GetFormattedText("!", 9, GraphTheme.BadgeText, bold: true);
+        context.DrawText(
+            text,
+            new Point(
+                center.X - (text.Width / 2),
+                center.Y - (text.Height / 2) - 0.5));
     }
 
     private static void DrawText(
@@ -1276,6 +1829,23 @@ public sealed class StoryGraphView : Control
         TextCache[key] = formatted;
         return formatted;
     }
+
+    private static void DrawWire(
+        DrawingContext context,
+        WireGeometry wire,
+        IPen glowPen,
+        IPen corePen,
+        IBrush arrowBrush)
+        => DrawWire(
+            context,
+            wire.Start,
+            wire.Control1,
+            wire.Control2,
+            wire.End,
+            glowPen,
+            corePen,
+            arrowBrush,
+            wire.ArrowInset);
 
     private static void DrawWire(
         DrawingContext context,

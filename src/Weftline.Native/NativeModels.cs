@@ -148,6 +148,7 @@ public sealed class NativeProjection
     public List<NativeGraphModuleNode> Modules { get; set; } = [];
     public List<NativeGraphModuleEdge> ModuleEdges { get; set; } = [];
     public List<NativeChapterEdge> ChapterEdges { get; set; } = [];
+    public NativeGraphReferences? References { get; set; }
 
     /// <summary>
     /// 转换为显示层图投影。
@@ -188,7 +189,8 @@ public sealed class NativeProjection
                     ParseMode(detail.Mode),
                     detail.Label,
                     ToBoolExpr(detail.Condition),
-                    ToSource(detail.Source))).ToList())).ToList());
+                    ToSource(detail.Source))).ToList())).ToList(),
+            References?.ToReferenceIndex() ?? GraphReferenceIndex.Empty);
 
     private static GraphChapterFlags ParseChapterFlags(IEnumerable<string>? flags)
     {
@@ -259,6 +261,31 @@ public sealed class NativeProjection
             : new SourceLocation(
                 source.FilePath,
                 new TextSpan(source.Span.Start, source.Span.Length));
+}
+
+/// <summary>
+/// 符号 → 模块引用索引的 JSON DTO。
+/// </summary>
+public sealed class NativeGraphReferences
+{
+    public Dictionary<string, List<string>> Characters { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, List<string>> Items { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, List<string>> Scenes { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, List<string>> Variables { get; set; } = new(StringComparer.Ordinal);
+
+    public GraphReferenceIndex ToReferenceIndex()
+        => new(
+            ToReadOnly(Characters),
+            ToReadOnly(Items),
+            ToReadOnly(Scenes),
+            ToReadOnly(Variables));
+
+    private static Dictionary<string, IReadOnlyList<string>> ToReadOnly(
+        Dictionary<string, List<string>> source)
+        => source.ToDictionary(
+            static pair => pair.Key,
+            static pair => (IReadOnlyList<string>)pair.Value,
+            StringComparer.Ordinal);
 }
 
 /// <summary>

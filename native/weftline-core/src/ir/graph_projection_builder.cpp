@@ -321,6 +321,7 @@ namespace weftline::ir {
             build_modules(graph, analysis),
             build_module_edges(graph, modules_by_id),
             analysis.chapter_edges,
+            analysis.references,
         };
     }
 

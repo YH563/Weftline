@@ -331,6 +331,37 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        void write_reference_map(
+            json::Writer& writer,
+            const std::unordered_map<std::u16string, std::vector<std::u16string>>& map)
+        {
+            writer.begin_object();
+
+            for (const auto& [name, modules] : map) {
+                writer.key(source::utf16_to_utf8(name)).begin_array();
+                for (const auto& module_id : modules) {
+                    writer.string(source::utf16_to_utf8(module_id));
+                }
+                writer.end_array();
+            }
+
+            writer.end_object();
+        }
+
+        void write_references(json::Writer& writer, const ReferenceIndex& references)
+        {
+            writer.begin_object();
+            writer.key("characters");
+            write_reference_map(writer, references.characters);
+            writer.key("items");
+            write_reference_map(writer, references.items);
+            writer.key("scenes");
+            write_reference_map(writer, references.scenes);
+            writer.key("variables");
+            write_reference_map(writer, references.variables);
+            writer.end_object();
+        }
+
     } // namespace
 
     std::string story_graph_to_json(const StoryGraph& graph)
@@ -396,6 +427,9 @@ namespace weftline::ir {
             write_chapter_edge(writer, edge);
         }
         writer.end_array();
+
+        writer.key("references");
+        write_references(writer, projection.references);
 
         writer.end_object();
         return writer.str();

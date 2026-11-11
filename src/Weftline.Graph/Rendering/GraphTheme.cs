@@ -51,6 +51,13 @@ public static class GraphTheme
     public static readonly IBrush AccentSoft = new SolidColorBrush(Color.Parse("#B7C6FF"));
     public static readonly IBrush Warning = new SolidColorBrush(Color.Parse("#C8873A"));
     public static readonly IBrush Danger = new SolidColorBrush(Color.Parse("#C65B5B"));
+    public static readonly IBrush BadgeText = Brushes.White;
+
+    public static readonly IBrush PathColor = new SolidColorBrush(Color.Parse("#2F9E74"));
+    public static readonly IBrush PathGlow = new SolidColorBrush(Color.Parse("#332F9E74"));
+    public static readonly IPen PathPen = new Pen(PathColor, 2.6);
+    public static readonly IPen PathGlowPen = new Pen(PathGlow, 8);
+    public static readonly IPen PathModulePen = new Pen(PathColor, 2.2);
 
     public static readonly IPen ModuleWirePen = new Pen(Wire, 1.9);
     public static readonly IPen ModuleWireGlowPen = new Pen(WireGlow, 7);

@@ -4,7 +4,7 @@
 
 Weftline is a story demo / narrative demonstration tool: write scripts, inspect the story graph, and export a playable HTML demo (planned for the C++ core).
 
-Current stage: the C++ language core and desktop editor are usable. The desktop app now has an IDE-style shell: project explorer, multi-tab AvaloniaEdit editor, dual-lane syntax/project analysis, merged diagnostics, hover, completion, status bar, folder switching, and basic file operations. Single-file syntax diagnostics and project semantics are scheduled independently and applied by version; project compilation syncs only changed documents incrementally. The story graph UI and Problems panel are wired up; HTML export will be implemented in C++ later.
+Current stage: the C++ language core and desktop editor are usable. The desktop app now has an IDE-style shell: project explorer, multi-tab AvaloniaEdit editor, dual-lane syntax/project analysis, merged diagnostics, hover, completion, status bar, folder switching, and basic file operations. Single-file syntax diagnostics and project semantics are scheduled independently and applied by version; project compilation syncs only changed documents incrementally. The story graph supports layout sidecars, hover summaries, double-click navigation, chapter-edge details, badges, filters, and shortest-path highlighting; the Problems panel is also wired up. HTML export will be implemented in C++ later.
 
 ## File types
 
@@ -25,6 +25,7 @@ Current stage: the C++ language core and desktop editor are usable. The desktop 
 - Project explorer: directory/file tree with lazy loading and extension-based icons; supports new file, new folder, rename, delete, and switching the project folder from the menu.
 - Editor: multi-file AvaloniaEdit tabs with close buttons, Weft syntax highlighting, line numbers, current-line highlight, a solid gutter separator, and modified markers; includes merged syntax/project diagnostics, squiggles, hover, and completion.
 - Status bar: caret position, selection length, language, current module/scene, module/variable counts, diagnostics summary, and operation status.
+- Story graph: live projection with chapter/module layers, entry/exit markers, dragging, zooming, and an END sink; hovering a module shows its summary, double-clicking a module or module edge jumps to source, and double-clicking a chapter edge shows underlying branches. Filters by character/scene/variable, badges for unreachable modules or modules that cannot reach END, and shortest-path highlighting for the selected module are also available. The Save Layout command persists manual layout and zoom to `weftline.layout.json` in the project root.
 - Theme: SukiUI light theme; Inter for UI text and JetBrains Mono for the editor when available.
 - The story graph and Problems panel are wired up; Output/Project Info panels are not yet.
 
