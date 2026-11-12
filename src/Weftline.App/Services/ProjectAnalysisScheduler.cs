@@ -1,6 +1,7 @@
 using Avalonia.Threading;
 using Weftline.Models;
 using Weftline.Native;
+using Weftline.Player;
 
 namespace Weftline.App.Services;
 
@@ -43,6 +44,30 @@ public sealed class ProjectAnalysisScheduler
         => StartAsync(folder, reloadFromDisk, TimeSpan.Zero);
 
     public void Cancel() => _cts?.Cancel();
+
+    /// <summary>
+    /// 用当前项目的编译缓存生成播放器载荷。
+    /// 调用前应先完成一次项目分析，确保句柄里是最新文档。
+    /// </summary>
+    public async Task<RuntimeProjection> CompileRuntimeAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            var client = _client
+                ?? throw new InvalidOperationException("项目尚未完成首次编译。");
+
+            return await Task.Run(
+                () => client.CompileRuntime(),
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
 
     private Task StartAsync(string folder, bool reloadFromDisk, TimeSpan delay)
     {

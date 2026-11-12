@@ -233,7 +233,7 @@ public sealed class NativeProjection
             ? ExitMode.Choice
             : ExitMode.Auto;
 
-    private static IrBoolExpr? ToBoolExpr(NativeBoolExpr? expression)
+    internal static IrBoolExpr? ToBoolExpr(NativeBoolExpr? expression)
     {
         if (expression is null)
         {

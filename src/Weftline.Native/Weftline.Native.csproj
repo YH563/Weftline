@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Weftline.Models\Weftline.Models.csproj" />
+    <ProjectReference Include="..\Weftline.Player\Weftline.Player.csproj" />
   </ItemGroup>
 
 </Project>

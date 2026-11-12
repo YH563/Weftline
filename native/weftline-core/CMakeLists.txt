@@ -111,6 +111,11 @@ if (BUILD_TESTING)
     add_executable(test_ir_json test/test_ir_json.cpp)
     target_link_libraries(test_ir_json PRIVATE weftline_core_static GTest::gtest_main)
 
+    add_executable(test_runtime_projection test/test_runtime_projection.cpp)
+    target_link_libraries(test_runtime_projection PRIVATE weftline_core_static GTest::gtest_main)
+    target_compile_definitions(test_runtime_projection PRIVATE
+        WEFTLINE_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../samples")
+
     add_test(NAME test_lexer COMMAND test_lexer)
     add_test(NAME test_ast COMMAND test_ast)
     add_test(NAME test_parser COMMAND test_parser)
@@ -125,4 +130,5 @@ if (BUILD_TESTING)
     add_test(NAME test_project_api COMMAND test_project_api)
     add_test(NAME test_parse_api COMMAND test_parse_api)
     add_test(NAME test_ir_json COMMAND test_ir_json)
+    add_test(NAME test_runtime_projection COMMAND test_runtime_projection)
 endif()

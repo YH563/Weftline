@@ -38,6 +38,9 @@ internal static partial class NativeMethods
         int allowPartial,
         int buildProjection);
 
+    [LibraryImport(Library)]
+    internal static partial IntPtr weft_project_runtime(IntPtr project);
+
     [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)]
     internal static partial IntPtr weft_parse_json(
         string path,

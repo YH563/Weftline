@@ -131,6 +131,88 @@ TEST(ProjectApi, StrictErrorsOmitGraph)
     EXPECT_EQ(json.find("\"projection\""), std::string::npos);
 }
 
+TEST(ProjectApi, ReturnsRuntimeProjection)
+{
+    WeftProject* project = weft_project_create();
+    ASSERT_NE(project, nullptr);
+
+    weft_project_set_document(
+        project,
+        "story.wstory",
+        "@project 测试\n"
+        "    @chapters\n"
+        "        @chapter 第一章 [开篇。]\n"
+        "    @vars\n"
+        "        @var 信任 false [是否信任。]\n");
+
+    weft_project_set_document(
+        project,
+        "chapter.weft",
+        "@title 第一章\n"
+        "@var 信任 false\n"
+        "@module A\n"
+        "    [你好]\n"
+        "@next -> END { @set 信任 true }\n");
+
+    char* response = weft_project_runtime(project);
+    ASSERT_NE(response, nullptr);
+
+    const std::string json(response);
+    weft_free(response);
+    weft_project_destroy(project);
+
+    EXPECT_NE(json.find("\"schemaVersion\":1"), std::string::npos);
+    EXPECT_NE(json.find("\"hasErrors\":false"), std::string::npos);
+    EXPECT_NE(json.find("\"runtime\":{"), std::string::npos);
+    EXPECT_NE(json.find("\"projectName\":\"测试\""), std::string::npos);
+    EXPECT_NE(
+        json.find("\"chapters\":[{\"id\":\"第一章\",\"title\":\"第一章\"}]"),
+        std::string::npos);
+    EXPECT_NE(json.find("\"id\":\"A\""), std::string::npos);
+    EXPECT_NE(
+        json.find("\"effects\":[{\"name\":\"信任\",\"value\":true}]"),
+        std::string::npos);
+
+    EXPECT_EQ(json.find("\"source\""), std::string::npos);
+    EXPECT_EQ(json.find("\"filePath\""), std::string::npos);
+}
+
+TEST(ProjectApi, RuntimeRejectsProjectWithErrors)
+{
+    WeftProject* project = weft_project_create();
+    ASSERT_NE(project, nullptr);
+
+    weft_project_set_document(
+        project,
+        "chapter.weft",
+        "@title 第一章\n"
+        "@module A\n"
+        "@next -> Missing\n");
+
+    char* response = weft_project_runtime(project);
+    ASSERT_NE(response, nullptr);
+
+    const std::string json(response);
+    weft_free(response);
+    weft_project_destroy(project);
+
+    EXPECT_NE(json.find("\"hasErrors\":true"), std::string::npos);
+    EXPECT_NE(json.find("\"diagnosticCount\":1"), std::string::npos);
+    EXPECT_EQ(json.find("\"runtime\""), std::string::npos);
+}
+
+TEST(ProjectApi, RuntimeHandlesNullProject)
+{
+    char* response = weft_project_runtime(nullptr);
+    ASSERT_NE(response, nullptr);
+
+    const std::string json(response);
+    weft_free(response);
+
+    EXPECT_NE(json.find("\"hasErrors\":true"), std::string::npos);
+    EXPECT_NE(json.find("project is null"), std::string::npos);
+}
+
 TEST(ProjectApi, UpdatesDiagnosticsAfterDocumentChange)
 {
     WeftProject* project = weft_project_create();

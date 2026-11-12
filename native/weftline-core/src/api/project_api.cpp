@@ -1,5 +1,6 @@
 #include "weftline/core.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
@@ -12,6 +13,7 @@
 #include "weftline/api/compile.hpp"
 #include "weftline/diagnostics/diagnostic.hpp"
 #include "weftline/ir/ir_json.hpp"
+#include "weftline/ir/runtime_projection_builder.hpp"
 #include "weftline/json/json_writer.hpp"
 #include "weftline/projects/compilation_cache.hpp"
 #include "weftline/projects/project_compiler.hpp"
@@ -228,6 +230,74 @@ namespace {
     }
 
     /**
+     * @brief 构造播放器载荷失败时的最小 JSON 响应。
+     *
+     * 保持与成功响应相同的 schemaVersion/hasErrors 字段，方便 C# 统一解析。
+     */
+    [[nodiscard]]
+    std::string runtime_error_json(
+        std::string_view message, std::int64_t diagnostic_count = 0)
+    {
+        weftline::json::Writer writer;
+        writer.begin_object();
+        writer.key("schemaVersion").number(1);
+        writer.key("hasErrors").boolean(true);
+        writer.key("error").string(message);
+        writer.key("diagnosticCount").number(diagnostic_count);
+        writer.end_object();
+        return writer.str();
+    }
+
+    /**
+     * @brief 把项目编译结果序列化为播放器 JSON。
+     *
+     * 有 error 或没有正式图时只返回错误信息，避免播放器消费不完整模型。
+     * runtime 可能较大，这里只在显式请求预览时序列化，不进入实时编译热路径。
+     */
+    [[nodiscard]]
+    std::string project_runtime_json(
+        const weftline::projects::ProjectCompilationResult& result)
+    {
+        std::int64_t error_count = 0;
+        std::string first_error;
+
+        for (const auto& item : result.diagnostics) {
+            if (item.diagnostic.severity
+                != weftline::diagnostics::Severity::Error) {
+                continue;
+            }
+
+            ++error_count;
+            if (first_error.empty()) {
+                first_error = weftline::source::utf16_to_utf8(
+                    item.diagnostic.message);
+            }
+        }
+
+        if (error_count > 0) {
+            return runtime_error_json(
+                first_error.empty() ? "project has errors" : first_error,
+                error_count);
+        }
+
+        if (!result.graph) {
+            return runtime_error_json("project has no story graph");
+        }
+
+        const auto runtime = weftline::ir::build_runtime_projection(
+            result.model, *result.graph.value());
+
+        weftline::json::Writer writer;
+        writer.begin_object();
+        writer.key("schemaVersion").number(1);
+        writer.key("hasErrors").boolean(false);
+        writer.key("runtime").raw(
+            weftline::ir::runtime_projection_to_json(runtime));
+        writer.end_object();
+        return writer.str();
+    }
+
+    /**
      * @brief 用 malloc 复制字符串，交给 C ABI 调用方。
      *
      * 返回的缓冲区必须由调用方使用 weft_free() 释放；分配失败返回 nullptr。
@@ -320,6 +390,30 @@ char* weft_project_compile(WeftProject* project, int allow_partial, int build_pr
         return duplicate_string(project_error_json(error.what()));
     } catch (...) {
         return duplicate_string(project_error_json("unknown native error"));
+    }
+}
+
+char* weft_project_runtime(WeftProject* project)
+{
+    // 播放器载荷只做严格编译；有 error 时由 project_runtime_json 返回错误信息。
+    try {
+        if (project == nullptr) {
+            return duplicate_string(runtime_error_json("project is null"));
+        }
+
+        weftline::projects::CompilationOptions options;
+        options.allow_partial = false;
+        options.build_projection = false;
+
+        // 复用同一份编译缓存，避免为预览重新解析未变化文件。
+        const auto result = weftline::projects::compile(
+            project->snapshot, options, &project->cache);
+
+        return duplicate_string(project_runtime_json(result));
+    } catch (const std::exception& error) {
+        return duplicate_string(runtime_error_json(error.what()));
+    } catch (...) {
+        return duplicate_string(runtime_error_json("unknown native error"));
     }
 }
 

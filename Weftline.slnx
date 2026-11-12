@@ -5,10 +5,12 @@
     <Project Path="src/Weftline.Graph/Weftline.Graph.csproj" />
     <Project Path="src/Weftline.Models/Weftline.Models.csproj" />
     <Project Path="src/Weftline.Native/Weftline.Native.csproj" />
+    <Project Path="src/Weftline.Player/Weftline.Player.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Weftline.Editor.Tests/Weftline.Editor.Tests.csproj" />
     <Project Path="tests/Weftline.Graph.Tests/Weftline.Graph.Tests.csproj" />
+    <Project Path="tests/Weftline.Player.Tests/Weftline.Player.Tests.csproj" />
   </Folder>
   <Folder Name="/bench/">
     <Project Path="bench/Weftline.Benchmarks/Weftline.Benchmarks.csproj" />

@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://weftline.local/schema/runtime.response.schema.json",
+  "title": "Weftline core runtime response",
+  "type": "object",
+  "required": ["schemaVersion", "hasErrors"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "hasErrors": {
+      "type": "boolean"
+    },
+    "error": {
+      "type": "string"
+    },
+    "diagnosticCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtime": {
+      "$ref": "#/$defs/runtimeProjection"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "runtimeProjection": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "projectName",
+        "end",
+        "chapters",
+        "globals",
+        "modules"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "projectName": {
+          "type": "string"
+        },
+        "entry": {
+          "type": "string"
+        },
+        "end": {
+          "type": "string"
+        },
+        "chapters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/chapter"
+          }
+        },
+        "globals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/global"
+          }
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/module"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "chapter": {
+      "type": "object",
+      "required": ["id", "title"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "global": {
+      "type": "object",
+      "required": ["name", "initial"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "initial": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "module": {
+      "type": "object",
+      "required": ["id", "chapterId", "content"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "chapterId": {
+          "type": "string"
+        },
+        "scene": {
+          "type": "string"
+        },
+        "content": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/content"
+          }
+        },
+        "exit": {
+          "$ref": "#/$defs/exit"
+        }
+      },
+      "additionalProperties": false
+    },
+    "content": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": ["narration", "dialogue", "figure"]
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/segment"
+          }
+        },
+        "speaker": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "segment": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": ["text", "ref"]
+        },
+        "text": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "exit": {
+      "type": "object",
+      "required": ["mode", "branches"],
+      "properties": {
+        "mode": {
+          "enum": ["auto", "choice"]
+        },
+        "character": {
+          "type": "string"
+        },
+        "branches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/branch"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "branch": {
+      "type": "object",
+      "required": ["target", "effects"],
+      "properties": {
+        "condition": {
+          "$ref": "#/$defs/boolExpr"
+        },
+        "label": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/effect"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "boolExpr": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": ["literal", "ref", "not", "and", "or"]
+        },
+        "value": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "expr": {
+          "$ref": "#/$defs/boolExpr"
+        },
+        "left": {
+          "$ref": "#/$defs/boolExpr"
+        },
+        "right": {
+          "$ref": "#/$defs/boolExpr"
+        }
+      },
+      "additionalProperties": false
+    },
+    "effect": {
+      "type": "object",
+      "required": ["name", "value"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

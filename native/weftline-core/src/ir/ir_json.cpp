@@ -380,6 +380,76 @@ namespace weftline::ir {
             writer.end_object();
         }
 
+        // 播放器分支省略源码位置，只保留条件、文案、目标和效果。
+        void write_runtime_branch(
+            json::Writer& writer, const RuntimeBranch& branch)
+        {
+            writer.begin_object();
+
+            if (branch.condition) {
+                writer.key("condition");
+                write_bool_expr(writer, *branch.condition);
+            }
+            if (branch.label) {
+                writer.key("label").string(source::utf16_to_utf8(*branch.label));
+            }
+
+            writer.key("target").string(source::utf16_to_utf8(branch.target));
+
+            writer.key("effects").begin_array();
+            for (const auto& effect : branch.effects) {
+                write_effect(writer, effect);
+            }
+            writer.end_array();
+
+            writer.end_object();
+        }
+
+        // 播放器出口同样去源码位置，模式、角色和分支顺序保持不变。
+        void write_runtime_exit(json::Writer& writer, const RuntimeExit& exit)
+        {
+            writer.begin_object();
+            writer.key("mode").string(exit_mode_name(exit.mode));
+
+            if (exit.character) {
+                writer.key("character").string(source::utf16_to_utf8(*exit.character));
+            }
+
+            writer.key("branches").begin_array();
+            for (const auto& branch : exit.branches) {
+                write_runtime_branch(writer, branch);
+            }
+            writer.end_array();
+
+            writer.end_object();
+        }
+
+        // 播放器模块：完整正文与可选出口，不写 module/exit 的源码范围。
+        void write_runtime_module(
+            json::Writer& writer, const RuntimeModule& module)
+        {
+            writer.begin_object();
+            writer.key("id").string(source::utf16_to_utf8(module.id));
+            writer.key("chapterId").string(source::utf16_to_utf8(module.chapter_id));
+
+            if (module.scene) {
+                writer.key("scene").string(source::utf16_to_utf8(*module.scene));
+            }
+
+            writer.key("content").begin_array();
+            for (const auto& content : module.content) {
+                write_content(writer, content);
+            }
+            writer.end_array();
+
+            if (module.exit) {
+                writer.key("exit");
+                write_runtime_exit(writer, *module.exit);
+            }
+
+            writer.end_object();
+        }
+
     } // namespace
 
     // StoryGraph JSON 用于调试和 HTML 载荷，包含完整正文。
@@ -406,6 +476,49 @@ namespace weftline::ir {
         writer.key("modules").begin_array();
         for (const auto& module : graph.modules) {
             write_module(writer, module);
+        }
+        writer.end_array();
+
+        writer.end_object();
+        return writer.str();
+    }
+
+    // RuntimeProjection JSON 只携带播放器需要的数据；源码位置已在构建阶段丢弃。
+    std::string runtime_projection_to_json(const RuntimeProjection& projection)
+    {
+        json::Writer writer;
+        writer.begin_object();
+        writer.key("schemaVersion").number(projection.schema_version);
+        writer.key("projectName").string(
+            source::utf16_to_utf8(projection.project_name));
+        writer.key("end").string(source::utf16_to_utf8(projection.end));
+
+        if (projection.entry) {
+            writer.key("entry").string(
+                source::utf16_to_utf8(*projection.entry));
+        }
+
+        writer.key("chapters").begin_array();
+        for (const auto& chapter : projection.chapters) {
+            writer.begin_object();
+            writer.key("id").string(source::utf16_to_utf8(chapter.id));
+            writer.key("title").string(source::utf16_to_utf8(chapter.title));
+            writer.end_object();
+        }
+        writer.end_array();
+
+        writer.key("globals").begin_array();
+        for (const auto& global : projection.globals) {
+            writer.begin_object();
+            writer.key("name").string(source::utf16_to_utf8(global.name));
+            writer.key("initial").boolean(global.initial);
+            writer.end_object();
+        }
+        writer.end_array();
+
+        writer.key("modules").begin_array();
+        for (const auto& module : projection.modules) {
+            write_runtime_module(writer, module);
         }
         writer.end_array();
 

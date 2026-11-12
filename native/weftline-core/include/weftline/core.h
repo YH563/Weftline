@@ -101,6 +101,23 @@ extern "C" {
     WEFTLINE_API char* weft_project_compile(
         WeftProject* project, int allow_partial, int build_projection);
 
+    /**
+     * @brief 编译当前项目并返回播放器载荷 JSON。
+     *
+     * 只做严格编译（有 error 时不产出载荷），复用项目句柄内的编译缓存。
+     * 响应结构：
+     *   { "schemaVersion": 1, "hasErrors": false, "runtime": { ... } }
+     * 失败时：
+     *   { "schemaVersion": 1, "hasErrors": true, "error": "...",
+     *     "diagnosticCount": N }
+     *
+     * runtime 不含源码位置、诊断或 .wstory 设计记录，供剧本预览和 HTML 导出使用。
+     *
+     * @return JSON；由 core 分配，调用方必须用 weft_free() 释放。
+     *         仅当响应缓冲区分配失败时返回 NULL。
+     */
+    WEFTLINE_API char* weft_project_runtime(WeftProject* project);
+
 #ifdef __cplusplus
 }
 #endif

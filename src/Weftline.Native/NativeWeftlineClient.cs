@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using Weftline.Player;
 
 namespace Weftline.Native;
 
@@ -209,6 +210,43 @@ public sealed class NativeWeftlineClient : IDisposable
             }
 
             return response;
+        }
+        finally
+        {
+            NativeMethods.weft_free(pointer);
+        }
+    }
+
+    /// <summary>
+    /// 严格编译当前项目并返回播放器载荷。
+    /// </summary>
+    /// <remarks>
+    /// 只在打开预览时调用，避免把完整正文放进每次实时编译的响应。
+    /// 有 error 或 native 返回失败时抛出异常。
+    /// </remarks>
+    public RuntimeProjection CompileRuntime()
+    {
+        var pointer = NativeMethods.weft_project_runtime(_handle);
+
+        if (pointer == IntPtr.Zero)
+        {
+            throw new InvalidOperationException("weft_project_runtime returned null.");
+        }
+
+        try
+        {
+            var json = Marshal.PtrToStringUTF8(pointer) ?? string.Empty;
+            var response = JsonSerializer.Deserialize<NativeRuntimeResponse>(
+                json, JsonOptions)
+                ?? throw new InvalidOperationException("Native runtime response was empty.");
+
+            if (response.HasErrors || response.Runtime is null)
+            {
+                throw new InvalidOperationException(
+                    response.Error ?? "Project has errors.");
+            }
+
+            return response.Runtime.ToRuntimeProjection();
         }
         finally
         {

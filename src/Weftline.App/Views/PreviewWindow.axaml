@@ -1,0 +1,210 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Weftline.App.ViewModels"
+        x:Class="Weftline.App.Views.PreviewWindow"
+        x:DataType="vm:PreviewViewModel"
+        x:CompileBindings="True"
+        Title="剧本预览"
+        Width="980"
+        Height="780"
+        MinWidth="720"
+        MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource PreviewBackground}">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="PreviewBackground" Color="#F6F7F9" />
+        <SolidColorBrush x:Key="PreviewSurface" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="PreviewBorder" Color="#E2E5EA" />
+        <SolidColorBrush x:Key="PreviewText" Color="#20242B" />
+        <SolidColorBrush x:Key="PreviewTextSecondary" Color="#5F6B7A" />
+        <SolidColorBrush x:Key="PreviewTextMuted" Color="#8A94A3" />
+        <SolidColorBrush x:Key="PreviewAccent" Color="#2563EB" />
+        <SolidColorBrush x:Key="PreviewAccentSoft" Color="#F2F6FF" />
+        <SolidColorBrush x:Key="PreviewImageBackground" Color="#EDEFF3" />
+        <SolidColorBrush x:Key="PreviewWarning" Color="#B45309" />
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Button.preview-choice">
+            <Setter Property="Background" Value="{DynamicResource PreviewSurface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PreviewBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="16,12" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Foreground" Value="{DynamicResource PreviewText}" />
+        </Style>
+        <Style Selector="Button.preview-choice:pointerover">
+            <Setter Property="Background" Value="{DynamicResource PreviewAccentSoft}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PreviewAccent}" />
+        </Style>
+        <Style Selector="Button.preview-toolbar">
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0"
+                Background="{DynamicResource PreviewSurface}"
+                BorderBrush="{DynamicResource PreviewBorder}"
+                BorderThickness="0,0,0,1"
+                Padding="28,16">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="{Binding ProjectName}"
+                               FontSize="12"
+                               Foreground="{DynamicResource PreviewTextMuted}" />
+                    <TextBlock Text="{Binding ChapterTitle}"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource PreviewText}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="起点"
+                               FontSize="12"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource PreviewTextMuted}" />
+                    <ComboBox ItemsSource="{Binding StartModules}"
+                              SelectedItem="{Binding SelectedStartModule, Mode=TwoWay}"
+                              Width="160"
+                              FontSize="12" />
+                    <Button Classes="preview-toolbar"
+                            Content="重开"
+                            Command="{Binding RestartFromSelectedCommand}" />
+                    <Button Classes="preview-toolbar"
+                            Content="关闭"
+                            Click="OnCloseClick" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer x:Name="ReaderScroll"
+                      Grid.Row="1"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel MinWidth="640"
+                        MaxWidth="780"
+                        Margin="28,36,28,48"
+                        HorizontalAlignment="Center"
+                        Spacing="0">
+                <Border x:Name="ReadingArea"
+                        Background="Transparent"
+                        Cursor="Hand"
+                        PointerPressed="OnReadingAreaPointerPressed">
+                    <ItemsControl ItemsSource="{Binding VisibleBlocks}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PreviewBlockViewModel">
+                                <Grid Margin="0,0,0,24">
+                                    <Border IsVisible="{Binding IsImage}"
+                                            MaxWidth="640"
+                                            MaxHeight="380"
+                                            MinHeight="160"
+                                            HorizontalAlignment="Center"
+                                            Background="{DynamicResource PreviewImageBackground}"
+                                            ClipToBounds="True">
+                                        <Panel>
+                                            <Image Source="{Binding Image}"
+                                                   IsVisible="{Binding HasImage}"
+                                                   Stretch="Uniform" />
+                                            <TextBlock Text="图片缺失"
+                                                       IsVisible="{Binding IsMissingImage}"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="13"
+                                                       Foreground="{DynamicResource PreviewTextMuted}" />
+                                        </Panel>
+                                    </Border>
+
+                                    <StackPanel IsVisible="{Binding IsDialogue}" Spacing="6">
+                                        <TextBlock Text="{Binding Speaker}"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PreviewAccent}" />
+                                        <TextBlock Text="{Binding Text}"
+                                                   TextWrapping="Wrap"
+                                                   FontSize="17"
+                                                   LineHeight="30"
+                                                   Foreground="{DynamicResource PreviewText}" />
+                                    </StackPanel>
+
+                                    <TextBlock IsVisible="{Binding IsNarration}"
+                                               Text="{Binding Text}"
+                                               TextWrapping="Wrap"
+                                               FontSize="17"
+                                               LineHeight="30"
+                                               Foreground="{DynamicResource PreviewText}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+
+                <ItemsControl ItemsSource="{Binding Choices}"
+                              IsVisible="{Binding HasChoices}"
+                              Margin="0,4,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:PreviewChoiceViewModel">
+                            <Button Classes="preview-choice"
+                                    Content="{Binding Label}"
+                                    Command="{Binding Command}"
+                                    Margin="0,0,0,10" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <StackPanel IsVisible="{Binding IsEnded}"
+                            Spacing="14"
+                            Margin="0,24,0,0"
+                            HorizontalAlignment="Center">
+                    <TextBlock Text="故事结束"
+                               FontSize="22"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource PreviewText}" />
+                    <Button Classes="preview-toolbar"
+                            Content="重新开始"
+                            Command="{Binding RestartCommand}"
+                            HorizontalAlignment="Center" />
+                </StackPanel>
+
+                <StackPanel IsVisible="{Binding HasError}"
+                            Spacing="10"
+                            Margin="0,24,0,0">
+                    <TextBlock Text="无法继续播放"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource PreviewWarning}" />
+                    <TextBlock Text="{Binding ErrorMessage}"
+                               TextWrapping="Wrap"
+                               FontSize="14"
+                               Foreground="{DynamicResource PreviewTextSecondary}" />
+                    <Button Classes="preview-toolbar"
+                            Content="重新开始"
+                            Command="{Binding RestartCommand}"
+                            HorizontalAlignment="Left" />
+                </StackPanel>
+
+                <TextBlock Text="{Binding HintText}"
+                           IsVisible="{Binding CanAdvance}"
+                           Margin="0,18,0,0"
+                           HorizontalAlignment="Center"
+                           FontSize="12"
+                           Foreground="{DynamicResource PreviewTextMuted}" />
+
+                <TextBlock Text="{Binding DebugText}"
+                           IsVisible="{Binding IsDebugVisible}"
+                           Margin="0,18,0,0"
+                           TextWrapping="Wrap"
+                           FontSize="11"
+                           Foreground="{DynamicResource PreviewTextMuted}" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>

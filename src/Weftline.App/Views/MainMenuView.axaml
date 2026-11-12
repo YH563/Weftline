@@ -131,6 +131,12 @@
             </MenuItem>
 
             <MenuItem Header="运行">
+                <MenuItem Header="预览"
+                          InputGesture="Ctrl+Enter"
+                          Command="{Binding PreviewCommand}" />
+                <MenuItem Header="从头预览"
+                          Command="{Binding PreviewFromStartCommand}" />
+                <Separator />
                 <MenuItem Header="校验项目"
                           InputGesture="Ctrl+Shift+B"
                           Command="{Binding ValidateCommand}" />

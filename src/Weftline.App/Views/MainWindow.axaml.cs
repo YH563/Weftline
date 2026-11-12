@@ -10,6 +10,7 @@ namespace Weftline.App.Views;
 public partial class MainWindow : SukiWindow
 {
     private MainWindowViewModel? _subscribedViewModel;
+    private PreviewWindow? _previewWindow;
 
     public MainWindow()
     {
@@ -29,6 +30,7 @@ public partial class MainWindow : SukiWindow
         {
             _subscribedViewModel.ProjectOpened -= OnProjectOpened;
             _subscribedViewModel.LayoutSaveRequested -= OnLayoutSaveRequested;
+            _subscribedViewModel.PreviewRequested -= OnPreviewRequested;
         }
 
         _subscribedViewModel = DataContext as MainWindowViewModel;
@@ -37,12 +39,44 @@ public partial class MainWindow : SukiWindow
         {
             _subscribedViewModel.ProjectOpened += OnProjectOpened;
             _subscribedViewModel.LayoutSaveRequested += OnLayoutSaveRequested;
+            _subscribedViewModel.PreviewRequested += OnPreviewRequested;
         }
 
         ApplySavedLayout();
     }
 
-    private void OnProjectOpened(object? sender, EventArgs e) => ApplySavedLayout();
+    private void OnProjectOpened(object? sender, EventArgs e)
+    {
+        ClosePreview();
+        ApplySavedLayout();
+    }
+
+    private void OnPreviewRequested(object? sender, PreviewRequestedEventArgs e)
+    {
+        ClosePreview();
+
+        var window = new PreviewWindow
+        {
+            DataContext = e.ViewModel,
+        };
+
+        window.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_previewWindow, window))
+            {
+                _previewWindow = null;
+            }
+        };
+
+        _previewWindow = window;
+        window.Show(this);
+    }
+
+    private void ClosePreview()
+    {
+        _previewWindow?.Close();
+        _previewWindow = null;
+    }
 
     private void ApplySavedLayout()
     {

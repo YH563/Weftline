@@ -4,7 +4,7 @@
 
 Weftline is a story demo / narrative demonstration tool: write scripts, inspect the story graph, and export a playable HTML demo (planned for the C++ core).
 
-Current stage: the C++ language core and desktop editor are usable. The desktop app now has an IDE-style shell: project explorer, multi-tab AvaloniaEdit editor, dual-lane syntax/project analysis, merged diagnostics, hover, completion, status bar, folder switching, and basic file operations. Single-file syntax diagnostics and project semantics are scheduled independently and applied by version; project compilation syncs only changed documents incrementally. The story graph supports layout sidecars, hover summaries, double-click navigation, chapter-edge details, badges, filters, and shortest-path highlighting; the Problems panel is also wired up. HTML export will be implemented in C++ later.
+Current stage: the C++ language core and desktop editor are usable. The desktop app now has an IDE-style shell: project explorer, multi-tab AvaloniaEdit editor, dual-lane syntax/project analysis, merged diagnostics, hover, completion, status bar, folder switching, and basic file operations. Single-file syntax diagnostics and project semantics are scheduled independently and applied by version; project compilation syncs only changed documents incrementally. The story graph supports layout sidecars, hover summaries, double-click navigation, chapter-edge details, badges, filters, and shortest-path highlighting; the Problems panel is also wired up. An in-app story preview supports step-by-step reading, choices, conditions/effects, images, and local start modules. HTML export will be implemented in C++ later.
 
 ## File types
 
