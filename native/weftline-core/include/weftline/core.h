@@ -102,6 +102,22 @@ extern "C" {
         WeftProject* project, int allow_partial, int build_projection);
 
     /**
+     * @brief 编译当前项目并返回 JSON，可选择附带播放器载荷。
+     *
+     * 与 weft_project_compile 相同，只是多一个 build_runtime 参数：
+     * - build_runtime != 0 且无 error 时，响应附带 runtime 字段；
+     * - 有 error 时不构建 runtime，调用方应保留上一次可用载荷。
+     *
+     * @return JSON；由 core 分配，调用方必须用 weft_free() 释放。
+     *         仅当响应缓冲区分配失败时返回 NULL。
+     */
+    WEFTLINE_API char* weft_project_compile_ex(
+        WeftProject* project,
+        int allow_partial,
+        int build_projection,
+        int build_runtime);
+
+    /**
      * @brief 编译当前项目并返回播放器载荷 JSON。
      *
      * 只做严格编译（有 error 时不产出载荷），复用项目句柄内的编译缓存。

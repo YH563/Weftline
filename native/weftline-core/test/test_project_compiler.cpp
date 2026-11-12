@@ -53,6 +53,39 @@ namespace {
         EXPECT_EQ(result.projection.value()->modules.size(), 1u);
     }
 
+    TEST(ProjectCompiler, BuildsRuntimeOnlyWhenRequested)
+    {
+        const auto snapshot = make_snapshot(R"(@title 第一章
+@var a false
+@module A
+    [你好]
+@next -> END { @set a true }
+)");
+
+        CompilationOptions options;
+        options.build_runtime = true;
+        const auto result = weftline::projects::compile(snapshot, options);
+
+        EXPECT_FALSE(result.has_errors());
+        ASSERT_TRUE(result.runtime.has_value());
+        ASSERT_EQ(result.runtime.value()->modules.size(), 1u);
+        EXPECT_EQ(result.runtime.value()->modules[0].id, u"A");
+        EXPECT_FALSE(result.projection.has_value());
+    }
+
+    TEST(ProjectCompiler, OmitsRuntimeWhenNotRequested)
+    {
+        const auto snapshot = make_snapshot(R"(@title 第一章
+@module A
+@next -> END
+)");
+
+        const auto result = weftline::projects::compile(snapshot);
+
+        EXPECT_FALSE(result.has_errors());
+        EXPECT_FALSE(result.runtime.has_value());
+    }
+
     TEST(ProjectCompiler, StrictModeDropsGraphOnErrors)
     {
         const auto snapshot = make_snapshot(R"(@title 第一章
@@ -60,12 +93,32 @@ namespace {
 @next -> Missing
 )");
 
-        const auto strict = weftline::projects::compile(snapshot);
+        CompilationOptions options;
+        options.build_runtime = true;
+        const auto strict = weftline::projects::compile(snapshot, options);
 
         EXPECT_TRUE(strict.has_errors());
         EXPECT_FALSE(strict.graph.has_value());
         EXPECT_FALSE(strict.analysis.has_value());
         EXPECT_FALSE(strict.projection.has_value());
+        EXPECT_FALSE(strict.runtime.has_value());
+    }
+
+    TEST(ProjectCompiler, PartialErrorsDropRuntime)
+    {
+        const auto snapshot = make_snapshot(R"(@title 第一章
+@module A
+@next -> Missing
+)");
+
+        CompilationOptions options;
+        options.allow_partial = true;
+        options.build_runtime = true;
+        const auto partial = weftline::projects::compile(snapshot, options);
+
+        EXPECT_TRUE(partial.has_errors());
+        ASSERT_TRUE(partial.graph.has_value());
+        EXPECT_FALSE(partial.runtime.has_value());
     }
 
     TEST(ProjectCompiler, PartialModeKeepsGraphOnErrors)

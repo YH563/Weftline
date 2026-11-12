@@ -225,6 +225,12 @@ namespace {
                 weftline::ir::graph_projection_to_json(*result.projection.value()));
         }
 
+        // runtime 只在显式请求且无 error 时出现；调用方保留上一次可用载荷。
+        if (result.runtime) {
+            writer.key("runtime").raw(
+                weftline::ir::runtime_projection_to_json(*result.runtime.value()));
+        }
+
         writer.end_object();
         return writer.str();
     }
@@ -366,7 +372,11 @@ void weft_project_remove_document(WeftProject* project, const char* path)
     ++project->snapshot.version;
 }
 
-char* weft_project_compile(WeftProject* project, int allow_partial, int build_projection)
+char* weft_project_compile_ex(
+    WeftProject* project,
+    int allow_partial,
+    int build_projection,
+    int build_runtime)
 {
     // 不向 C ABI 抛异常：所有失败都转换成可解析的 JSON 响应。
     try {
@@ -378,6 +388,7 @@ char* weft_project_compile(WeftProject* project, int allow_partial, int build_pr
         weftline::projects::CompilationOptions options;
         options.allow_partial = allow_partial != 0;
         options.build_projection = build_projection != 0;
+        options.build_runtime = build_runtime != 0;
 
         // 缓存随句柄存活：未变化文件复用 AST/绑定/图结果，变化部分重新编译。
         const auto result =
@@ -391,6 +402,13 @@ char* weft_project_compile(WeftProject* project, int allow_partial, int build_pr
     } catch (...) {
         return duplicate_string(project_error_json("unknown native error"));
     }
+}
+
+char* weft_project_compile(WeftProject* project, int allow_partial, int build_projection)
+{
+    // 兼容旧调用方：等价于不请求 runtime 的 compile_ex。
+    return weft_project_compile_ex(
+        project, allow_partial, build_projection, 0);
 }
 
 char* weft_project_runtime(WeftProject* project)

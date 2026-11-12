@@ -10,6 +10,7 @@
 #include "weftline/ir/graph_analysis_builder.hpp"
 #include "weftline/ir/graph_projection_builder.hpp"
 #include "weftline/ir/project_model_builder.hpp"
+#include "weftline/ir/runtime_projection_builder.hpp"
 #include "weftline/ir/story_graph_builder.hpp"
 #include "weftline/projects/compilation_cache.hpp"
 #include "weftline/projects/project_binder.hpp"
@@ -96,6 +97,7 @@ namespace weftline::projects {
         std::optional<std::shared_ptr<const ir::StoryGraph>> graph;
         std::optional<std::shared_ptr<const ir::GraphAnalysis>> analysis;
         std::optional<std::shared_ptr<const ir::GraphProjection>> projection;
+        std::optional<std::shared_ptr<const ir::RuntimeProjection>> runtime;
 
         // 阶段 5：图/分析/投影。strict 模式有 error 时不产出正式图。
         if (!errors || options.allow_partial) {
@@ -157,6 +159,13 @@ namespace weftline::projects {
             }
         }
 
+        // 阶段 6：播放器载荷只在显式请求且无 error 时构建。
+        // 有 error 时调用方应保留上一次可用 runtime，避免播放不完整模型。
+        if (options.build_runtime && !errors && graph) {
+            runtime = std::make_shared<const ir::RuntimeProjection>(
+                ir::build_runtime_projection(model, *graph.value()));
+        }
+
         return ProjectCompilationResult{
             std::move(project),
             std::move(binding.index),
@@ -165,6 +174,7 @@ namespace weftline::projects {
             std::move(graph),
             std::move(analysis),
             std::move(projection),
+            std::move(runtime),
         };
     }
 

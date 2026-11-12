@@ -108,6 +108,10 @@
     "projection": {
       "type": "object",
       "description": "GraphProjection JSON；字段见 ir/graph_projection.hpp。"
+    },
+    "runtime": {
+      "type": "object",
+      "description": "RuntimeProjection JSON；字段见 runtime.response.schema.json。"
     }
   },
   "$defs": {
