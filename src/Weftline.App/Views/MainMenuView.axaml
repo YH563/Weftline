@@ -35,10 +35,11 @@
                             </ContentPresenter>
 
                             <Popup Name="PART_Popup"
-                                   ShouldUseOverlayLayer="True"
+                                   ShouldUseOverlayLayer="False"
+                                   PlacementTarget="{Binding $parent[MenuItem]}"
                                    IsLightDismissEnabled="True"
                                    IsOpen="{TemplateBinding IsSubMenuOpen, Mode=TwoWay}"
-                                   Placement="BottomEdgeAlignedLeft"
+                                   Placement="Bottom"
                                    ClipToBounds="True">
                                 <Border Background="{DynamicResource Surface}"
                                         BorderBrush="{DynamicResource BorderStrong}"
