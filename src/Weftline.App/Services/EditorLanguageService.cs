@@ -35,11 +35,11 @@ public sealed class EditorLanguageService : IWeftEditorLanguageService
             _modulesByScene = value is null
                 ? new Dictionary<string, List<GraphModuleNode>>(StringComparer.Ordinal)
                 : value.Modules
-                    .Where(static module => !string.IsNullOrEmpty(module.Scene))
-                    .GroupBy(static module => module.Scene!, StringComparer.Ordinal)
+                    .SelectMany(static module => module.Scenes.Select(scene => (scene, module)))
+                    .GroupBy(static pair => pair.scene, StringComparer.Ordinal)
                     .ToDictionary(
                         static group => group.Key,
-                        static group => group.ToList(),
+                        static group => group.Select(static pair => pair.module).ToList(),
                         StringComparer.Ordinal);
         }
     }
@@ -420,9 +420,9 @@ public sealed class EditorLanguageService : IWeftEditorLanguageService
 
         var parts = new List<string> { $"章节：{chapter}" };
 
-        if (!string.IsNullOrEmpty(module.Scene))
+        if (module.Scenes.Count > 0)
         {
-            parts.Add($"场景：{module.Scene}");
+            parts.Add($"场景：{string.Join(" / ", module.Scenes)}");
         }
 
         parts.Add(
@@ -506,9 +506,9 @@ public sealed class EditorLanguageService : IWeftEditorLanguageService
                 : module.ChapterId;
             var parts = new List<string> { $"章节：{chapter}" };
 
-            if (!string.IsNullOrEmpty(module.Scene))
+            if (module.Scenes.Count > 0)
             {
-                parts.Add($"场景：{module.Scene}");
+                parts.Add($"场景：{string.Join(" / ", module.Scenes)}");
             }
 
             parts.Add($"分支：{module.BranchCount}");

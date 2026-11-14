@@ -43,11 +43,11 @@ public partial class WeftEditorView : UserControl
             TextEditor,
             () => _document?.FilePath,
             () => _document?.Diagnostics ?? [],
-            () => _host?.LanguageService);
+            () => IsWeftFile(_document?.FilePath) ? _host?.LanguageService : null);
         _completionController = new CompletionController(
             TextEditor,
             () => _document?.FilePath,
-            () => _host?.LanguageService);
+            () => IsWeftFile(_document?.FilePath) ? _host?.LanguageService : null);
         DataContextChanged += OnDataContextChanged;
         ApplyTheme(EditorTheme.Default);
     }
@@ -126,12 +126,7 @@ public partial class WeftEditorView : UserControl
     }
 
     private static bool IsWeftFile(string? path)
-    {
-        var extension = Path.GetExtension(path);
-
-        return string.Equals(extension, ".weft", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(extension, ".wstory", StringComparison.OrdinalIgnoreCase);
-    }
+        => WeftDocumentKinds.IsWeftFile(path);
 
     private void LoadSelectedDocument()
     {

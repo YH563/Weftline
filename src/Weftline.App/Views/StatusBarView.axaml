@@ -8,46 +8,56 @@
              x:DataType="vm:StatusBarViewModel"
              x:CompileBindings="True">
 
-    <Border Height="26"
-            Padding="10,0"
-            Background="#F7F8FA"
-            BorderBrush="#E2E5EA"
+    <Border Height="28"
+            Padding="12,0"
+            Background="{DynamicResource SurfaceAlt}"
+            BorderBrush="{DynamicResource Border}"
             BorderThickness="0,1,0,0">
         <Grid ColumnDefinitions="Auto,*,Auto">
             <StackPanel Orientation="Horizontal"
-                        Spacing="12"
+                        Spacing="10"
                         VerticalAlignment="Center">
                 <TextBlock Text="{Binding CaretText}"
-                           FontSize="12"
-                           Foreground="#5F6B7A" />
+                           IsVisible="{Binding HasDocument}"
+                           Classes="caption" />
+                <Border Width="1" Height="11"
+                        IsVisible="{Binding HasDocument}"
+                        Background="{DynamicResource Border}" />
                 <TextBlock Text="{Binding SelectionText}"
                            IsVisible="{Binding HasSelection}"
-                           FontSize="12"
-                           Foreground="#5F6B7A" />
+                           Classes="caption" />
+                <Border Width="1" Height="11"
+                        IsVisible="{Binding HasSelection}"
+                        Background="{DynamicResource Border}" />
                 <TextBlock Text="{Binding Language}"
-                           FontSize="12"
-                           Foreground="#5F6B7A" />
+                           IsVisible="{Binding HasDocument}"
+                           Classes="caption" />
+                <Border Width="1" Height="11"
+                        IsVisible="{Binding HasDocument}"
+                        Background="{DynamicResource Border}" />
                 <TextBlock Text="{Binding ContextText}"
-                           FontSize="12"
-                           Foreground="#5F6B7A"
+                           Classes="caption"
                            TextTrimming="CharacterEllipsis"
                            MaxWidth="320" />
             </StackPanel>
 
             <StackPanel Grid.Column="2"
                         Orientation="Horizontal"
-                        Spacing="16"
+                        Spacing="10"
                         VerticalAlignment="Center"
                         HorizontalAlignment="Right">
                 <TextBlock Text="{Binding SymbolText}"
-                           FontSize="12"
-                           Foreground="#5F6B7A" />
+                           Classes="caption" />
+                <Border Width="1" Height="11"
+                        Background="{DynamicResource Border}" />
                 <TextBlock Text="{Binding DiagnosticsText}"
-                           FontSize="12"
-                           Foreground="#5F6B7A" />
+                           Classes="caption" />
+                <Border Width="1" Height="11"
+                        Background="{DynamicResource Border}" />
                 <TextBlock Text="{Binding StatusText}"
                            FontSize="12"
-                           Foreground="#3F4A59" />
+                           Foreground="{DynamicResource TextSecondary}"
+                           VerticalAlignment="Center" />
             </StackPanel>
         </Grid>
     </Border>

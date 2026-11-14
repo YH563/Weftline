@@ -33,10 +33,11 @@ internal static partial class NativeMethods
         string path);
 
     [LibraryImport(Library)]
-    internal static partial IntPtr weft_project_compile(
+    internal static partial IntPtr weft_project_compile_ex(
         IntPtr project,
         int allowPartial,
-        int buildProjection);
+        int buildProjection,
+        int buildRuntime);
 
     [LibraryImport(Library)]
     internal static partial IntPtr weft_project_runtime(IntPtr project);

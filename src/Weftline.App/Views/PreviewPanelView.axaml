@@ -1,0 +1,263 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Weftline.App.ViewModels"
+             x:Class="Weftline.App.Views.PreviewPanelView"
+             x:DataType="vm:PreviewPanelViewModel"
+             x:CompileBindings="True">
+
+    <UserControl.Styles>
+        <Style Selector="Button.previewTitle">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="4,2" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.previewTitle:pointerover TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+        </Style>
+        <Style Selector="Button.previewChoice">
+            <Setter Property="Background" Value="{DynamicResource SurfaceAlt}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.previewChoice:pointerover">
+            <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorder}" />
+        </Style>
+        <Style Selector="Button.previewContinue">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.previewContinue:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SurfaceMuted}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0"
+                Padding="12,8"
+                Background="{DynamicResource SurfaceAlt}"
+                BorderBrush="{DynamicResource Border}"
+                BorderThickness="0,0,0,1">
+            <StackPanel Spacing="2">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <PathIcon Data="{StaticResource IconPreview}"
+                              Width="14"
+                              Height="14"
+                              Foreground="{DynamicResource TextSecondary}"
+                              VerticalAlignment="Center" />
+                    <TextBlock Text="预览"
+                               Classes="panelTitle" />
+                </StackPanel>
+                <TextBlock Text="{Binding StatusText}"
+                           Classes="panelSubtitle"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto"
+                          AllowAutoHide="True">
+                <ItemsControl x:Name="ModuleList"
+                              ItemsSource="{Binding Modules}"
+                              Margin="28,22,28,36">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:PreviewModuleViewModel">
+                            <Grid Margin="0,0,0,30">
+                                <StackPanel IsVisible="{Binding !IsEnd}"
+                                            Spacing="8">
+                                    <Button Classes="previewTitle"
+                                            Command="{Binding OpenCommand}"
+                                            HorizontalAlignment="Center"
+                                            ToolTip.Tip="跳转到模块源码">
+                                        <TextBlock Text="{Binding ModuleId}"
+                                                   FontSize="18"
+                                                   FontWeight="Bold"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource TextPrimary}" />
+                                    </Button>
+
+                                    <ItemsControl ItemsSource="{Binding Lines}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:PreviewLineViewModel">
+                                                <Grid>
+                                                    <TextBlock IsVisible="{Binding IsScene}"
+                                                               Text="{Binding SceneText}"
+                                                               HorizontalAlignment="Center"
+                                                               Margin="0,10,0,6"
+                                                               FontSize="12"
+                                                               FontStyle="Italic"
+                                                               Foreground="{DynamicResource TextMuted}" />
+
+                                                    <TextBlock IsVisible="{Binding IsNarration}"
+                                                               Text="{Binding Text}"
+                                                               TextWrapping="Wrap"
+                                                               Margin="24,4,24,4"
+                                                               FontSize="14"
+                                                               LineHeight="24"
+                                                               Foreground="{DynamicResource TextPrimary}" />
+
+                                                    <StackPanel IsVisible="{Binding IsDialogue}"
+                                                                Spacing="4"
+                                                                Margin="0,8,0,6">
+                                                        <TextBlock Text="{Binding Speaker}"
+                                                                   HorizontalAlignment="Center"
+                                                                   FontSize="13"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="{DynamicResource TextPrimary}" />
+                                                        <TextBlock Text="{Binding Text}"
+                                                                   TextWrapping="Wrap"
+                                                                   Margin="48,0,48,0"
+                                                                   FontSize="14"
+                                                                   LineHeight="24"
+                                                                   Foreground="{DynamicResource TextPrimary}" />
+                                                    </StackPanel>
+
+                                                    <Border IsVisible="{Binding IsImage}"
+                                                            MaxWidth="300"
+                                                            MaxHeight="200"
+                                                            MinHeight="80"
+                                                            HorizontalAlignment="Center"
+                                                            Background="{DynamicResource SurfaceMuted}"
+                                                            CornerRadius="6"
+                                                            ClipToBounds="True"
+                                                            Margin="0,8,0,8">
+                                                        <Panel>
+                                                            <Image Source="{Binding Image}"
+                                                                   IsVisible="{Binding HasImage}"
+                                                                   Stretch="Uniform" />
+                                                            <TextBlock Text="图片缺失"
+                                                                       IsVisible="{Binding IsMissingImage}"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"
+                                                                       FontSize="12"
+                                                                       Foreground="{DynamicResource TextMuted}" />
+                                                        </Panel>
+                                                    </Border>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <StackPanel IsVisible="{Binding HasBranches}"
+                                                Spacing="6"
+                                                Margin="0,8,0,0">
+                                        <TextBlock Text="{Binding BranchSectionTitle}"
+                                                   HorizontalAlignment="Center"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource TextMuted}" />
+
+                                        <ItemsControl ItemsSource="{Binding Branches}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:PreviewBranchViewModel">
+                                                    <Panel>
+                                                        <Button Classes="previewChoice"
+                                                                IsVisible="{Binding IsChoice}"
+                                                                Command="{Binding OpenCommand}"
+                                                                Margin="24,0,24,4"
+                                                                ToolTip.Tip="跳转到选择分支">
+                                                            <Grid ColumnDefinitions="*,Auto">
+                                                                <StackPanel Spacing="2">
+                                                                    <TextBlock Text="{Binding Label}"
+                                                                               FontSize="13"
+                                                                               FontWeight="SemiBold"
+                                                                               Foreground="{DynamicResource TextPrimary}" />
+                                                                    <TextBlock Text="{Binding Detail}"
+                                                                               IsVisible="{Binding HasDetail}"
+                                                                               FontSize="11"
+                                                                               Foreground="{DynamicResource TextMuted}" />
+                                                                </StackPanel>
+                                                                <TextBlock Grid.Column="1"
+                                                                           Text="{Binding TargetText}"
+                                                                           FontSize="11"
+                                                                           Foreground="{DynamicResource TextSecondary}"
+                                                                           VerticalAlignment="Center"
+                                                                           Margin="12,0,0,0" />
+                                                            </Grid>
+                                                        </Button>
+
+                                                        <Button Classes="previewContinue"
+                                                                IsVisible="{Binding IsAuto}"
+                                                                Command="{Binding OpenCommand}"
+                                                                HorizontalAlignment="Center"
+                                                                Margin="0,2"
+                                                                ToolTip.Tip="跳转到目标模块">
+                                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                <TextBlock Text="{Binding TargetText}"
+                                                                           FontSize="12"
+                                                                           Foreground="{DynamicResource TextSecondary}" />
+                                                                <TextBlock Text="{Binding Detail}"
+                                                                           IsVisible="{Binding HasDetail}"
+                                                                           FontSize="11"
+                                                                           Foreground="{DynamicResource TextMuted}" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                    </Panel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <StackPanel IsVisible="{Binding IsEnd}"
+                                            HorizontalAlignment="Center"
+                                            Spacing="10"
+                                            Margin="0,8,0,0">
+                                    <Border Width="120"
+                                            Height="1"
+                                            HorizontalAlignment="Center"
+                                            Background="{DynamicResource Border}" />
+                                    <TextBlock Text="END"
+                                               HorizontalAlignment="Center"
+                                               FontSize="16"
+                                               FontWeight="Bold"
+                                               Foreground="{DynamicResource TextMuted}" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <StackPanel IsVisible="{Binding IsEmpty}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="10"
+                        Margin="24">
+                <PathIcon Data="{StaticResource IconPreview}"
+                          Width="36"
+                          Height="36"
+                          Foreground="{DynamicResource TextMuted}"
+                          HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding EmptyMessage}"
+                           FontSize="13"
+                           Foreground="{DynamicResource TextMuted}"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center" />
+            </StackPanel>
+
+            <Border IsVisible="{Binding IsStale}"
+                    VerticalAlignment="Top"
+                    HorizontalAlignment="Stretch"
+                    Margin="12,0,12,0"
+                    Padding="10,6"
+                    Background="#FFF7E6"
+                    BorderBrush="#F0D49A"
+                    BorderThickness="1"
+                    CornerRadius="6">
+                <TextBlock Text="内容已更新，当前显示上一次可用预览"
+                           FontSize="12"
+                           Foreground="{DynamicResource Warning}" />
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -10,10 +11,12 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Weftline.App.Models;
 using Weftline.App.Services;
+using Weftline.Editor.Services;
 using Weftline.Editor.ViewModels;
 using Weftline.Graph.Layout;
 using Weftline.Models;
 using Weftline.Native;
+using Weftline.Player;
 
 namespace Weftline.App.ViewModels;
 
@@ -40,6 +43,7 @@ public partial class MainWindowViewModel : ObservableObject
     private EditorDocumentViewModel? _pendingStatusDocument;
     private EditorDocumentViewModel? _pendingCaretDocument;
     private GraphProjection? _lastGoodProjection;
+    private RuntimeProjection? _lastRuntime;
     private WeftProjectSymbols? _lastSymbols;
     private string? _lastGraphSignature;
     private string? _projectFolder;
@@ -68,6 +72,7 @@ public partial class MainWindowViewModel : ObservableObject
             _editorLanguageService);
         Status = new StatusBarViewModel();
         Graph = new GraphViewModel();
+        Preview = new PreviewPanelViewModel(NavigateToSource);
 
         _analysisScheduler = new ProjectAnalysisScheduler(CreateDocumentMap);
         _analysisScheduler.Started += OnAnalysisStarted;
@@ -78,14 +83,11 @@ public partial class MainWindowViewModel : ObservableObject
         Explorer.FileSystemChanged += OnFileSystemChanged;
         Editor.PropertyChanged += OnEditorPropertyChanged;
         Editor.DocumentTextChanged += OnDocumentTextChanged;
-        Editor.Documents.CollectionChanged += (_, _) =>
-        {
-            _documentSnapshots.Clear();
-            ScheduleCompile();
-        };
+        Editor.Documents.CollectionChanged += OnDocumentsCollectionChanged;
         Status.UpdateDocument(Editor.SelectedDocument);
 
         _projectFolder = Explorer.RootPath;
+        UpdatePreviewFile();
         _ = CompileNowAsync();
     }
 
@@ -97,7 +99,15 @@ public partial class MainWindowViewModel : ObservableObject
 
     public GraphViewModel Graph { get; }
 
+    public PreviewPanelViewModel Preview { get; }
+
     public ObservableCollection<DiagnosticItem> Diagnostics { get; } = [];
+
+    [ObservableProperty]
+    private bool _isGraphVisible = true;
+
+    [ObservableProperty]
+    private bool _isPreviewVisible = true;
 
     [ObservableProperty]
     private bool _isProblemsVisible;
@@ -160,11 +170,13 @@ public partial class MainWindowViewModel : ObservableObject
         Explorer.Load(folder);
         _projectFolder = folder;
         _lastGoodProjection = null;
+        _lastRuntime = null;
         _lastSymbols = null;
         _lastGraphSignature = null;
         _editorLanguageService.Projection = null;
         _editorLanguageService.Symbols = null;
         Graph.Reset();
+        Preview.Reset();
         ProjectOpened?.Invoke(this, EventArgs.Empty);
         await CompileNowAsync().ConfigureAwait(true);
         Status.SetStatus($"已打开：{GetFolderName(folder)}");
@@ -401,6 +413,21 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void OnFileOpenRequested(object? sender, string path) => Editor.OpenFile(path);
 
+    private void OnDocumentsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        _documentSnapshots.Clear();
+
+        if (ContainsWeftDocument(e.OldItems) || ContainsWeftDocument(e.NewItems))
+        {
+            ScheduleCompile();
+        }
+    }
+
+    private static bool ContainsWeftDocument(System.Collections.IList? documents)
+        => documents?.Cast<EditorDocumentViewModel>()
+            .Any(static document => WeftDocumentKinds.IsWeftFile(document.FilePath)) == true;
+
+
     private void OnFileSystemChanged(object? sender, ProjectFileChange change)
     {
         if (change.Kind == ProjectFileChangeKind.Deleted)
@@ -440,6 +467,7 @@ public partial class MainWindowViewModel : ObservableObject
         _pendingCaretDocument = null;
         AttachDocument(Editor.SelectedDocument);
         Status.UpdateDocument(Editor.SelectedDocument);
+        UpdatePreviewFile();
     }
 
     private void AttachDocument(EditorDocumentViewModel? document)
@@ -473,6 +501,7 @@ public partial class MainWindowViewModel : ObservableObject
                 break;
             case nameof(EditorDocumentViewModel.FilePath):
                 Status.UpdateDocument(document);
+                UpdatePreviewFile();
                 break;
         }
     }
@@ -500,12 +529,17 @@ public partial class MainWindowViewModel : ObservableObject
         if (document is not null && ReferenceEquals(document, Editor.SelectedDocument))
         {
             Status.UpdateContext(document);
+            UpdatePreviewFile();
         }
     }
 
     private void OnDocumentTextChanged(object? sender, EditorDocumentViewModel document)
     {
-        ScheduleCompile();
+        if (WeftDocumentKinds.IsWeftFile(document.FilePath))
+        {
+            ScheduleCompile();
+        }
+
         ScheduleStatus(document);
     }
 
@@ -526,10 +560,13 @@ public partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _analysisScheduler.Schedule(_projectFolder, reloadFromDisk: false);
+        _analysisScheduler.Schedule(
+            _projectFolder,
+            reloadFromDisk: false,
+            buildRuntime: IsPreviewVisible);
     }
 
-    private async Task CompileNowAsync()
+    private async Task CompileNowAsync(bool includeRuntime = false)
     {
         if (string.IsNullOrWhiteSpace(_projectFolder))
         {
@@ -538,7 +575,10 @@ public partial class MainWindowViewModel : ObservableObject
         }
 
         await _analysisScheduler
-            .RunNowAsync(_projectFolder, reloadFromDisk: true)
+            .RunNowAsync(
+                _projectFolder,
+                reloadFromDisk: true,
+                buildRuntime: includeRuntime || IsPreviewVisible)
             .ConfigureAwait(true);
     }
 
@@ -557,6 +597,19 @@ public partial class MainWindowViewModel : ObservableObject
         _editorLanguageService.Symbols = null;
         Status.UpdateProject(null);
         Status.SetStatus($"分析失败：{exception.Message}");
+
+        if (_lastRuntime is not null && _lastGoodProjection is not null)
+        {
+            Preview.UpdateProject(
+                _projectFolder ?? string.Empty,
+                _lastRuntime,
+                _lastGoodProjection,
+                isStale: true);
+        }
+        else
+        {
+            Preview.Reset();
+        }
     }
 
     private Dictionary<string, string> CreateDocumentMap()
@@ -565,7 +618,8 @@ public partial class MainWindowViewModel : ObservableObject
 
         foreach (var document in Editor.Documents)
         {
-            if (string.IsNullOrWhiteSpace(document.FilePath))
+            if (string.IsNullOrWhiteSpace(document.FilePath) ||
+                !WeftDocumentKinds.IsWeftFile(document.FilePath))
             {
                 continue;
             }
@@ -616,6 +670,18 @@ public partial class MainWindowViewModel : ObservableObject
         Status.UpdateProject(new ProjectCompileSummary(
             moduleCount, variableCount, errors, warnings));
         Status.SetStatus(errors == 0 ? "就绪" : $"分析完成：{errors} 个错误");
+
+        if (output.Runtime is not null)
+        {
+            _lastRuntime = output.Runtime;
+        }
+
+        Preview.UpdateProject(
+            _projectFolder ?? string.Empty,
+            output.Runtime ?? _lastRuntime,
+            projection ?? _lastGoodProjection,
+            isStale: output.Runtime is null && errors > 0);
+        UpdatePreviewFile();
 
         if (projection is { } available && moduleCount > 0)
         {
@@ -673,7 +739,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             builder.Append(module.ModuleId).Append('~')
                 .Append((int)module.Flags).Append('~')
-                .Append(module.Scene).Append('~')
+                .Append(string.Join(',', module.Scenes)).Append('~')
                 .Append(module.Summary.FirstLine).Append('~')
                 .Append(module.Summary.DialogueCount).Append('~')
                 .Append(module.Summary.ChoiceCount).Append('~');
@@ -795,9 +861,9 @@ public partial class MainWindowViewModel : ObservableObject
 
         var meta = new List<string>();
 
-        if (!string.IsNullOrWhiteSpace(module.Scene))
+        if (module.Scenes.Count > 0)
         {
-            meta.Add($"场景 {module.Scene}");
+            meta.Add($"场景 {string.Join(" / ", module.Scenes)}");
         }
 
         meta.Add($"{module.Summary.DialogueCount} 句对话");
@@ -955,4 +1021,55 @@ public partial class MainWindowViewModel : ObservableObject
         var name = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         return string.IsNullOrEmpty(name) ? folder : name;
     }
+    [RelayCommand]
+    private void TogglePreviewPanel() => IsPreviewVisible = !IsPreviewVisible;
+
+    partial void OnIsGraphVisibleChanged(bool value)
+    {
+        if (!value && !IsPreviewVisible)
+        {
+            IsPreviewVisible = true;
+        }
+    }
+
+    partial void OnIsPreviewVisibleChanged(bool value)
+    {
+        if (!value && !IsGraphVisible)
+        {
+            IsGraphVisible = true;
+        }
+
+        if (value)
+        {
+            _ = EnsurePreviewAsync();
+        }
+        else
+        {
+            UpdatePreviewFile();
+        }
+    }
+
+    public async Task EnsurePreviewAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_projectFolder))
+        {
+            return;
+        }
+
+        if (_lastRuntime is not null)
+        {
+            Preview.UpdateProject(
+                _projectFolder,
+                _lastRuntime,
+                _lastGoodProjection,
+                isStale: false);
+            UpdatePreviewFile();
+        }
+
+        await CompileNowAsync(includeRuntime: true).ConfigureAwait(true);
+    }
+
+    private void UpdatePreviewFile()
+        => Preview.SetFile(Editor.SelectedDocument?.FilePath);
+
 }

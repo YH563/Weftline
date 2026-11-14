@@ -30,6 +30,9 @@ public partial class StatusBarViewModel : ObservableObject
     private string _contextText = "未打开文件";
 
     [ObservableProperty]
+    private bool _hasDocument;
+
+    [ObservableProperty]
     private string _symbolText = "模块 - · 变量 -";
 
     [ObservableProperty]
@@ -43,6 +46,7 @@ public partial class StatusBarViewModel : ObservableObject
     /// </summary>
     public void UpdateDocument(EditorDocumentViewModel? document)
     {
+        HasDocument = document is not null;
         UpdateCaret(document);
         UpdateContext(document);
     }

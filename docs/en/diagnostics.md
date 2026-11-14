@@ -24,7 +24,7 @@ The editor shows a diagnostic code at the problem location. This page lists the 
 | WFT2001 | Symbol declaration in the wrong place | Declare before the first `@module`; write `@var` / `@char` / `@item` / `@scene` directly or use an optional group |
 | WFT2004 | Duplicate global variable | Remove the duplicate `@var` |
 | WFT2005 | Duplicate module ID | Rename the duplicate `@module` |
-| WFT2006 | Module header directive after content | Move `@scene` before the content |
+| WFT2006 | Module header directive after content | `@scene` may appear between content blocks; move other declarations before the first `@module` |
 | WFT2007 | Empty `@title` / `@module` / `@project` / `@chapter` / `@doc` | Provide a title, module ID, or name |
 | WFT2008 | Dialogue or exit references an undeclared character | Add `@char` before the first `@module` in `.weft` |
 | WFT2009 | Duplicate character | Remove the duplicate `@char` |
@@ -33,7 +33,7 @@ The editor shows a diagnostic code at the problem location. This page lists the 
 | WFT2012 | `@set` in `.wstory` | Remove it; variable initial values belong in `.weft` `@var` |
 | WFT2013 | `@set` in content | Put variable changes only in exit branch effects `{ @set ... }` |
 | WFT2014 | `{name}` references an undeclared character or item | Declare it before the first `@module`, or fix the name |
-| WFT2015 | Duplicate scene | Remove the duplicate `@scene` |
+| WFT2015 | Duplicate scene declaration | Remove the duplicate `@scene` in the declaration area; multiple module scene markers are allowed |
 | WFT2016 | Invalid scene name | Use a valid identifier such as `医院` |
 | WFT2017 | `.weft` is missing a chapter title | Put `@title <chapter>` on the first line |
 | WFT2018 | Multiple chapter titles in one file | A `.weft` file has exactly one `@title` |

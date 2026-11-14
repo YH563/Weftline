@@ -21,6 +21,7 @@ namespace weftline::ir {
         HasIncoming = 2,
         HasOutgoing = 4,
         HasEndEdge = 8,
+        EntryCandidate = 16,
     };
 
     /**
@@ -32,6 +33,7 @@ namespace weftline::ir {
         TargetsEnd = 2,
         Unreachable = 4,
         CannotReachEnd = 8,
+        EntryCandidate = 16,
     };
 
     [[nodiscard]] constexpr GraphChapterFlags operator|(
@@ -84,7 +86,7 @@ namespace weftline::ir {
     {
         std::u16string module_id;
         std::u16string chapter_id;
-        std::optional<std::u16string> scene;
+        std::vector<std::u16string> scenes;
         std::int32_t branch_count{};
         GraphModuleFlags flags{GraphModuleFlags::None};
         GraphModuleSummary summary;
@@ -113,6 +115,7 @@ namespace weftline::ir {
     struct GraphProjection
     {
         std::optional<std::u16string> entry_module_id;
+        std::vector<std::u16string> entry_candidates;
         std::vector<GraphChapter> chapters;
         std::vector<GraphModuleNode> modules;
         std::vector<GraphModuleEdge> module_edges;

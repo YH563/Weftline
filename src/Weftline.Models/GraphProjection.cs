@@ -9,7 +9,7 @@ public enum GraphChapterFlags
     /// <summary>无标记。</summary>
     None = 0,
 
-    /// <summary>包含入口模块。</summary>
+    /// <summary>包含默认入口模块。</summary>
     Entry = 1,
 
     /// <summary>有跨章节入边。</summary>
@@ -20,6 +20,9 @@ public enum GraphChapterFlags
 
     /// <summary>有指向 END 的边。</summary>
     HasEndEdge = 8,
+
+    /// <summary>包含候选入口模块（无入边，但不是默认入口）。</summary>
+    EntryCandidate = 16,
 }
 
 /// <summary>
@@ -31,7 +34,7 @@ public enum GraphModuleFlags
     /// <summary>无标记。</summary>
     None = 0,
 
-    /// <summary>入口模块。</summary>
+    /// <summary>默认入口模块。</summary>
     Entry = 1,
 
     /// <summary>存在指向 END 的出口。</summary>
@@ -42,6 +45,9 @@ public enum GraphModuleFlags
 
     /// <summary>无法到达 END。</summary>
     CannotReachEnd = 8,
+
+    /// <summary>候选入口模块（无入边，但不是默认入口）。</summary>
+    EntryCandidate = 16,
 }
 
 /// <summary>
@@ -49,6 +55,7 @@ public enum GraphModuleFlags
 /// </summary>
 public sealed record GraphProjection(
     string? EntryModuleId,
+    IReadOnlyList<string> EntryCandidates,
     IReadOnlyList<GraphChapter> Chapters,
     IReadOnlyList<GraphModuleNode> Modules,
     IReadOnlyList<GraphModuleEdge> ModuleEdges,
@@ -87,7 +94,7 @@ public sealed record GraphChapter(
 public sealed record GraphModuleNode(
     string ModuleId,
     string ChapterId,
-    string? Scene,
+    IReadOnlyList<string> Scenes,
     int BranchCount,
     GraphModuleFlags Flags,
     GraphModuleSummary Summary,

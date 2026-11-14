@@ -197,6 +197,79 @@ namespace {
         EXPECT_EQ(variable->second, (std::vector<std::u16string>{u"A", u"B"}));
     }
 
+    TEST(GraphProjection, CollectsAllScenesInsideModule)
+    {
+        auto file = parse_file("chapter.weft", R"(@title 第一章
+@scenes
+    @scene 街道
+    @scene 医院
+
+@module A
+    @scene 街道
+    [a]
+    @scene 医院
+    [b]
+@next -> END
+)");
+
+        std::vector<ProjectFile> files;
+        files.push_back(std::move(file));
+        const auto projection = build_projection(std::move(files));
+
+        const auto* module_a = find_module(projection, u"A");
+        ASSERT_NE(module_a, nullptr);
+        EXPECT_EQ(
+            module_a->scenes,
+            (std::vector<std::u16string>{u"街道", u"医院"}));
+
+        const auto street = projection.references.scenes.find(u"街道");
+        ASSERT_NE(street, projection.references.scenes.end());
+        EXPECT_EQ(street->second, (std::vector<std::u16string>{u"A"}));
+
+        const auto hospital = projection.references.scenes.find(u"医院");
+        ASSERT_NE(hospital, projection.references.scenes.end());
+        EXPECT_EQ(hospital->second, (std::vector<std::u16string>{u"A"}));
+    }
+
+    TEST(GraphProjection, MarksCandidateEntriesWithoutUnreachable)
+    {
+        auto file = parse_file("chapter.weft", R"(@title 第一章
+@module A
+@next -> END
+
+@module B
+@next -> END
+)");
+
+        std::vector<ProjectFile> files;
+        files.push_back(std::move(file));
+        const auto projection = build_projection(std::move(files));
+
+        ASSERT_TRUE(projection.entry_module_id.has_value());
+        EXPECT_EQ(*projection.entry_module_id, u"A");
+        EXPECT_EQ(
+            projection.entry_candidates,
+            (std::vector<std::u16string>{u"B"}));
+
+        const auto* module_a = find_module(projection, u"A");
+        ASSERT_NE(module_a, nullptr);
+        EXPECT_TRUE(has_flag(module_a->flags, GraphModuleFlags::Entry));
+        EXPECT_FALSE(
+            has_flag(module_a->flags, GraphModuleFlags::EntryCandidate));
+
+        const auto* module_b = find_module(projection, u"B");
+        ASSERT_NE(module_b, nullptr);
+        EXPECT_TRUE(
+            has_flag(module_b->flags, GraphModuleFlags::EntryCandidate));
+        EXPECT_FALSE(has_flag(module_b->flags, GraphModuleFlags::Unreachable));
+
+        const auto* chapter = find_chapter(projection, u"第一章");
+        ASSERT_NE(chapter, nullptr);
+        EXPECT_TRUE(has_flag(chapter->flags, GraphChapterFlags::Entry));
+        EXPECT_TRUE(
+            has_flag(chapter->flags, GraphChapterFlags::EntryCandidate));
+    }
+
     TEST(GraphProjection, MarksUnreachableAndCannotReachEndModules)
     {
         auto file = parse_file("chapter.weft", R"(@title 第一章

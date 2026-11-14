@@ -160,6 +160,12 @@ namespace weftline::projects {
                     continue;
                 }
 
+                std::vector<std::u16string> scenes;
+                scenes.reserve(module.scenes.size());
+                for (const auto& scene : module.scenes) {
+                    scenes.push_back(scene.name);
+                }
+
                 modules.emplace(
                     module.title,
                     ModuleDefinition{
@@ -168,7 +174,7 @@ namespace weftline::projects {
                         file.file_path,
                         module.span,
                         module.title_span,
-                        module.scene,
+                        std::move(scenes),
                     });
             }
         }

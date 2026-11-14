@@ -18,6 +18,7 @@ public partial class PreviewWindow : Window
     public PreviewWindow()
     {
         InitializeComponent();
+        Controls.OverlayLayerHost.Ensure(this);
     }
 
     protected override void OnDataContextChanged(EventArgs e)

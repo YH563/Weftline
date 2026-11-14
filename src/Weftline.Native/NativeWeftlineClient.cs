@@ -188,10 +188,15 @@ public sealed class NativeWeftlineClient : IDisposable
     /// </summary>
     /// <param name="allowPartial">有错误时是否仍构建部分图。</param>
     /// <param name="buildProjection">是否构建图投影。</param>
-    public NativeProjectResponse Compile(bool allowPartial, bool buildProjection)
+    /// <param name="buildRuntime">是否在同一次编译中附带播放器载荷。</param>
+    public NativeProjectResponse Compile(
+        bool allowPartial, bool buildProjection, bool buildRuntime = false)
     {
-        var pointer = NativeMethods.weft_project_compile(
-            _handle, allowPartial ? 1 : 0, buildProjection ? 1 : 0);
+        var pointer = NativeMethods.weft_project_compile_ex(
+            _handle,
+            allowPartial ? 1 : 0,
+            buildProjection ? 1 : 0,
+            buildRuntime ? 1 : 0);
 
         if (pointer == IntPtr.Zero)
         {

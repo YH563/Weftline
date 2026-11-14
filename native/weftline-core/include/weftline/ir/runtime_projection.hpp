@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
@@ -39,13 +40,22 @@ namespace weftline::ir {
     };
 
     /**
+     * @brief 播放器模块内的场景标记；content_index 表示标记前的正文块数量。
+     */
+    struct RuntimeScene
+    {
+        std::u16string name;
+        std::size_t content_index{};
+    };
+
+    /**
      * @brief 播放器模块：完整正文与可选出口块。
      */
     struct RuntimeModule
     {
         std::u16string id;
         std::u16string chapter_id;
-        std::optional<std::u16string> scene;
+        std::vector<RuntimeScene> scenes;
         std::vector<IrContentBlock> content;
         std::optional<RuntimeExit> exit;
     };

@@ -38,12 +38,16 @@ public static class GraphPathAnalyzer
         var moduleEdges = new HashSet<(string From, string To)>();
         var adjacency = BuildAdjacency(projection.ModuleEdges);
 
-        if (projection.EntryModuleId is { } entry)
+        foreach (var entry in EnumerateEntries(projection))
         {
-            AddPath(
-                FindShortestPath(adjacency, entry, selectedModuleId),
-                modules,
-                moduleEdges);
+            var path = FindShortestPath(adjacency, entry, selectedModuleId);
+            if (path is null)
+            {
+                continue;
+            }
+
+            AddPath(path, modules, moduleEdges);
+            break;
         }
 
         AddPath(
@@ -63,6 +67,24 @@ public static class GraphPathAnalyzer
         }
 
         return new GraphPathHighlight(modules, moduleEdges, chapterEdges);
+    }
+
+    private static IEnumerable<string> EnumerateEntries(GraphProjection projection)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        if (projection.EntryModuleId is { } entry && seen.Add(entry))
+        {
+            yield return entry;
+        }
+
+        foreach (var candidate in projection.EntryCandidates)
+        {
+            if (seen.Add(candidate))
+            {
+                yield return candidate;
+            }
+        }
     }
 
     private static Dictionary<string, List<string>> BuildAdjacency(

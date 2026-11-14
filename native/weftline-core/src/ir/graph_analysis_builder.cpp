@@ -68,20 +68,29 @@ namespace weftline::ir {
             return reverse;
         }
 
-        // 从入口 BFS；不存在的目标模块和 END 不进入可达集合。
+        // 从默认入口和候选入口 BFS；不存在的目标模块和 END 不进入可达集合。
         [[nodiscard]] std::unordered_set<std::u16string> compute_reachable(
             const StoryGraph& graph,
             const std::unordered_map<std::u16string, const IrModule*>& modules_by_id,
             const std::unordered_map<std::u16string, StringList>& adjacency)
         {
             std::unordered_set<std::u16string> reachable;
+            std::deque<std::u16string> queue;
 
-            if (!graph.entry || modules_by_id.find(*graph.entry) == modules_by_id.end()) {
-                return reachable;
+            if (graph.entry
+                && modules_by_id.find(*graph.entry) != modules_by_id.end()) {
+                queue.push_back(*graph.entry);
             }
 
-            std::deque<std::u16string> queue;
-            queue.push_back(*graph.entry);
+            for (const auto& candidate : graph.entry_candidates) {
+                if (modules_by_id.find(candidate) != modules_by_id.end()) {
+                    queue.push_back(candidate);
+                }
+            }
+
+            if (queue.empty()) {
+                return reachable;
+            }
 
             while (!queue.empty()) {
                 auto current = std::move(queue.front());
@@ -238,7 +247,9 @@ namespace weftline::ir {
                     add_reference(variables, name, module.id);
                 };
 
-                add_reference(scenes, module.scene, module.id);
+                for (const auto& marker : module.scenes) {
+                    add_reference(scenes, marker.name, module.id);
+                }
 
                 for (const auto& content : module.content) {
                     if (content.kind == ContentKind::Dialogue) {

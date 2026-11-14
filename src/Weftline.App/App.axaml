@@ -5,19 +5,67 @@
              RequestedThemeVariant="Light">
 
     <Application.Resources>
-        <ControlTheme x:Key="WeftlineToolTip" TargetType="ToolTip">
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Background="#FFFFFF"
-                            BorderBrush="#D8DCE3"
-                            BorderThickness="1"
-                            Padding="6,4">
-                        <ContentPresenter Content="{TemplateBinding Content}"
-                                          ContentTemplate="{TemplateBinding ContentTemplate}" />
-                    </Border>
-                </ControlTemplate>
-            </Setter>
-        </ControlTheme>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://Weftline.App/Assets/Icons.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="AppBackground" Color="#F3F5F8" />
+                    <SolidColorBrush x:Key="Surface" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="SurfaceAlt" Color="#F8FAFC" />
+                    <SolidColorBrush x:Key="SurfaceMuted" Color="#EEF2F7" />
+                    <SolidColorBrush x:Key="SurfaceHover" Color="#F2F6FC" />
+                    <SolidColorBrush x:Key="Border" Color="#E1E6EE" />
+                    <SolidColorBrush x:Key="BorderStrong" Color="#CDD5E1" />
+                    <SolidColorBrush x:Key="TextPrimary" Color="#1F2937" />
+                    <SolidColorBrush x:Key="TextSecondary" Color="#5B6778" />
+                    <SolidColorBrush x:Key="TextMuted" Color="#8A95A5" />
+                    <SolidColorBrush x:Key="Accent" Color="#2563EB" />
+                    <SolidColorBrush x:Key="AccentSoft" Color="#EAF1FF" />
+                    <SolidColorBrush x:Key="AccentBorder" Color="#C9D9FF" />
+                    <SolidColorBrush x:Key="Success" Color="#2F9E74" />
+                    <SolidColorBrush x:Key="Warning" Color="#B7791F" />
+                    <SolidColorBrush x:Key="Danger" Color="#D14343" />
+                    <SolidColorBrush x:Key="PopupBackdrop" Color="#F5F7FA" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="AppBackground" Color="#171A20" />
+                    <SolidColorBrush x:Key="Surface" Color="#20252D" />
+                    <SolidColorBrush x:Key="SurfaceAlt" Color="#252B34" />
+                    <SolidColorBrush x:Key="SurfaceMuted" Color="#2B323C" />
+                    <SolidColorBrush x:Key="SurfaceHover" Color="#2F3742" />
+                    <SolidColorBrush x:Key="Border" Color="#343C48" />
+                    <SolidColorBrush x:Key="BorderStrong" Color="#46505F" />
+                    <SolidColorBrush x:Key="TextPrimary" Color="#E8EDF4" />
+                    <SolidColorBrush x:Key="TextSecondary" Color="#A9B4C3" />
+                    <SolidColorBrush x:Key="TextMuted" Color="#7D8897" />
+                    <SolidColorBrush x:Key="Accent" Color="#6B9BFF" />
+                    <SolidColorBrush x:Key="AccentSoft" Color="#24334F" />
+                    <SolidColorBrush x:Key="AccentBorder" Color="#3D5580" />
+                    <SolidColorBrush x:Key="Success" Color="#5BC49A" />
+                    <SolidColorBrush x:Key="Warning" Color="#E0A94A" />
+                    <SolidColorBrush x:Key="Danger" Color="#F07171" />
+                    <SolidColorBrush x:Key="PopupBackdrop" Color="#1B2027" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <ControlTheme x:Key="WeftlineToolTip" TargetType="ToolTip">
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource BorderStrong}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="7,5">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+            </ControlTheme>
+        </ResourceDictionary>
     </Application.Resources>
 
     <Application.Styles>
@@ -27,18 +75,77 @@
 
         <!-- 全局排版：统一字体、字号和正文颜色，避免界面发灰、发细。 -->
         <Style Selector=":is(Window)">
-            <Setter Property="FontFamily" Value="Inter, Segoe UI, sans-serif" />
+            <Setter Property="FontFamily" Value="Inter, Noto Sans CJK SC, Noto Sans SC, Microsoft YaHei UI, Segoe UI, sans-serif" />
             <Setter Property="FontSize" Value="13" />
-            <Setter Property="Foreground" Value="#2B3038" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+            <Setter Property="Background" Value="{DynamicResource AppBackground}" />
         </Style>
 
+        <!--
+            弹层（菜单/飞出/提示）是独立顶层窗口。必须显式请求透明层并清空默认白底，
+            否则圆角外区域会显示 PopupRoot 的背景色（无合成器时则是黑角）。
+        -->
         <Style Selector="PopupRoot">
-            <Setter Property="TransparencyBackgroundFallback" Value="#F5F5F5" />
+            <Setter Property="TransparencyLevelHint" Value="Transparent" />
+            <Setter Property="TransparencyBackgroundFallback" Value="{DynamicResource Surface}" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <!--
+            菜单/飞出等弹层默认会创建独立顶层窗口；Linux 合成器不一定支持透明子窗口。
+            使用 OverlayLayer 在宿主窗口内部渲染，圆角外自然显示下层内容，不依赖系统透明度。
+        -->
+        <Style Selector="Popup">
+            <Setter Property="ShouldUseOverlayLayer" Value="True" />
         </Style>
         <Style Selector="ToolTip">
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="#3F4A59" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
             <Setter Property="Theme" Value="{StaticResource WeftlineToolTip}" />
+        </Style>
+
+        <!-- 通用面板与文字层级，避免各视图重复硬编码。 -->
+        <Style Selector="Border.panel">
+            <Setter Property="Background" Value="{DynamicResource Surface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="TextBlock.panelTitle">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+        </Style>
+        <Style Selector="TextBlock.panelSubtitle">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
+        </Style>
+        <Style Selector="TextBlock.caption">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+        </Style>
+        <Style Selector="Button.icon">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Focusable" Value="False" />
+        </Style>
+        <Style Selector="Button.icon:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SurfaceMuted}" />
+        </Style>
+        <Style Selector="ToggleButton.paneToggle">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
+        </Style>
+        <Style Selector="ToggleButton.paneToggle:checked">
+            <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
+            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
         </Style>
     </Application.Styles>
 </Application>

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -191,13 +192,22 @@ namespace weftline::ir {
     };
 
     /**
+     * @brief 模块内的场景切换标记；ContentIndex 表示标记前已有多少正文块。
+     */
+    struct IrSceneMarker
+    {
+        std::u16string name;
+        std::size_t content_index{};
+    };
+
+    /**
      * @brief 一个模块；Id 是剧情图的唯一节点。
      */
     struct IrModule
     {
         std::u16string id;
         std::u16string chapter_id;
-        std::optional<std::u16string> scene;
+        std::vector<IrSceneMarker> scenes;
         std::vector<IrContentBlock> content;
         std::optional<IrExitBlock> exit;
         source::SourceLocation source;
@@ -220,6 +230,7 @@ namespace weftline::ir {
         int schema_version{2};
         std::u16string end{u"END"};
         std::optional<std::u16string> entry;
+        std::vector<std::u16string> entry_candidates;
         std::vector<IrGlobal> globals;
         std::vector<IrModule> modules;
     };

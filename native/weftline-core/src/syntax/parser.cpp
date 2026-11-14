@@ -899,10 +899,8 @@ namespace weftline::syntax {
                     ? module_line.span
                     : span_after(module_line, u"@module", module_id);
 
-                std::optional<std::u16string> scene;
-                std::optional<source::TextSpan> scene_span;
+                std::vector<SceneMarker> scenes;
                 std::vector<Content> content;
-                bool seen_content = false;
                 auto module_end = module_line.span.end();
                 std::optional<Exit> exit;
 
@@ -927,13 +925,6 @@ namespace weftline::syntax {
                     }
 
                     if (is_directive(trimmed, u"@scene")) {
-                        if (seen_content) {
-                            error(
-                                diagnostics::DiagnosticCode::HeaderAfterContent,
-                                line.span,
-                                u"@scene 只能出现在模块内容之前。");
-                        }
-
                         advance();
                         module_end = line.span.end();
 
@@ -944,16 +935,12 @@ namespace weftline::syntax {
                                 diagnostics::DiagnosticCode::MalformedScene,
                                 line.span,
                                 u"@scene 的语法是：@scene <场景名>");
-                        } else if (scene) {
-                            std::u16string message = u"模块内重复声明场景：";
-                            message += name;
-                            error(
-                                diagnostics::DiagnosticCode::DuplicateScene,
-                                line.span,
-                                std::move(message));
                         } else {
-                            scene = std::u16string(name);
-                            scene_span = span_after(line, u"@scene", name);
+                            scenes.push_back(SceneMarker{
+                                std::u16string(name),
+                                span_after(line, u"@scene", name),
+                                content.size(),
+                            });
                         }
                         continue;
                     }
@@ -979,7 +966,6 @@ namespace weftline::syntax {
                         continue;
                     }
 
-                    seen_content = true;
                     bool parsed = false;
 
                     if (source::starts_with(trimmed, u"[")) {
@@ -1028,8 +1014,7 @@ namespace weftline::syntax {
                 return Module{
                     std::move(module_id),
                     title_span,
-                    std::move(scene),
-                    scene_span,
+                    std::move(scenes),
                     std::move(content),
                     std::move(exit),
                     source::TextSpan::from_bounds(module_line.span.start, module_end),

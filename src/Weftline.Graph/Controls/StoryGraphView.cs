@@ -423,6 +423,7 @@ public sealed class StoryGraphView : Control
         }
 
         if (!string.Equals(left.EntryModuleId, right.EntryModuleId, StringComparison.Ordinal) ||
+            !left.EntryCandidates.SequenceEqual(right.EntryCandidates) ||
             left.Chapters.Count != right.Chapters.Count ||
             left.Modules.Count != right.Modules.Count ||
             left.ModuleEdges.Count != right.ModuleEdges.Count ||
@@ -1684,7 +1685,11 @@ public sealed class StoryGraphView : Control
 
         var pen = node.Flags.HasFlag(GraphModuleFlags.Unreachable)
             ? GraphTheme.UnreachablePen
-            : GraphTheme.ModulePen;
+            : node.Flags.HasFlag(GraphModuleFlags.Entry)
+                ? GraphTheme.EntryModulePen
+                : node.Flags.HasFlag(GraphModuleFlags.EntryCandidate)
+                    ? GraphTheme.EntryCandidatePen
+                    : GraphTheme.ModulePen;
 
         context.DrawRectangle(
             GraphTheme.ModuleFill,

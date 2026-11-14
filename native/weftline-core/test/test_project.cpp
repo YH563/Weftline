@@ -9,6 +9,7 @@
 
 #include "weftline/diagnostics/diagnostic.hpp"
 #include "weftline/projects/project_binder.hpp"
+#include "weftline/projects/project_entry.hpp"
 #include "weftline/projects/project_loader.hpp"
 #include "weftline/projects/validator.hpp"
 #include "weftline/source/source_text.hpp"
@@ -115,7 +116,7 @@ TEST(Validator, ReportsUnreachableModule)
 @next -> END
 
 @module B
-@next -> END
+@next -> B
 )");
 
     EXPECT_TRUE(std::any_of(
@@ -125,6 +126,47 @@ TEST(Validator, ReportsUnreachableModule)
                     == weftline::diagnostics::DiagnosticCode::UnreachableModule
                 && item.diagnostic.message.find(u"B") != std::u16string::npos;
         }));
+}
+
+TEST(Validator, AcceptsMultipleRootsAsEntryCandidates)
+{
+    const auto result = compile_single(R"(@title 第38章
+@module A
+@next -> END
+
+@module B
+@next -> END
+)");
+
+    EXPECT_FALSE(has_code(
+        result.diagnostics,
+        weftline::diagnostics::DiagnosticCode::UnreachableModule));
+}
+
+TEST(ProjectEntry, ResolvesDefaultEntryAndCandidateRoots)
+{
+    ProjectSnapshot snapshot;
+    snapshot.folder = "mem";
+    snapshot.documents["a.weft"] = R"(@title 第一章
+@module A
+@next -> B
+
+@module B
+@next -> END
+)";
+    snapshot.documents["b.weft"] = R"(@title 第二章
+@module C
+@next -> END
+)";
+
+    const auto project = weftline::projects::load(snapshot);
+    ASSERT_TRUE(project.diagnostics.empty());
+
+    const auto entries = weftline::projects::resolve_entries(project);
+
+    ASSERT_TRUE(entries.default_entry.has_value());
+    EXPECT_EQ(*entries.default_entry, u"A");
+    EXPECT_EQ(entries.candidates, (std::vector<std::u16string>{u"C"}));
 }
 
 TEST(Validator, ReportsPathCannotReachEnd)

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "weftline/diagnostics/diagnostic.hpp"
+#include "weftline/projects/project_entry.hpp"
 #include "weftline/syntax/ast.hpp"
 
 namespace weftline::projects {
@@ -17,18 +18,6 @@ namespace weftline::projects {
 
         using ModuleMap =
             std::unordered_map<std::u16string, const syntax::Module*>;
-
-        // 语言没有显式入口声明：默认取第一个文件中的第一个模块。
-        [[nodiscard]] std::optional<std::u16string> get_entry(
-            const LoadedProject& project)
-        {
-            for (const auto& file : project.weft_files) {
-                if (!file.ast->modules.empty()) {
-                    return file.ast->modules.front().title;
-                }
-            }
-            return std::nullopt;
-        }
 
         // 只保留“真正属于该文件”的模块，避免同名模块跨文件时指针错位。
         [[nodiscard]] ModuleMap build_syntax_map(
@@ -92,15 +81,20 @@ namespace weftline::projects {
             }
         }
 
-        // 从入口做 BFS，忽略 END 和不存在的目标模块。
+        // 从默认入口和候选入口做 BFS，忽略 END 和不存在的目标模块。
         [[nodiscard]] std::unordered_set<std::u16string> reachable_from(
-            const std::u16string& entry,
+            const std::vector<std::u16string>& entries,
             const ModuleMap& syntax_by_title,
             const ProjectIndex& index)
         {
             std::unordered_set<std::u16string> visited;
             std::deque<std::u16string> queue;
-            queue.push_back(entry);
+
+            for (const auto& entry : entries) {
+                if (syntax_by_title.find(entry) != syntax_by_title.end()) {
+                    queue.push_back(entry);
+                }
+            }
 
             while (!queue.empty()) {
                 auto current = std::move(queue.front());
@@ -203,13 +197,23 @@ namespace weftline::projects {
         }
 
         // 先检查目标存在性；可达性分析只依赖语法树中的出口边。
-        const auto entry = get_entry(project);
+        const auto entries = resolve_entries(project);
         const auto syntax_by_title = build_syntax_map(project, index);
+
+        std::vector<std::u16string> entry_points;
+        if (entries.default_entry) {
+            entry_points.push_back(*entries.default_entry);
+        }
+        entry_points.insert(
+            entry_points.end(),
+            entries.candidates.begin(),
+            entries.candidates.end());
 
         validate_targets(project, index, out);
 
-        if (entry) {
-            const auto reachable = reachable_from(*entry, syntax_by_title, index);
+        if (!entry_points.empty()) {
+            const auto reachable =
+                reachable_from(entry_points, syntax_by_title, index);
             for (const auto& [title, module] : index.modules) {
                 if (reachable.find(title) == reachable.end()) {
                     std::u16string message = u"模块从入口不可达：";

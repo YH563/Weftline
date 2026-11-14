@@ -22,6 +22,7 @@ public sealed class PlayerSession
     private RuntimeModule? _currentModule;
     private IReadOnlyList<RuntimeBranch> _visibleChoices = Array.Empty<RuntimeBranch>();
     private int _nextContentIndex;
+    private string? _currentScene;
 
     /// <summary>
     /// 从项目入口或指定模块开始播放。
@@ -99,9 +100,9 @@ public sealed class PlayerSession
     }
 
     /// <summary>
-    /// 当前模块的场景标签；没有时为 null。
+    /// 当前已经播放到的场景；还没有进入任何场景时为 null。
     /// </summary>
-    public string? CurrentScene => _currentModule?.Scene;
+    public string? CurrentScene => _currentScene;
 
     /// <summary>
     /// 当前模块已经显示的正文块，按播放顺序排列。
@@ -155,6 +156,7 @@ public sealed class PlayerSession
 
         if (_nextContentIndex < module.Content.Count)
         {
+            ApplyScenesUpTo(module, _nextContentIndex);
             _visibleContent.Add(module.Content[_nextContentIndex]);
             _nextContentIndex++;
             return true;
@@ -198,6 +200,7 @@ public sealed class PlayerSession
         _visibleChoices = Array.Empty<RuntimeBranch>();
         _currentModule = null;
         _nextContentIndex = 0;
+        _currentScene = null;
         IsEnded = false;
         HasError = false;
         ErrorMessage = null;
@@ -236,6 +239,8 @@ public sealed class PlayerSession
             _visibleContent.Clear();
             _visibleChoices = Array.Empty<RuntimeBranch>();
             _nextContentIndex = 0;
+            _currentScene = null;
+            ApplyScenesUpTo(module, 0);
 
             if (module.Content.Count > 0)
             {
@@ -351,6 +356,22 @@ public sealed class PlayerSession
         return null;
     }
 
+    /// <summary>
+    /// 应用标记位置不超过当前正文下标的场景；同一位置多次切换时后者生效。
+    /// </summary>
+    private void ApplyScenesUpTo(RuntimeModule module, int contentIndex)
+    {
+        foreach (var scene in module.Scenes)
+        {
+            if (scene.ContentIndex > contentIndex)
+            {
+                break;
+            }
+
+            _currentScene = scene.Name;
+        }
+    }
+
     private void ApplyEffects(RuntimeBranch branch)
     {
         foreach (var effect in branch.Effects)
@@ -388,6 +409,7 @@ public sealed class PlayerSession
         HasError = false;
         ErrorMessage = null;
         _currentModule = null;
+        _currentScene = null;
         _visibleContent.Clear();
         _visibleChoices = Array.Empty<RuntimeBranch>();
     }

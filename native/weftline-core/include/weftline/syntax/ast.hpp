@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <utility>
@@ -322,8 +323,21 @@ namespace weftline::syntax {
     };
 
     /**
+     * @brief 模块内的场景切换标记：@scene name。
+     *
+     * content_index 表示标记前已有多少个正文块；场景作用于其后的内容。
+     */
+    struct SceneMarker
+    {
+        std::u16string name;
+        TextSpan span;
+        std::size_t content_index{};
+    };
+
+    /**
      * @brief 一个模块；title 是模块 ID，也是剧情图的唯一节点。
      *
+     * scenes 保持源顺序，允许在正文中多次切换场景。
      * exit 可能为空：存在语法错误时，解析器仍返回可用的部分 AST，
      * 让编辑器可以继续工作。
      */
@@ -332,9 +346,7 @@ namespace weftline::syntax {
         std::u16string title;
         TextSpan title_span;
 
-        std::optional<std::u16string> scene;
-        std::optional<TextSpan> scene_span;
-
+        std::vector<SceneMarker> scenes;
         std::vector<Content> content;
         std::optional<Exit> exit;
         TextSpan span;

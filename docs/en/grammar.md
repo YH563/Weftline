@@ -127,10 +127,10 @@ ItemDecl        ::= "@item" Identifier NEWLINE
 SceneDecl       ::= "@scene" Identifier NEWLINE
 
 Module          ::= "@module" Identifier NEWLINE
-                    ModuleScene?
-                    Content*
+                    ModuleBody
                     ExitBlock
-ModuleScene     ::= "@scene" Identifier NEWLINE
+ModuleBody      ::= (Content | SceneMarker)*
+SceneMarker     ::= "@scene" Identifier NEWLINE
 
 Content         ::= NarrationBlock
                   | DialogueBlock
@@ -232,14 +232,13 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 
 ```text
 @module <module-id>
-@scene <scene>
 ```
 
 - Module IDs must be identifiers and are unique across the project.
-- `@scene` is optional and must appear before content.
-- A module has at most one `@scene`.
-- A `@scene` before the first `@module` is a scene declaration; a `@scene` after `@module` is a module tag.
-- Module headers do not declare characters, items, variables, or scenes.
+- `@scene` is a scene switch marker inside the content stream and may appear between any two content blocks.
+- A module may contain zero or more `@scene` markers; a scene applies to the following content until the next `@scene`.
+- A `@scene` before the first `@module` is a scene declaration; a `@scene` after `@module` is a scene marker inside the module body.
+- Modules do not declare characters, items, variables, or scenes.
 
 ### 3.5 Text blocks
 

@@ -34,17 +34,22 @@
     </UserControl.Resources>
 
     <Grid RowDefinitions="Auto,*">
-        <Border Padding="12,8"
+        <Border Padding="12,10"
                 BorderThickness="0,0,0,1"
-                BorderBrush="#22808080">
+                BorderBrush="{DynamicResource Border}">
             <Grid ColumnDefinitions="*,Auto">
-                <StackPanel Spacing="3" ToolTip.Tip="{Binding RootPath}">
-                    <TextBlock Text="项目资源管理器"
-                               FontSize="12"
-                               Foreground="#5F6B7A" />
+                <StackPanel Spacing="4" ToolTip.Tip="{Binding RootPath}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <PathIcon Data="{StaticResource IconNewFolder}"
+                                  Width="14"
+                                  Height="14"
+                                  Foreground="{DynamicResource TextSecondary}"
+                                  VerticalAlignment="Center" />
+                        <TextBlock Text="项目资源管理器"
+                                   Classes="panelTitle" />
+                    </StackPanel>
                     <TextBlock Text="{Binding RootName}"
-                               FontSize="14"
-                               FontWeight="SemiBold"
+                               Classes="panelSubtitle"
                                TextTrimming="CharacterEllipsis" />
                 </StackPanel>
 
@@ -52,59 +57,39 @@
                             Orientation="Horizontal"
                             Spacing="2"
                             VerticalAlignment="Center">
-                    <Button Command="{Binding NewFileCommand}"
-                            Width="24"
-                            Height="24"
-                            Padding="0"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Focusable="False"
+                    <Button Classes="icon"
+                            Command="{Binding NewFileCommand}"
                             ToolTip.Tip="新建文件">
-                        <PathIcon Width="14"
-                                  Height="14"
-                                  Foreground="#5F6B7A"
-                                  Data="M14 2H6C4.89 2 4 2.9 4 4V20C4 21.1 4.89 22 6 22H18C19.11 22 20 21.1 20 20V8L14 2M14 7V3.5L18.5 8H14M11 11H13V14H16V16H13V19H11V16H8V14H11V11Z" />
+                        <PathIcon Width="15"
+                                  Height="15"
+                                  Foreground="{DynamicResource TextSecondary}"
+                                  Data="{StaticResource IconNewFile}" />
                     </Button>
-                    <Button Command="{Binding NewFolderCommand}"
-                            Width="24"
-                            Height="24"
-                            Padding="0"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Focusable="False"
+                    <Button Classes="icon"
+                            Command="{Binding NewFolderCommand}"
                             ToolTip.Tip="新建文件夹">
-                        <PathIcon Width="14"
-                                  Height="14"
-                                  Foreground="#5F6B7A"
-                                  Data="M10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6H12L10 4M13 10H15V13H18V15H15V18H13V15H10V13H13V10Z" />
+                        <PathIcon Width="15"
+                                  Height="15"
+                                  Foreground="{DynamicResource TextSecondary}"
+                                  Data="{StaticResource IconNewFolder}" />
                     </Button>
-                    <Button Command="{Binding RenameCommand}"
+                    <Button Classes="icon"
+                            Command="{Binding RenameCommand}"
                             IsEnabled="{Binding HasSelection}"
-                            Width="24"
-                            Height="24"
-                            Padding="0"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Focusable="False"
                             ToolTip.Tip="重命名">
-                        <PathIcon Width="14"
-                                  Height="14"
-                                  Foreground="#5F6B7A"
-                                  Data="M3 17.25V21H6.75L17.81 9.94L14.06 6.19L3 17.25M20.71 7.04C21.1 6.65 21.1 6 20.71 5.63L18.37 3.29C18 2.9 17.35 2.9 16.96 3.29L15.13 5.12L18.88 8.87L20.71 7.04Z" />
+                        <PathIcon Width="15"
+                                  Height="15"
+                                  Foreground="{DynamicResource TextSecondary}"
+                                  Data="{StaticResource IconRename}" />
                     </Button>
-                    <Button Command="{Binding DeleteCommand}"
+                    <Button Classes="icon"
+                            Command="{Binding DeleteCommand}"
                             IsEnabled="{Binding HasSelection}"
-                            Width="24"
-                            Height="24"
-                            Padding="0"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Focusable="False"
                             ToolTip.Tip="删除">
-                        <PathIcon Width="14"
-                                  Height="14"
-                                  Foreground="#5F6B7A"
-                                  Data="M19 4H15.5L14.5 3H9.5L8.5 4H5V6H19V4M6 7V20C6 21.1 6.9 22 8 22H16C17.1 22 18 21.1 18 20V7H6Z" />
+                        <PathIcon Width="15"
+                                  Height="15"
+                                  Foreground="{DynamicResource TextSecondary}"
+                                  Data="{StaticResource IconDelete}" />
                     </Button>
                 </StackPanel>
             </Grid>
@@ -136,23 +121,34 @@
                                     Background="{TemplateBinding Background}"
                                     CornerRadius="0"
                                     MinHeight="26">
-                                <ContentPresenter Name="PART_ContentPresenter"
-                                                  Content="{TemplateBinding Content}"
-                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
-                                                  HorizontalAlignment="Stretch"
-                                                  VerticalAlignment="Center" />
+                                <Grid ColumnDefinitions="2,*">
+                                    <Border Name="PART_Accent"
+                                            Width="2"
+                                            Margin="0,4"
+                                            CornerRadius="1"
+                                            Background="Transparent" />
+                                    <ContentPresenter Grid.Column="1"
+                                                      Name="PART_ContentPresenter"
+                                                      Content="{TemplateBinding Content}"
+                                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                      HorizontalAlignment="Stretch"
+                                                      VerticalAlignment="Center" />
+                                </Grid>
                             </Border>
                         </ControlTemplate>
                     </Setter>
                 </Style>
                 <Style Selector="ListBoxItem:pointerover /template/ Border#PART_Row">
-                    <Setter Property="Background" Value="#12808080" />
+                    <Setter Property="Background" Value="{DynamicResource SurfaceHover}" />
                 </Style>
                 <Style Selector="ListBoxItem:selected /template/ Border#PART_Row">
-                    <Setter Property="Background" Value="#1F2563EB" />
+                    <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
                 </Style>
                 <Style Selector="ListBoxItem:selected:pointerover /template/ Border#PART_Row">
-                    <Setter Property="Background" Value="#2A2563EB" />
+                    <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
+                </Style>
+                <Style Selector="ListBoxItem:selected /template/ Border#PART_Accent">
+                    <Setter Property="Background" Value="{DynamicResource Accent}" />
                 </Style>
                 <Style Selector="ListBox ScrollBar">
                     <Setter Property="Opacity" Value="0" />
@@ -187,7 +183,7 @@
                                       Width="8"
                                       Height="8"
                                       Stretch="Uniform"
-                                      Stroke="#5F6B7A"
+                                      Stroke="{DynamicResource TextMuted}"
                                       StrokeThickness="1.2"
                                       StrokeLineCap="Round"
                                       StrokeJoin="Round"
@@ -213,7 +209,7 @@
                                    Text="{Binding Name}"
                                    FontSize="13"
                                    FontWeight="Medium"
-                                   Foreground="#2B3038"
+                                   Foreground="{DynamicResource TextPrimary}"
                                    VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis" />
                     </Grid>

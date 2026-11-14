@@ -37,11 +37,13 @@ namespace {
     scenes
         scene 街道
         scene 医院
-    Module "序" scene=街道
+    Module "序"
+        scene 街道
         [雨夜，{萧影}走向医院。]
         @next auto
             -> 相信 { trust_low = true }
-    Module "相信" scene=医院
+    Module "相信"
+        scene 医院
         [雨水模糊了视线，{萧影}在泥泞中奔跑。]
         萧影:[你来了。]
         影子:[别回头。]
@@ -49,20 +51,24 @@ namespace {
         @next choice (萧影)
             [相信他] when trust_low -> 医院 { has_key = true }
             [沉默] -> 沉默
-    Module "医院" scene=医院
+    Module "医院"
+        scene 医院
         [两人走进医院。]
         @next auto
             when has_key -> 地下层
             -> 走廊
-    Module "地下层" scene=医院
+    Module "地下层"
+        scene 医院
         [萧影找到了{医院钥匙}。]
         @next auto
             -> END
-    Module "走廊" scene=医院
+    Module "走廊"
+        scene 医院
         [走廊空无一人。]
         @next auto
             -> END
-    Module "沉默" scene=医院
+    Module "沉默"
+        scene 医院
         [萧影没有说话。]
         @next auto
             -> END
@@ -144,8 +150,38 @@ TEST(Parser, ParsesFlatDeclarationsWithoutGroups)
     ASSERT_EQ(file->scenes.size(), 1u);
     EXPECT_EQ(file->scenes[0].name, u"医院");
     ASSERT_EQ(file->modules.size(), 1u);
-    ASSERT_TRUE(file->modules[0].scene.has_value());
-    EXPECT_EQ(*file->modules[0].scene, u"医院");
+    ASSERT_EQ(file->modules[0].scenes.size(), 1u);
+    EXPECT_EQ(file->modules[0].scenes[0].name, u"医院");
+    EXPECT_EQ(file->modules[0].scenes[0].content_index, 0u);
+}
+
+TEST(Parser, AllowsSceneSwitchesInsideModule)
+{
+    const auto source = weftline::source::SourceText::from_utf8(
+        "@title T\n"
+        "@scene 街道\n"
+        "@module M\n"
+        "    @scene 街道\n"
+        "    [a]\n"
+        "    @scene 医院\n"
+        "    [b]\n"
+        "    @scene 地下层\n"
+        "@next -> END\n");
+    weftline::diagnostics::DiagnosticBag diagnostics;
+
+    const auto script = weftline::syntax::parse(source, diagnostics);
+    EXPECT_TRUE(diagnostics.empty());
+
+    const auto* file = std::get_if<weftline::syntax::WeftFile>(&script);
+    ASSERT_NE(file, nullptr);
+    ASSERT_EQ(file->modules.size(), 1u);
+    ASSERT_EQ(file->modules[0].scenes.size(), 3u);
+    EXPECT_EQ(file->modules[0].scenes[0].name, u"街道");
+    EXPECT_EQ(file->modules[0].scenes[0].content_index, 0u);
+    EXPECT_EQ(file->modules[0].scenes[1].name, u"医院");
+    EXPECT_EQ(file->modules[0].scenes[1].content_index, 1u);
+    EXPECT_EQ(file->modules[0].scenes[2].name, u"地下层");
+    EXPECT_EQ(file->modules[0].scenes[2].content_index, 2u);
 }
 
 TEST(Parser, AcceptsMixedFlatAndGroupedDeclarations)

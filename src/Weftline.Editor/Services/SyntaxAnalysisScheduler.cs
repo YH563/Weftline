@@ -21,6 +21,13 @@ public sealed class SyntaxAnalysisScheduler
 
     public void Schedule(EditorDocumentViewModel document)
     {
+        if (!WeftDocumentKinds.IsWeftFile(document.FilePath))
+        {
+            Cancel(document);
+            document.SetSyntaxDiagnostics([]);
+            return;
+        }
+
         CancellationTokenSource cts;
 
         lock (_sync)

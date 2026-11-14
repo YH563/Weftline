@@ -67,6 +67,7 @@ namespace {
         EXPECT_EQ(graph.end, u"END");
         ASSERT_TRUE(graph.entry.has_value());
         EXPECT_EQ(*graph.entry, u"序");
+        EXPECT_TRUE(graph.entry_candidates.empty());
         ASSERT_EQ(graph.globals.size(), 2u);
         EXPECT_EQ(graph.globals[0].name, u"trust_low");
         EXPECT_FALSE(graph.globals[0].initial);
@@ -76,8 +77,9 @@ namespace {
         const auto* prologue = find_module(graph, u"序");
         ASSERT_NE(prologue, nullptr);
         EXPECT_EQ(prologue->chapter_id, u"第一章 雨夜");
-        ASSERT_TRUE(prologue->scene.has_value());
-        EXPECT_EQ(*prologue->scene, u"街道");
+        ASSERT_EQ(prologue->scenes.size(), 1u);
+        EXPECT_EQ(prologue->scenes[0].name, u"街道");
+        EXPECT_EQ(prologue->scenes[0].content_index, 0u);
         ASSERT_TRUE(prologue->exit.has_value());
         EXPECT_EQ(prologue->exit->mode, ExitMode::Auto);
         ASSERT_EQ(prologue->exit->branches.size(), 1u);
@@ -133,6 +135,66 @@ namespace {
             project, model, std::u16string(u"医院"));
         ASSERT_TRUE(custom_entry.entry.has_value());
         EXPECT_EQ(*custom_entry.entry, u"医院");
+        EXPECT_TRUE(custom_entry.entry_candidates.empty());
+    }
+
+    TEST(StoryGraphBuilder, RecordsSceneSwitchesInsideModule)
+    {
+        ProjectSnapshot snapshot;
+        snapshot.folder = "test";
+        snapshot.documents["chapter.weft"] = R"(@title T
+@module M
+    [a]
+    @scene 街道
+    [b]
+    @scene 医院
+@next -> END
+)";
+
+        const auto project = weftline::projects::load(snapshot);
+        ASSERT_TRUE(project.diagnostics.empty());
+        const auto binding = weftline::projects::bind(
+            project.weft_files, nullptr, {});
+        ASSERT_TRUE(binding.diagnostics.empty());
+        const auto model =
+            weftline::ir::build_project_model(project, binding.index);
+        const auto graph = weftline::ir::build_story_graph(project, model);
+
+        const auto* module = find_module(graph, u"M");
+        ASSERT_NE(module, nullptr);
+        ASSERT_EQ(module->scenes.size(), 2u);
+        EXPECT_EQ(module->scenes[0].name, u"街道");
+        EXPECT_EQ(module->scenes[0].content_index, 1u);
+        EXPECT_EQ(module->scenes[1].name, u"医院");
+        EXPECT_EQ(module->scenes[1].content_index, 2u);
+    }
+
+    TEST(StoryGraphBuilder, RecordsCandidateEntries)
+    {
+        ProjectSnapshot snapshot;
+        snapshot.folder = "test";
+        snapshot.documents["chapter.weft"] = R"(@title T
+@module A
+@next -> END
+
+@module B
+@next -> END
+)";
+
+        const auto project = weftline::projects::load(snapshot);
+        ASSERT_TRUE(project.diagnostics.empty());
+        const auto binding = weftline::projects::bind(
+            project.weft_files, nullptr, {});
+        ASSERT_TRUE(binding.diagnostics.empty());
+        const auto model =
+            weftline::ir::build_project_model(project, binding.index);
+        const auto graph = weftline::ir::build_story_graph(project, model);
+
+        ASSERT_TRUE(graph.entry.has_value());
+        EXPECT_EQ(*graph.entry, u"A");
+        EXPECT_EQ(
+            graph.entry_candidates,
+            (std::vector<std::u16string>{u"B"}));
     }
 
     TEST(StoryGraphBuilder, ConvertsBooleanExpressions)

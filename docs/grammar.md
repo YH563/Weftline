@@ -127,10 +127,10 @@ ItemDecl        ::= "@item" Identifier NEWLINE
 SceneDecl       ::= "@scene" Identifier NEWLINE
 
 Module          ::= "@module" Identifier NEWLINE
-                    ModuleScene?
-                    Content*
+                    ModuleBody
                     ExitBlock
-ModuleScene     ::= "@scene" Identifier NEWLINE
+ModuleBody      ::= (Content | SceneMarker)*
+SceneMarker     ::= "@scene" Identifier NEWLINE
 
 Content         ::= NarrationBlock
                   | DialogueBlock
@@ -233,14 +233,13 @@ WStoryVarDecl   ::= "@var" Identifier BoolLiteral TextBlock? NEWLINE
 
 ```text
 @module <模块ID>
-@scene <scene>
 ```
 
 - 模块 ID 必须是标识符，项目内唯一。
-- `@scene` 可选，只能出现在内容之前。
-- 一个模块最多一个 `@scene`。
-- 第一个 `@module` 之前的 `@scene` 是场景声明；`@module` 之后的 `@scene` 是模块标签。
-- 模块头不再声明角色、道具、变量或场景。
+- `@scene` 是正文流中的场景切换标记，可出现在任意两个正文块之间。
+- 一个模块可以有 0 到多个 `@scene`；场景作用于它之后的内容，直到下一个 `@scene`。
+- 第一个 `@module` 之前的 `@scene` 是场景声明；`@module` 之后的 `@scene` 是模块内场景标记。
+- 模块内不再声明角色、道具、变量或场景。
 
 ### 3.5 正文块
 

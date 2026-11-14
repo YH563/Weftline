@@ -71,7 +71,7 @@ public sealed class NativeRuntimeModule
 {
     public string Id { get; set; } = string.Empty;
     public string ChapterId { get; set; } = string.Empty;
-    public string? Scene { get; set; }
+    public List<NativeRuntimeScene> Scenes { get; set; } = [];
     public List<NativeRuntimeContent> Content { get; set; } = [];
     public NativeRuntimeExit? Exit { get; set; }
 
@@ -79,9 +79,18 @@ public sealed class NativeRuntimeModule
         => new(
             Id,
             ChapterId,
-            Scene,
+            Scenes.Select(static scene => new RuntimeScene(scene.Name, scene.ContentIndex)).ToList(),
             Content.Select(static content => content.ToRuntimeContent()).ToList(),
             Exit?.ToRuntimeExit());
+}
+
+/// <summary>
+/// 模块内场景标记 DTO。
+/// </summary>
+public sealed class NativeRuntimeScene
+{
+    public string Name { get; set; } = string.Empty;
+    public int ContentIndex { get; set; }
 }
 
 /// <summary>

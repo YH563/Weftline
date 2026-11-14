@@ -76,12 +76,17 @@ public sealed record RuntimeExit(
     IReadOnlyList<RuntimeBranch> Branches);
 
 /// <summary>
+/// 模块内的场景切换标记；ContentIndex 表示标记前的正文块数量。
+/// </summary>
+public sealed record RuntimeScene(string Name, int ContentIndex);
+
+/// <summary>
 /// 播放器模块：完整正文与可选出口块。
 /// </summary>
 public sealed record RuntimeModule(
     string Id,
     string ChapterId,
-    string? Scene,
+    IReadOnlyList<RuntimeScene> Scenes,
     IReadOnlyList<RuntimeContent> Content,
     RuntimeExit? Exit);
 

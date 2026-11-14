@@ -1,5 +1,6 @@
 #include "weftline/ir/story_graph_builder.hpp"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
@@ -9,6 +10,7 @@
 #include <vector>
 
 #include "weftline/ir/project_model_builder.hpp"
+#include "weftline/projects/project_entry.hpp"
 #include "weftline/support/overloaded.hpp"
 #include "weftline/syntax/ast.hpp"
 
@@ -170,12 +172,21 @@ namespace weftline::ir {
                 content);
         }
 
-        // 单个模块：正文、可选出口块和源码范围；模块 ID 就是节点 ID。
+        // 单个模块：正文、场景标记、可选出口块和源码范围；模块 ID 就是节点 ID。
         [[nodiscard]] IrModule build_module(
             std::string_view file_path,
             const std::u16string& chapter_id,
             const syntax::Module& module)
         {
+            std::vector<IrSceneMarker> scenes;
+            scenes.reserve(module.scenes.size());
+            for (const auto& scene : module.scenes) {
+                scenes.push_back(IrSceneMarker{
+                    scene.name,
+                    scene.content_index,
+                });
+            }
+
             std::vector<IrContentBlock> content;
             content.reserve(module.content.size());
             for (const auto& block : module.content) {
@@ -220,7 +231,7 @@ namespace weftline::ir {
             return IrModule{
                 module.title,
                 chapter_id,
-                module.scene,
+                std::move(scenes),
                 std::move(content),
                 std::move(exit),
                 source::SourceLocation{std::string(file_path), module.title_span},
@@ -253,18 +264,30 @@ namespace weftline::ir {
             globals.push_back(IrGlobal{variable.name, variable.initial});
         }
 
-        // 没有显式入口时，默认使用第一个模块。
+        const auto entries = projects::resolve_entries(project);
+
+        // 没有显式入口时，默认使用第一个模块；候选入口是无入边的其他模块。
         std::optional<std::u16string> resolved_entry;
         if (entry) {
             resolved_entry = std::move(*entry);
+        } else if (entries.default_entry) {
+            resolved_entry = *entries.default_entry;
         } else if (!modules.empty()) {
             resolved_entry = modules.front().id;
+        }
+
+        auto candidates = entries.candidates;
+        if (resolved_entry) {
+            candidates.erase(
+                std::remove(candidates.begin(), candidates.end(), *resolved_entry),
+                candidates.end());
         }
 
         return StoryGraph{
             2,
             u"END",
             std::move(resolved_entry),
+            std::move(candidates),
             std::move(globals),
             std::move(modules),
         };

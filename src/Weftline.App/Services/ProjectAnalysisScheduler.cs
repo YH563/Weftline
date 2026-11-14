@@ -9,7 +9,8 @@ public sealed record ProjectAnalysisResult(
     NativeProjectResponse Native,
     GraphProjection? Projection,
     WeftProjectSymbols? Symbols,
-    IReadOnlyDictionary<string, string> Documents);
+    IReadOnlyDictionary<string, string> Documents,
+    RuntimeProjection? Runtime);
 
 /// <summary>
 /// 项目级分析调度：防抖、单飞、取消与 latest-wins。
@@ -37,11 +38,11 @@ public sealed class ProjectAnalysisScheduler
 
     public event Action<Exception>? Failed;
 
-    public void Schedule(string folder, bool reloadFromDisk)
-        => _ = StartAsync(folder, reloadFromDisk, DebounceDelay);
+    public void Schedule(string folder, bool reloadFromDisk, bool buildRuntime = false)
+        => _ = StartAsync(folder, reloadFromDisk, DebounceDelay, buildRuntime);
 
-    public Task RunNowAsync(string folder, bool reloadFromDisk)
-        => StartAsync(folder, reloadFromDisk, TimeSpan.Zero);
+    public Task RunNowAsync(string folder, bool reloadFromDisk, bool buildRuntime = false)
+        => StartAsync(folder, reloadFromDisk, TimeSpan.Zero, buildRuntime);
 
     public void Cancel() => _cts?.Cancel();
 
@@ -69,7 +70,11 @@ public sealed class ProjectAnalysisScheduler
         }
     }
 
-    private Task StartAsync(string folder, bool reloadFromDisk, TimeSpan delay)
+    private Task StartAsync(
+        string folder,
+        bool reloadFromDisk,
+        TimeSpan delay,
+        bool buildRuntime)
     {
         if (string.IsNullOrWhiteSpace(folder))
         {
@@ -81,7 +86,7 @@ public sealed class ProjectAnalysisScheduler
         var cts = new CancellationTokenSource();
         _cts = cts;
         var version = Interlocked.Increment(ref _version);
-        return RunAsync(folder, reloadFromDisk, delay, version, cts);
+        return RunAsync(folder, reloadFromDisk, delay, version, cts, buildRuntime);
     }
 
     private async Task RunAsync(
@@ -89,7 +94,8 @@ public sealed class ProjectAnalysisScheduler
         bool reloadFromDisk,
         TimeSpan delay,
         long version,
-        CancellationTokenSource cts)
+        CancellationTokenSource cts,
+        bool buildRuntime)
     {
         try
         {
@@ -130,13 +136,16 @@ public sealed class ProjectAnalysisScheduler
                         cts.Token.ThrowIfCancellationRequested();
 
                         var native = _client.Compile(
-                            allowPartial: true, buildProjection: true);
+                            allowPartial: true,
+                            buildProjection: true,
+                            buildRuntime: buildRuntime);
 
                         return new ProjectAnalysisResult(
                             native,
                             native.Projection?.ToGraphProjection(),
                             native.Symbols?.ToSymbols(),
-                            projectDocuments);
+                            projectDocuments,
+                            native.Runtime?.ToRuntimeProjection());
                     },
                     cts.Token).ConfigureAwait(false);
 

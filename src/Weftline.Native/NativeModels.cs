@@ -16,6 +16,7 @@ public sealed class NativeProjectResponse
     public NativeProjectSymbols? Symbols { get; set; }
     public NativeStoryGraph? Graph { get; set; }
     public NativeProjection? Projection { get; set; }
+    public NativeRuntimeProjection? Runtime { get; set; }
 }
 
 /// <summary>
@@ -144,6 +145,7 @@ public sealed class NativeGlobal
 public sealed class NativeProjection
 {
     public string? EntryModuleId { get; set; }
+    public List<string> EntryCandidates { get; set; } = [];
     public List<NativeGraphChapter> Chapters { get; set; } = [];
     public List<NativeGraphModuleNode> Modules { get; set; } = [];
     public List<NativeGraphModuleEdge> ModuleEdges { get; set; } = [];
@@ -156,6 +158,7 @@ public sealed class NativeProjection
     public GraphProjection ToGraphProjection()
         => new(
             EntryModuleId,
+            EntryCandidates,
             Chapters.Select(static chapter => new GraphChapter(
                 chapter.ChapterId,
                 chapter.Title,
@@ -164,7 +167,7 @@ public sealed class NativeProjection
             Modules.Select(static module => new GraphModuleNode(
                 module.ModuleId,
                 module.ChapterId,
-                module.Scene,
+                module.Scenes,
                 module.BranchCount,
                 ParseModuleFlags(module.Flags),
                 new GraphModuleSummary(
@@ -200,6 +203,7 @@ public sealed class NativeProjection
             result |= flag switch
             {
                 "entry" => GraphChapterFlags.Entry,
+                "entryCandidate" => GraphChapterFlags.EntryCandidate,
                 "hasIncoming" => GraphChapterFlags.HasIncoming,
                 "hasOutgoing" => GraphChapterFlags.HasOutgoing,
                 "hasEndEdge" => GraphChapterFlags.HasEndEdge,
@@ -218,6 +222,7 @@ public sealed class NativeProjection
             result |= flag switch
             {
                 "entry" => GraphModuleFlags.Entry,
+                "entryCandidate" => GraphModuleFlags.EntryCandidate,
                 "targetsEnd" => GraphModuleFlags.TargetsEnd,
                 "unreachable" => GraphModuleFlags.Unreachable,
                 "cannotReachEnd" => GraphModuleFlags.CannotReachEnd,
@@ -306,7 +311,7 @@ public sealed class NativeGraphModuleNode
 {
     public string ModuleId { get; set; } = string.Empty;
     public string ChapterId { get; set; } = string.Empty;
-    public string? Scene { get; set; }
+    public List<string> Scenes { get; set; } = [];
     public int BranchCount { get; set; }
     public List<string> Flags { get; set; } = [];
     public NativeGraphModuleSummary? Summary { get; set; }

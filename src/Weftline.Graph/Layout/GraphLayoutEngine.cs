@@ -433,9 +433,25 @@ public static class GraphLayoutEngine
             static _ => -1,
             StringComparer.Ordinal);
 
-        var entry = projection.EntryModuleId;
+        var entries = new List<string>();
 
-        if (entry is null || !modulesById.ContainsKey(entry))
+        void AddEntry(string? moduleId)
+        {
+            if (moduleId is not null &&
+                modulesById.ContainsKey(moduleId) &&
+                !entries.Contains(moduleId, StringComparer.Ordinal))
+            {
+                entries.Add(moduleId);
+            }
+        }
+
+        AddEntry(projection.EntryModuleId);
+        foreach (var candidate in projection.EntryCandidates)
+        {
+            AddEntry(candidate);
+        }
+
+        if (entries.Count == 0)
         {
             return ranks;
         }
@@ -473,10 +489,16 @@ public static class GraphLayoutEngine
             postorder.Add(moduleId);
         }
 
-        Visit(entry);
+        foreach (var entry in entries)
+        {
+            Visit(entry);
+        }
 
         postorder.Reverse();
-        ranks[entry] = 0;
+        foreach (var entry in entries)
+        {
+            ranks[entry] = 0;
+        }
 
         foreach (var moduleId in postorder)
         {

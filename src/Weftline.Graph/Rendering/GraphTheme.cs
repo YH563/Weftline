@@ -19,14 +19,14 @@ public static class GraphTheme
     public static readonly IBrush ChapterFill = new SolidColorBrush(Color.Parse("#F0F4FA"));
     public static readonly IBrush ChapterHeaderFill = new SolidColorBrush(Color.Parse("#E4EBF7"));
     public static readonly IBrush ChapterEntryHeaderFill = new SolidColorBrush(Color.Parse("#E5F5EE"));
-    public static readonly IBrush ChapterBorder = new SolidColorBrush(Color.Parse("#CFD8E6"));
+    public static readonly IBrush ChapterBorder = new SolidColorBrush(Color.Parse("#D5DEEA"));
     public static readonly IBrush ChapterTitle = new SolidColorBrush(Color.Parse("#34405A"));
-    public static readonly IBrush ChapterShadow = new SolidColorBrush(Color.Parse("#10000000"));
+    public static readonly IBrush ChapterShadow = new SolidColorBrush(Color.Parse("#0C000000"));
     public static readonly IPen ChapterPen = new Pen(ChapterBorder, 1);
 
     public static readonly IBrush ModuleFill = new SolidColorBrush(Color.Parse("#FFFFFF"));
-    public static readonly IBrush ModuleBorder = new SolidColorBrush(Color.Parse("#C7D2E2"));
-    public static readonly IBrush ModuleShadow = new SolidColorBrush(Color.Parse("#16000000"));
+    public static readonly IBrush ModuleBorder = new SolidColorBrush(Color.Parse("#D2DAE6"));
+    public static readonly IBrush ModuleShadow = new SolidColorBrush(Color.Parse("#0D000000"));
     public static readonly IBrush ModuleTitle = new SolidColorBrush(Color.Parse("#23304A"));
     public static readonly IPen ModulePen = new Pen(ModuleBorder, 1);
     public static readonly IPen HoverPen = new Pen(new SolidColorBrush(Color.Parse("#9DB4FF")), 1.5);
@@ -40,6 +40,11 @@ public static class GraphTheme
     public static readonly IBrush EntryAccent = new SolidColorBrush(Color.Parse("#3FA37A"));
     public static readonly IBrush ExitAccent = new SolidColorBrush(Color.Parse("#5B7CFA"));
     public static readonly IPen EntryWirePen = new Pen(EntryAccent, 1.8);
+    public static readonly IPen EntryModulePen = new Pen(EntryAccent, 1.8);
+    public static readonly IPen EntryCandidatePen = new Pen(
+        EntryAccent,
+        1.2,
+        new DashStyle(new double[] { 3, 2 }, 0));
     public static readonly IPen ExitWirePen = new Pen(ExitAccent, 1.8);
     public static readonly IPen ChapterAnchorPen = new Pen(Brushes.White, 1.6);
 

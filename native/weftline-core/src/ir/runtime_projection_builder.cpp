@@ -41,10 +41,19 @@ namespace weftline::ir {
                 exit = to_runtime_exit(*module.exit);
             }
 
+            std::vector<RuntimeScene> scenes;
+            scenes.reserve(module.scenes.size());
+            for (const auto& marker : module.scenes) {
+                scenes.push_back(RuntimeScene{
+                    marker.name,
+                    marker.content_index,
+                });
+            }
+
             return RuntimeModule{
                 module.id,
                 module.chapter_id,
-                module.scene,
+                std::move(scenes),
                 module.content,
                 std::move(exit),
             };

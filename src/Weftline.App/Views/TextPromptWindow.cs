@@ -61,6 +61,7 @@ public sealed class TextPromptWindow : Window
         panel.Children.Add(buttons);
 
         Content = panel;
+        Controls.OverlayLayerHost.Ensure(this);
         Opened += (_, _) =>
         {
             textBox.Focus();

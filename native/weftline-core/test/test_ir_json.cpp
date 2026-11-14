@@ -42,6 +42,7 @@ namespace {
 @vars
     @var a false
 @module M
+    @scene 街道
     [hello]
 @next():(a) -> END { @set a true }
     () -> END
@@ -66,6 +67,9 @@ namespace {
         EXPECT_NE(json.find("\"schemaVersion\":2"), std::string::npos);
         EXPECT_NE(json.find("\"end\":\"END\""), std::string::npos);
         EXPECT_NE(json.find("\"entry\":\"M\""), std::string::npos);
+        EXPECT_NE(
+            json.find("\"scenes\":[{\"name\":\"街道\",\"contentIndex\":0}]"),
+            std::string::npos);
         EXPECT_NE(json.find("\"globals\":[{\"name\":\"a\",\"initial\":false}]"),
                   std::string::npos);
         EXPECT_NE(json.find("\"id\":\"M\""), std::string::npos);
@@ -77,6 +81,50 @@ namespace {
                   std::string::npos);
         EXPECT_NE(json.find("\"effects\":[{\"name\":\"a\",\"value\":true}]"),
                   std::string::npos);
+    }
+
+    TEST(IrJson, SerializesEntryCandidates)
+    {
+        auto file = parse_file("chapter.weft", R"(@title T
+@module A
+@next -> END
+
+@module B
+@next -> END
+)");
+
+        std::vector<ProjectFile> files;
+        files.push_back(std::move(file));
+
+        LoadedProject project;
+        project.folder = "test";
+        project.weft_files = files;
+
+        const auto binding =
+            weftline::projects::bind(project.weft_files, nullptr, {});
+        ASSERT_TRUE(binding.diagnostics.empty());
+
+        const auto model =
+            weftline::ir::build_project_model(project, binding.index);
+        const auto graph = weftline::ir::build_story_graph(project, model);
+        const auto graph_json = weftline::ir::story_graph_to_json(graph);
+
+        EXPECT_NE(
+            graph_json.find("\"entryCandidates\":[\"B\"]"),
+            std::string::npos);
+
+        const auto projection =
+            weftline::ir::build_graph_projection(model, graph);
+        const auto projection_json =
+            weftline::ir::graph_projection_to_json(projection);
+
+        EXPECT_NE(
+            projection_json.find("\"entryCandidates\":[\"B\"]"),
+            std::string::npos);
+        EXPECT_NE(
+            projection_json.find(
+                "\"flags\":[\"entryCandidate\",\"targetsEnd\"]"),
+            std::string::npos);
     }
 
     TEST(IrJson, SerializesGraphProjection)

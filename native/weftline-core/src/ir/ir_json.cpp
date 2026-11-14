@@ -169,8 +169,16 @@ namespace weftline::ir {
             writer.key("id").string(source::utf16_to_utf8(module.id));
             writer.key("chapterId").string(source::utf16_to_utf8(module.chapter_id));
 
-            if (module.scene) {
-                writer.key("scene").string(source::utf16_to_utf8(*module.scene));
+            if (!module.scenes.empty()) {
+                writer.key("scenes").begin_array();
+                for (const auto& scene : module.scenes) {
+                    writer.begin_object();
+                    writer.key("name").string(source::utf16_to_utf8(scene.name));
+                    writer.key("contentIndex").number(
+                        static_cast<std::int64_t>(scene.content_index));
+                    writer.end_object();
+                }
+                writer.end_array();
             }
 
             writer.key("content").begin_array();
@@ -198,6 +206,9 @@ namespace weftline::ir {
             if (has_flag(flags, GraphChapterFlags::Entry)) {
                 writer.string("entry");
             }
+            if (has_flag(flags, GraphChapterFlags::EntryCandidate)) {
+                writer.string("entryCandidate");
+            }
             if (has_flag(flags, GraphChapterFlags::HasIncoming)) {
                 writer.string("hasIncoming");
             }
@@ -216,6 +227,9 @@ namespace weftline::ir {
             writer.key("flags").begin_array();
             if (has_flag(flags, GraphModuleFlags::Entry)) {
                 writer.string("entry");
+            }
+            if (has_flag(flags, GraphModuleFlags::EntryCandidate)) {
+                writer.string("entryCandidate");
             }
             if (has_flag(flags, GraphModuleFlags::TargetsEnd)) {
                 writer.string("targetsEnd");
@@ -268,8 +282,12 @@ namespace weftline::ir {
             writer.key("moduleId").string(source::utf16_to_utf8(module.module_id));
             writer.key("chapterId").string(source::utf16_to_utf8(module.chapter_id));
 
-            if (module.scene) {
-                writer.key("scene").string(source::utf16_to_utf8(*module.scene));
+            if (!module.scenes.empty()) {
+                writer.key("scenes").begin_array();
+                for (const auto& scene : module.scenes) {
+                    writer.string(source::utf16_to_utf8(scene));
+                }
+                writer.end_array();
             }
 
             writer.key("branchCount").number(module.branch_count);
@@ -432,8 +450,16 @@ namespace weftline::ir {
             writer.key("id").string(source::utf16_to_utf8(module.id));
             writer.key("chapterId").string(source::utf16_to_utf8(module.chapter_id));
 
-            if (module.scene) {
-                writer.key("scene").string(source::utf16_to_utf8(*module.scene));
+            if (!module.scenes.empty()) {
+                writer.key("scenes").begin_array();
+                for (const auto& scene : module.scenes) {
+                    writer.begin_object();
+                    writer.key("name").string(source::utf16_to_utf8(scene.name));
+                    writer.key("contentIndex").number(
+                        static_cast<std::int64_t>(scene.content_index));
+                    writer.end_object();
+                }
+                writer.end_array();
             }
 
             writer.key("content").begin_array();
@@ -462,6 +488,14 @@ namespace weftline::ir {
 
         if (graph.entry) {
             writer.key("entry").string(source::utf16_to_utf8(*graph.entry));
+        }
+
+        if (!graph.entry_candidates.empty()) {
+            writer.key("entryCandidates").begin_array();
+            for (const auto& candidate : graph.entry_candidates) {
+                writer.string(source::utf16_to_utf8(candidate));
+            }
+            writer.end_array();
         }
 
         writer.key("globals").begin_array();
@@ -535,6 +569,14 @@ namespace weftline::ir {
         if (projection.entry_module_id) {
             writer.key("entryModuleId").string(
                 source::utf16_to_utf8(*projection.entry_module_id));
+        }
+
+        if (!projection.entry_candidates.empty()) {
+            writer.key("entryCandidates").begin_array();
+            for (const auto& candidate : projection.entry_candidates) {
+                writer.string(source::utf16_to_utf8(candidate));
+            }
+            writer.end_array();
         }
 
         writer.key("chapters").begin_array();

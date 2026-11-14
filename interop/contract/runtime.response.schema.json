@@ -104,8 +104,11 @@
         "chapterId": {
           "type": "string"
         },
-        "scene": {
-          "type": "string"
+        "scenes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scene"
+          }
         },
         "content": {
           "type": "array",
@@ -115,6 +118,20 @@
         },
         "exit": {
           "$ref": "#/$defs/exit"
+        }
+      },
+      "additionalProperties": false
+    },
+    "scene": {
+      "type": "object",
+      "required": ["name", "contentIndex"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "contentIndex": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "additionalProperties": false

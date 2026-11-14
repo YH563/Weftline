@@ -138,6 +138,29 @@ namespace weftline::syntax {
                 content);
         }
 
+        // 场景标记和正文按 content_index 交错输出，保持源顺序。
+        void append_module_content(
+            std::u16string& out, const Module& module)
+        {
+            std::size_t scene_index = 0;
+
+            for (std::size_t content_index = 0;
+                 content_index <= module.content.size();
+                 ++content_index) {
+                while (scene_index < module.scenes.size()
+                       && module.scenes[scene_index].content_index == content_index) {
+                    std::u16string line = u"scene ";
+                    line += module.scenes[scene_index].name;
+                    append_line(out, 2, line);
+                    ++scene_index;
+                }
+
+                if (content_index < module.content.size()) {
+                    append_line(out, 2, format_content(module.content[content_index]));
+                }
+            }
+        }
+
         // .wstory 只打印项目信息、章节、声明和文档；描述保留原文便于核对。
         void print_wstory(std::u16string& out, const WStoryFile& wstory)
         {
@@ -252,15 +275,9 @@ namespace weftline::syntax {
                 std::u16string header = u"Module \"";
                 header += module.title;
                 header.push_back(u'"');
-                if (module.scene) {
-                    header += u" scene=";
-                    header += *module.scene;
-                }
                 append_line(out, 1, header);
 
-                for (const auto& block : module.content) {
-                    append_line(out, 2, format_content(block));
-                }
+                append_module_content(out, module);
 
                 if (!module.exit) {
                     append_line(out, 2, u"@next <missing>");

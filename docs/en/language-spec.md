@@ -79,7 +79,7 @@ Rules:
 - Symbol declarations appear after the chapter title and before the first `@module`.
 - Declarations may be written directly as `@var` / `@char` / `@item` / `@scene`.
 - `@vars` / `@chars` / `@items` / `@scenes` group headers are optional and only provide visual grouping; flat and grouped declarations may be mixed.
-- A `@scene` before the first `@module` is a scene declaration; a `@scene` after `@module` is a module tag.
+- A `@scene` before the first `@module` is a scene declaration; a `@scene` after `@module` is a scene marker inside the module body.
 - Variables must provide an initial value; `@var 信任` without a value is an error.
 - Declarations do not carry descriptions; descriptions belong in `.wstory`.
 - Symbol names are unique across the project, including across kinds.
@@ -130,9 +130,9 @@ Rules:
 
 - Characters are used by dialogue speakers and `@next(character)`.
 - Items are metadata; text can reference them with `{item}`.
-- A scene is an optional module grouping tag and does not create a graph node.
-- A module has at most one `@scene`.
-- A scene can span multiple modules; a module cannot change scenes internally.
+- A scene is a switch marker inside the content stream and does not create a graph node.
+- A module may contain multiple `@scene` markers; a scene switch does not end the module.
+- A scene applies to the content after it until the next `@scene`; the same scene may span multiple modules.
 
 ### 3.2 Variables
 
@@ -313,6 +313,7 @@ Or inline:
 The language has **no** entry declaration.
 
 - Default entry = the first module of the first file.
+- Other modules with no incoming edges are candidate entries; they affect reachability checks and graph badges without changing the default entry.
 - Project order = chapter file order + module order inside each file.
 - The tool UI can start playback from any module.
 - Full export uses the initial values from `.weft` `@var`.
@@ -332,7 +333,7 @@ The language has **no** entry declaration.
 |---|---|
 | `@title` | chapter grouping tag (not a node) |
 | `@module` | node (ID = module ID) |
-| `@scene` | node grouping tag |
+| `@scene` | scene switch marker inside the content stream |
 | content blocks | node content |
 | each `@next` branch | one outgoing edge |
 | `(character)` | edge attribute (block-level) |
@@ -370,6 +371,6 @@ Chapters are not graph nodes; a collapsed view may render a chapter as a contain
 1. Text `{}` references characters/items only, never variables.
 2. `.weft` is the only declaration source; `.wstory` is a generated overview.
 3. Variable declarations must include an initial value; runtime writes happen only in branch effects.
-4. Scenes are only module tags, never graph nodes.
+4. Scenes are content-stream markers; they do not create graph nodes or split modules.
 5. Chapters are file-level groups, not graph nodes; modules are the only graph nodes.
 6. Indentation is display-only and does not affect parsing.

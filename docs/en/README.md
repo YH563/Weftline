@@ -106,7 +106,7 @@ Non-goals: portraits, audio, saves, localization, voice, RPG stats/inventory, re
 1. **Text references**: `{}` only refers to characters or items, never variables.
 2. **Chapters**: the `@title` on the first line of a `.weft` file is the chapter title; chapters are groups, not graph nodes.
 3. **Module ID**: `@module` is the module ID; IDs are unique across the project.
-4. **Entry**: no entry declaration; the default is the first module of the first file.
-5. **Scenes**: an optional module tag, not a graph node.
+4. **Entry**: no entry declaration; the default is the first module of the first file, while other modules with no incoming edges act as candidate entries for reachability checks and graph badges.
+5. **Scenes**: a switch marker inside the content stream, not a graph node, and it does not split modules.
 6. **Variables**: boolean only; declarations must provide an initial value; runtime changes only in branch effects.
 7. **Images**: v0 supports `@fig "path"`; it will be embedded once HTML export is wired up.

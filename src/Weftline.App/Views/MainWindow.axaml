@@ -9,6 +9,7 @@
         xmlns:editor="using:Weftline.Editor.Views"
         xmlns:vm="using:Weftline.App.ViewModels"
         xmlns:graph="using:Weftline.Graph.Controls"
+        xmlns:primitives="using:Avalonia.Controls.Primitives"
         x:DataType="vm:MainWindowViewModel"
         x:CompileBindings="True"
         Title="Weftline"
@@ -23,10 +24,10 @@
     </suki:SukiWindow.KeyBindings>
 
     <Grid RowDefinitions="Auto,*,Auto,Auto">
-        <views:MainMenuView Grid.Row="0" Height="25" Padding="3"/>
+        <views:MainMenuView Grid.Row="0" />
 
         <Grid Grid.Row="1"
-              Background="#F2F3F5">
+              Background="{DynamicResource AppBackground}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="280" MinWidth="180" MaxWidth="520" />
                 <ColumnDefinition Width="6" />
@@ -36,11 +37,8 @@
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0"
-                    Margin="6,6,0,6"
-                    Background="#FFFFFF"
-                    BorderBrush="#E2E5EA"
-                    BorderThickness="1"
-                    CornerRadius="8"
+                    Classes="panel"
+                    Margin="8,4,0,6"
                     ClipToBounds="True">
                 <views:ProjectExplorerView x:Name="Explorer"
                                               DataContext="{Binding Explorer}" />
@@ -52,11 +50,8 @@
                           Background="Transparent" />
 
             <Border Grid.Column="2"
-                    Margin="0,6,0,6"
-                    Background="#FFFFFF"
-                    BorderBrush="#E2E5EA"
-                    BorderThickness="1"
-                    CornerRadius="8"
+                    Classes="panel"
+                    Margin="0,4,0,6"
                     ClipToBounds="True">
                 <editor:WeftEditorView x:Name="Editor"
                                        DataContext="{Binding Editor}" />
@@ -68,29 +63,57 @@
                           Background="Transparent" />
 
             <Border Grid.Column="4"
-                    Margin="0,6,6,6"
-                    Background="#F6F8FC"
-                    BorderBrush="#E2E5EA"
-                    BorderThickness="1"
-                    CornerRadius="8"
+                    Classes="panel"
+                    Margin="0,4,8,6"
+                    Background="{DynamicResource SurfaceAlt}"
                     ClipToBounds="True">
-                <Grid RowDefinitions="Auto,*">
+                <Grid x:Name="RightPaneGrid"
+                      RowDefinitions="Auto,*,6,*">
+                    <Grid Grid.Row="0"
+                          ColumnDefinitions="Auto,Auto,*"
+                          Margin="10,8,10,4">
+                        <ToggleButton Classes="paneToggle"
+                                      Content="剧情图"
+                                      IsChecked="{Binding IsGraphVisible, Mode=TwoWay}" />
+                        <ToggleButton Grid.Column="1"
+                                      Classes="paneToggle"
+                                      Content="预览"
+                                      IsChecked="{Binding IsPreviewVisible, Mode=TwoWay}"
+                                      Margin="6,0,0,0" />
+                    </Grid>
+
+                    <Grid x:Name="GraphPane"
+                          Grid.Row="1"
+                          RowDefinitions="Auto,*"
+                          IsVisible="{Binding IsGraphVisible}">
                     <Grid Grid.Row="0"
                           ColumnDefinitions="*,Auto,Auto"
                           Margin="12,8">
                         <StackPanel Spacing="2">
-                            <TextBlock Text="剧情图"
-                                       FontSize="14"
-                                       FontWeight="SemiBold"
-                                       Foreground="#2B3038" />
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <PathIcon Data="{StaticResource IconGraph}"
+                                          Width="14"
+                                          Height="14"
+                                          Foreground="{DynamicResource TextSecondary}"
+                                          VerticalAlignment="Center" />
+                                <TextBlock Text="剧情图"
+                                           Classes="panelTitle" />
+                            </StackPanel>
                             <TextBlock Text="{Binding Graph.StatusText}"
-                                       FontSize="12"
-                                       Foreground="#5F6B7A" />
+                                       Classes="panelSubtitle" />
                         </StackPanel>
                         <Button Grid.Column="1"
-                                Content="{Binding Graph.FilterButtonText}"
-                                Padding="10,4"
+                                Padding="11,5"
                                 Margin="0,0,6,0">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <PathIcon Data="{StaticResource IconFilter}"
+                                          Width="14"
+                                          Height="14"
+                                          Foreground="{DynamicResource TextSecondary}"
+                                          VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Graph.FilterButtonText}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
                             <Button.Flyout>
                                 <Flyout Placement="BottomEdgeAlignedRight">
                                     <ScrollViewer MaxHeight="420">
@@ -98,14 +121,14 @@
                                             <TextBlock Text="筛选"
                                                        FontSize="14"
                                                        FontWeight="SemiBold"
-                                                       Foreground="#2B3038" />
+                                                       Foreground="{DynamicResource TextPrimary}" />
                                             <TextBlock Text="同维度 OR，跨维度 AND"
                                                        FontSize="11"
-                                                       Foreground="#5F6B7A" />
+                                                       Foreground="{DynamicResource TextSecondary}" />
                                             <TextBlock Text="角色"
                                                        FontSize="12"
                                                        FontWeight="SemiBold"
-                                                       Foreground="#3F4A59" />
+                                                       Foreground="{DynamicResource TextSecondary}" />
                                             <ItemsControl ItemsSource="{Binding Graph.CharacterOptions}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="vm:GraphFilterOption">
@@ -118,7 +141,7 @@
                                             <TextBlock Text="场景"
                                                        FontSize="12"
                                                        FontWeight="SemiBold"
-                                                       Foreground="#3F4A59" />
+                                                       Foreground="{DynamicResource TextSecondary}" />
                                             <ItemsControl ItemsSource="{Binding Graph.SceneOptions}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="vm:GraphFilterOption">
@@ -131,7 +154,7 @@
                                             <TextBlock Text="变量"
                                                        FontSize="12"
                                                        FontWeight="SemiBold"
-                                                       Foreground="#3F4A59" />
+                                                       Foreground="{DynamicResource TextSecondary}" />
                                             <ItemsControl ItemsSource="{Binding Graph.VariableOptions}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="vm:GraphFilterOption">
@@ -151,9 +174,18 @@
                             </Button.Flyout>
                         </Button>
                         <Button Grid.Column="2"
-                                Content="重置布局"
-                                Padding="10,4"
-                                Click="OnResetGraphLayout" />
+                                Padding="11,5"
+                                Click="OnResetGraphLayout">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <PathIcon Data="{StaticResource IconReset}"
+                                          Width="14"
+                                          Height="14"
+                                          Foreground="{DynamicResource TextSecondary}"
+                                          VerticalAlignment="Center" />
+                                <TextBlock Text="重置布局"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                     </Grid>
 
                     <Grid Grid.Row="1">
@@ -170,29 +202,29 @@
                                 Margin="12"
                                 MaxWidth="360"
                                 Padding="10,8"
-                                Background="#FFFFFF"
-                                BorderBrush="#D8DCE3"
+                                Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource BorderStrong}"
                                 BorderThickness="1"
                                 CornerRadius="8"
                                 IsHitTestVisible="False">
                             <StackPanel Spacing="4">
                                 <TextBlock Text="{Binding Graph.HoverTitle}"
                                            FontWeight="SemiBold"
-                                           Foreground="#2B3038"
+                                           Foreground="{DynamicResource TextPrimary}"
                                            TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="{Binding Graph.HoverFirstLine}"
                                            IsVisible="{Binding Graph.HasHoverFirstLine}"
                                            FontStyle="Italic"
-                                           Foreground="#3F4A59"
+                                           Foreground="{DynamicResource TextSecondary}"
                                            TextWrapping="Wrap"
                                            MaxLines="3" />
                                 <TextBlock Text="{Binding Graph.HoverMeta}"
                                            FontSize="12"
-                                           Foreground="#5F6B7A" />
+                                           Foreground="{DynamicResource TextSecondary}" />
                                 <TextBlock Text="{Binding Graph.HoverDescription}"
                                            IsVisible="{Binding Graph.HasHoverDescription}"
                                            FontSize="12"
-                                           Foreground="#5F6B7A"
+                                           Foreground="{DynamicResource TextSecondary}"
                                            TextWrapping="Wrap"
                                            MaxLines="4" />
                             </StackPanel>
@@ -203,8 +235,8 @@
                                 VerticalAlignment="Top"
                                 Margin="12"
                                 MaxWidth="380"
-                                Background="#FFFFFF"
-                                BorderBrush="#D8DCE3"
+                                Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource BorderStrong}"
                                 BorderThickness="1"
                                 CornerRadius="8">
                             <Grid RowDefinitions="Auto,*">
@@ -214,23 +246,20 @@
                                     <StackPanel Spacing="2">
                                         <TextBlock Text="{Binding Graph.ChapterEdgeTitle}"
                                                    FontWeight="SemiBold"
-                                                   Foreground="#2B3038"
+                                                   Foreground="{DynamicResource TextPrimary}"
                                                    TextTrimming="CharacterEllipsis" />
                                         <TextBlock Text="{Binding Graph.ChapterEdgeSubtitle}"
                                                    FontSize="12"
-                                                   Foreground="#5F6B7A" />
+                                                   Foreground="{DynamicResource TextSecondary}" />
                                     </StackPanel>
                                     <Button Grid.Column="1"
-                                            Content="×"
-                                            Command="{Binding Graph.CloseChapterEdgeDetailsCommand}"
-                                            Width="24"
-                                            Height="24"
-                                            Padding="0"
-                                            FontSize="13"
-                                            Background="Transparent"
-                                            BorderThickness="0"
-                                            Foreground="#5F6B7A"
-                                            Focusable="False" />
+                                            Classes="icon"
+                                            Command="{Binding Graph.CloseChapterEdgeDetailsCommand}">
+                                        <PathIcon Data="{StaticResource IconClose}"
+                                                  Width="12"
+                                                  Height="12"
+                                                  Foreground="{DynamicResource TextSecondary}" />
+                                    </Button>
                                 </Grid>
 
                                 <ScrollViewer Grid.Row="1"
@@ -242,7 +271,7 @@
                                             <DataTemplate x:DataType="vm:ChapterEdgeDetailItem">
                                                 <TextBlock Text="{Binding Text}"
                                                            FontSize="12"
-                                                           Foreground="#3F4A59"
+                                                           Foreground="{DynamicResource TextSecondary}"
                                                            TextWrapping="Wrap"
                                                            Margin="0,1" />
                                             </DataTemplate>
@@ -252,6 +281,20 @@
                             </Grid>
                         </Border>
                     </Grid>
+                    </Grid>
+
+                    <GridSplitter x:Name="PaneSplitter"
+                                  Grid.Row="2"
+                                  Height="6"
+                                  HorizontalAlignment="Stretch"
+                                  ResizeDirection="Rows"
+                                  Background="Transparent" />
+
+                    <Grid x:Name="PreviewPane"
+                          Grid.Row="3"
+                          IsVisible="{Binding IsPreviewVisible}">
+                        <views:PreviewPanelView DataContext="{Binding Preview}" />
+                    </Grid>
                 </Grid>
             </Border>
         </Grid>
@@ -259,39 +302,37 @@
         <Border Grid.Row="2"
                 IsVisible="{Binding IsProblemsVisible}"
                 Height="180"
-                Background="#FFFFFF"
-                BorderBrush="#E2E5EA"
+                Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}"
                 BorderThickness="0,1,0,0">
             <Grid RowDefinitions="Auto,*">
                 <Grid Grid.Row="0"
                       ColumnDefinitions="*,Auto"
                       Margin="12,6">
                     <StackPanel Orientation="Horizontal" Spacing="8">
+                        <PathIcon Data="{StaticResource IconWarning}"
+                                  Width="14"
+                                  Height="14"
+                                  Foreground="{DynamicResource Warning}"
+                                  VerticalAlignment="Center" />
                         <TextBlock Text="问题"
-                                   FontSize="14"
-                                   FontWeight="SemiBold"
-                                   Foreground="#2B3038"
+                                   Classes="panelTitle"
                                    VerticalAlignment="Center" />
                         <TextBlock Text="{Binding Diagnostics.Count}"
-                                   FontSize="12"
-                                   Foreground="#5F6B7A"
+                                   Classes="panelSubtitle"
                                    VerticalAlignment="Center" />
                         <TextBlock Text="条"
-                                   FontSize="12"
-                                   Foreground="#5F6B7A"
+                                   Classes="caption"
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <Button Grid.Column="1"
-                            Content="×"
-                            Command="{Binding ShowProblemsCommand}"
-                            Width="24"
-                            Height="24"
-                            Padding="0"
-                            FontSize="13"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Foreground="#5F6B7A"
-                            Focusable="False" />
+                            Classes="icon"
+                            Command="{Binding ShowProblemsCommand}">
+                        <PathIcon Data="{StaticResource IconClose}"
+                                  Width="12"
+                                  Height="12"
+                                  Foreground="{DynamicResource TextSecondary}" />
+                    </Button>
                 </Grid>
 
                 <ListBox Grid.Row="1"
@@ -303,23 +344,40 @@
                          Padding="4">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:DiagnosticItem">
-                            <Grid ColumnDefinitions="60,70,140,*"
+                            <Grid ColumnDefinitions="24,70,140,*"
                                   Margin="2">
-                                <TextBlock Text="{Binding Severity}"
-                                            FontSize="12"
-                                            Foreground="#C65B5B" />
+                                <Panel>
+                                    <PathIcon Data="{StaticResource IconError}"
+                                              IsVisible="{Binding IsError}"
+                                              Width="14"
+                                              Height="14"
+                                              Foreground="{DynamicResource Danger}"
+                                              VerticalAlignment="Center" />
+                                    <PathIcon Data="{StaticResource IconWarning}"
+                                              IsVisible="{Binding IsWarning}"
+                                              Width="14"
+                                              Height="14"
+                                              Foreground="{DynamicResource Warning}"
+                                              VerticalAlignment="Center" />
+                                    <PathIcon Data="{StaticResource IconInfo}"
+                                              IsVisible="{Binding IsInfo}"
+                                              Width="14"
+                                              Height="14"
+                                              Foreground="{DynamicResource Accent}"
+                                              VerticalAlignment="Center" />
+                                </Panel>
                                 <TextBlock Grid.Column="1"
                                             Text="{Binding Code}"
                                             FontSize="12"
-                                            Foreground="#5F6B7A" />
+                                            Foreground="{DynamicResource TextSecondary}" />
                                 <TextBlock Grid.Column="2"
                                             Text="{Binding Location}"
                                             FontSize="12"
-                                            Foreground="#2B3038" />
+                                            Foreground="{DynamicResource TextPrimary}" />
                                 <TextBlock Grid.Column="3"
                                             Text="{Binding Message}"
                                             FontSize="12"
-                                            Foreground="#2B3038"
+                                            Foreground="{DynamicResource TextPrimary}"
                                             TextTrimming="CharacterEllipsis" />
                             </Grid>
                         </DataTemplate>
@@ -329,5 +387,9 @@
         </Border>
 
         <views:StatusBarView Grid.Row="3" DataContext="{Binding Status}" />
+
+        <primitives:VisualLayerManager x:Name="LayerManager"
+                                       Grid.RowSpan="4"
+                                       EnableOverlayLayer="True" />
     </Grid>
 </suki:SukiWindow>

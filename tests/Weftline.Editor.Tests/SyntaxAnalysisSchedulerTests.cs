@@ -60,6 +60,35 @@ public sealed class SyntaxAnalysisSchedulerTests
         }, CancellationToken.None);
     }
 
+
+    [Fact]
+    public async Task SkipsSyntaxAnalysisForNonWeftFiles()
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(TestApp));
+
+        await session.Dispatch(async () =>
+        {
+            var loader = new FakeDocumentLoader();
+            loader.Files["README.md"] = "# hello";
+            var document = new EditorDocumentViewModel(
+                loader,
+                new FakeIconProvider());
+            document.OpenFile("README.md");
+
+            var languageService = new FakeLanguageService();
+            var scheduler = new SyntaxAnalysisScheduler(languageService);
+
+            scheduler.Schedule(document);
+            await Task.Delay(250);
+
+            Assert.Empty(document.Diagnostics);
+            Assert.Null(languageService.LastFilePath);
+
+            scheduler.Cancel(document);
+            return true;
+        }, CancellationToken.None);
+    }
+
     [Fact]
     public async Task DeduplicatesSyntaxAndProjectDiagnostics()
     {

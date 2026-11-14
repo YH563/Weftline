@@ -43,7 +43,7 @@ public static class GraphFilterMatcher
                  characters.Overlaps(filter.Characters));
 
             var matchesScenes = filter.Scenes.Count == 0 ||
-                (module.Scene is { } scene && filter.Scenes.Contains(scene));
+                module.Scenes.Any(filter.Scenes.Contains);
 
             var matchesVariables = filter.Variables.Count == 0 ||
                 (moduleVariables.TryGetValue(module.ModuleId, out var variables) &&

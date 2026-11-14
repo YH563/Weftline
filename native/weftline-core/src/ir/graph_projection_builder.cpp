@@ -31,6 +31,7 @@ namespace weftline::ir {
             std::u16string title,
             std::vector<std::u16string> module_ids,
             const std::optional<std::u16string>& entry_module_id,
+            const std::unordered_set<std::u16string>& entry_candidates,
             const std::unordered_set<std::u16string>& incoming,
             const std::unordered_set<std::u16string>& outgoing,
             const std::unordered_set<std::u16string>& end_edges)
@@ -42,6 +43,15 @@ namespace weftline::ir {
                        module_ids.begin(), module_ids.end(), *entry_module_id)
                     != module_ids.end()) {
                 flags = flags | GraphChapterFlags::Entry;
+            }
+            if (std::any_of(
+                    module_ids.begin(),
+                    module_ids.end(),
+                    [&](const std::u16string& module_id) {
+                        return entry_candidates.find(module_id)
+                            != entry_candidates.end();
+                    })) {
+                flags = flags | GraphChapterFlags::EntryCandidate;
             }
             if (incoming.find(chapter_id) != incoming.end()) {
                 flags = flags | GraphChapterFlags::HasIncoming;
@@ -65,7 +75,8 @@ namespace weftline::ir {
         [[nodiscard]] std::vector<GraphChapter> build_chapters(
             const ProjectModel& model,
             const StoryGraph& graph,
-            const GraphAnalysis& analysis)
+            const GraphAnalysis& analysis,
+            const std::unordered_set<std::u16string>& entry_candidates)
         {
             std::unordered_map<std::u16string, std::vector<const IrModule*>>
                 modules_by_chapter;
@@ -109,6 +120,7 @@ namespace weftline::ir {
                     chapter.title,
                     std::move(module_ids),
                     graph.entry,
+                    entry_candidates,
                     incoming,
                     outgoing,
                     end_edges));
@@ -130,6 +142,7 @@ namespace weftline::ir {
                     chapter_id,
                     std::move(module_ids),
                     graph.entry,
+                    entry_candidates,
                     incoming,
                     outgoing,
                     end_edges));
@@ -214,16 +227,19 @@ namespace weftline::ir {
             };
         }
 
-        // 模块角标：入口、有 END 出口、从入口不可达、无法到达 END。
+        // 模块角标：默认入口、候选入口、有 END 出口、从入口不可达、无法到达 END。
         [[nodiscard]] GraphModuleFlags build_module_flags(
             const IrModule& module,
             const StoryGraph& graph,
-            const GraphAnalysis& analysis)
+            const GraphAnalysis& analysis,
+            const std::unordered_set<std::u16string>& entry_candidates)
         {
             auto flags = GraphModuleFlags::None;
 
             if (graph.entry && module.id == *graph.entry) {
                 flags = flags | GraphModuleFlags::Entry;
+            } else if (entry_candidates.find(module.id) != entry_candidates.end()) {
+                flags = flags | GraphModuleFlags::EntryCandidate;
             }
 
             if (module.exit) {
@@ -250,10 +266,27 @@ namespace weftline::ir {
             return flags;
         }
 
+        // 场景列表按源顺序去重，避免同一模块重复显示同一个场景。
+        [[nodiscard]] std::vector<std::u16string> build_scenes(
+            const IrModule& module)
+        {
+            std::vector<std::u16string> scenes;
+            std::unordered_set<std::u16string> seen;
+
+            for (const auto& marker : module.scenes) {
+                if (seen.insert(marker.name).second) {
+                    scenes.push_back(marker.name);
+                }
+            }
+
+            return scenes;
+        }
+
         // 模块节点只带图视图需要的元数据，不复制完整正文。
         [[nodiscard]] std::vector<GraphModuleNode> build_modules(
             const StoryGraph& graph,
-            const GraphAnalysis& analysis)
+            const GraphAnalysis& analysis,
+            const std::unordered_set<std::u16string>& entry_candidates)
         {
             std::vector<GraphModuleNode> modules;
             modules.reserve(graph.modules.size());
@@ -262,11 +295,12 @@ namespace weftline::ir {
                 modules.push_back(GraphModuleNode{
                     module.id,
                     module.chapter_id,
-                    module.scene,
+                    build_scenes(module),
                     module.exit
                         ? static_cast<std::int32_t>(module.exit->branches.size())
                         : 0,
-                    build_module_flags(module, graph, analysis),
+                    build_module_flags(
+                        module, graph, analysis, entry_candidates),
                     build_summary(module),
                     module.source,
                 });
@@ -321,11 +355,14 @@ namespace weftline::ir {
         const GraphAnalysis& analysis)
     {
         const auto modules_by_id = by_id(graph);
+        const std::unordered_set<std::u16string> entry_candidates(
+            graph.entry_candidates.begin(), graph.entry_candidates.end());
 
         return GraphProjection{
             graph.entry,
-            build_chapters(model, graph, analysis),
-            build_modules(graph, analysis),
+            graph.entry_candidates,
+            build_chapters(model, graph, analysis, entry_candidates),
+            build_modules(graph, analysis, entry_candidates),
             build_module_edges(graph, modules_by_id),
             analysis.chapter_edges,
             analysis.references,

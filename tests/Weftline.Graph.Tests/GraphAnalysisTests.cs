@@ -26,6 +26,21 @@ public sealed class GraphAnalysisTests
     }
 
     [Fact]
+    public void PathHighlightFallsBackToEntryCandidates()
+    {
+        var projection = CreateProjection(
+            modules: ["A", "B", "C"],
+            edges: [("B", "C"), ("C", "END")],
+            entryCandidates: ["B"]);
+
+        var highlight = GraphPathAnalyzer.Build(projection, "C");
+
+        Assert.Equal(["B", "C"], highlight.Modules.Order());
+        Assert.Contains(("B", "C"), highlight.ModuleEdges);
+        Assert.Contains(("C", "END"), highlight.ModuleEdges);
+    }
+
+    [Fact]
     public void PathHighlightHandlesCycles()
     {
         var projection = CreateProjection(
@@ -91,18 +106,44 @@ public sealed class GraphAnalysisTests
         Assert.Empty(combined.Modules);
     }
 
+    [Fact]
+    public void FilterMatchesAnySceneInModule()
+    {
+        var projection = CreateProjection(
+            modules: ["A"],
+            edges: [("A", "END")],
+            scenes: new()
+            {
+                ["街道"] = ["A"],
+                ["医院"] = ["A"],
+            });
+
+        var match = GraphFilterMatcher.Match(
+            projection,
+            new GraphFilterSelection(
+                new HashSet<string>(StringComparer.Ordinal),
+                new HashSet<string>(["医院"], StringComparer.Ordinal),
+                new HashSet<string>(StringComparer.Ordinal)));
+
+        Assert.Equal(["A"], match.Modules);
+    }
+
     private static GraphProjection CreateProjection(
         string[] modules,
         (string From, string To)[] edges,
         (string From, string To, (string From, string To)[] Details)[]? chapterEdges = null,
         Dictionary<string, List<string>>? characters = null,
         Dictionary<string, List<string>>? variables = null,
-        Dictionary<string, List<string>>? scenes = null)
+        Dictionary<string, List<string>>? scenes = null,
+        string[]? entryCandidates = null)
     {
         var nodes = modules.Select(moduleId => new GraphModuleNode(
             moduleId,
             "第一章",
-            null,
+            scenes?
+                .Where(pair => pair.Value.Contains(moduleId, StringComparer.Ordinal))
+                .Select(static pair => pair.Key)
+                .ToList() ?? [],
             1,
             moduleId == "A" ? GraphModuleFlags.Entry : GraphModuleFlags.None,
             new GraphModuleSummary(null, 0, 0),
@@ -132,6 +173,7 @@ public sealed class GraphAnalysisTests
 
         return new GraphProjection(
             "A",
+            entryCandidates ?? [],
             [new GraphChapter("第一章", "第一章", modules, GraphChapterFlags.Entry)],
             nodes,
             moduleEdges,

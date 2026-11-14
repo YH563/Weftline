@@ -15,4 +15,10 @@ public sealed record DiagnosticItem(
     /// 用于列表显示的短位置文本。
     /// </summary>
     public string Location => $"{Path.GetFileName(FilePath)}:{Line}:{Character}";
+
+    public bool IsError => string.Equals(Severity, "error", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsWarning => string.Equals(Severity, "warning", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsInfo => string.Equals(Severity, "info", StringComparison.OrdinalIgnoreCase);
 }

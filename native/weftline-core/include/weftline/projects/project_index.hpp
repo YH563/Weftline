@@ -43,7 +43,7 @@ namespace weftline::projects {
         std::string file_path;
         source::TextSpan span;
         source::TextSpan title_span;
-        std::optional<std::u16string> scene;
+        std::vector<std::u16string> scenes;
     };
 
     /**

@@ -102,6 +102,12 @@ sealed class Program
             viewModel.IsProblemsVisible = true;
         }
 
+        if (Array.IndexOf(args, "--preview-panel") >= 0)
+        {
+            viewModel.IsPreviewVisible = true;
+            PumpUntilComplete(viewModel.EnsurePreviewAsync());
+        }
+
         Dispatcher.UIThread.RunJobs();
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Dispatcher.UIThread.RunJobs();
@@ -119,6 +125,7 @@ sealed class Program
             $"已保存 {outPath} ({frame.PixelSize.Width}x{frame.PixelSize.Height}, " +
             $"{(dark ? "Dark" : "Light")})");
     }
+
 
     private static void CapturePreview(string outPath, string[] args)
     {

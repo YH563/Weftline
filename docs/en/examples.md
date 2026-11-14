@@ -208,7 +208,7 @@ Two examples: a minimal demo without variables, and a complete example with cond
 
 - `.weft` chapter title and top-level declaration area (flat declarations or optional `@vars` / `@chars` / `@items` / `@scenes` groups)
 - `.wstory` project info, summary, docs, descriptions
-- `@title` chapter boundaries, `@module` module boundaries, and `@scene` scene tags
+- `@title` chapter boundaries, `@module` module boundaries, and `@scene` scene switch markers
 - Inline `[]` narration and `character:[]` dialogue
 - Text references `{name}`
 - `@fig` image insertion

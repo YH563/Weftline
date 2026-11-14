@@ -244,7 +244,7 @@ public sealed class PlayerSessionTests
         var module = new RuntimeModule(
             "A",
             "第一章",
-            "医院",
+            [new RuntimeScene("医院", 0)],
             [Narration("a1")],
             Auto(AutoTo("END")));
 
@@ -260,6 +260,23 @@ public sealed class PlayerSessionTests
         var session = new PlayerSession(projection);
 
         Assert.Equal("第一章", session.CurrentChapterTitle);
+        Assert.Equal("医院", session.CurrentScene);
+    }
+
+    [Fact]
+    public void UpdatesSceneWhenContentCrossesMarker()
+    {
+        var module = new RuntimeModule(
+            "A",
+            "第一章",
+            [new RuntimeScene("街道", 0), new RuntimeScene("医院", 1)],
+            [Narration("a1"), Narration("a2")],
+            Auto(AutoTo("END")));
+
+        var session = new PlayerSession(Project([module]));
+
+        Assert.Equal("街道", session.CurrentScene);
+        Assert.True(session.Advance());
         Assert.Equal("医院", session.CurrentScene);
     }
 
@@ -288,7 +305,7 @@ public sealed class PlayerSessionTests
         string id,
         RuntimeExit? exit,
         params RuntimeContent[] content)
-        => new(id, "第一章", null, content, exit);
+        => new(id, "第一章", [], content, exit);
 
     private static RuntimeExit Auto(params RuntimeBranch[] branches)
         => new(ExitMode.Auto, null, branches);
