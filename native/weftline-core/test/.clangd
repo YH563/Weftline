@@ -1,0 +1,12 @@
+# 这些 GTest 用例没有进 compile_commands.json（本地构建用的是 BUILD_TESTING=OFF，
+# 只编了共享库/静态库/weftc，测试目标不存在），所以 clangd 只能退回默认参数，
+# 报 'gtest/gtest.h' file not found，随后 TEST/EXPECT_* 全部判成未声明标识符。
+# 这里为 test/ 目录单独补上测试需要的参数；src/ 下的文件仍用 CMake 生成的编译命令。
+CompileFlags:
+  Add:
+    - -std=c++20
+    # 本机现有的 gtest 头文件（conda 自带）。换机器/安装位置时改这里。
+    - -isystemD:/miniconda/Library/include
+    - -IE:/Weftline/native/weftline-core/include
+    # 三个用例用到了这个宏，值与 CMakeLists 中一致。
+    - '-DWEFTLINE_SAMPLES_DIR="E:/Weftline/samples"'

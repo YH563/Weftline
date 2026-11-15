@@ -1,0 +1,6 @@
+# clangd 项目配置（Editors: Zed / VS Code / Neovim 都认这个文件）
+# native 的 CMake 会把 compile_commands.json 生成在 native/out/build/release，
+# 而 clangd 只会沿源码目录向父目录查找，找不到这份数据库，
+# 于是退化成裸 clang 参数解析，把 MinGW 的 libstdc++ 头文件判成缺失（满屏 std 未声明）。
+CompileFlags:
+  CompilationDatabase: native/out/build/release
