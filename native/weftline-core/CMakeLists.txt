@@ -16,14 +16,31 @@ file(GLOB WEFTLINE_CORE_SOURCES CONFIGURE_DEPENDS
     src/generation/*.cpp
     src/api/*.cpp
 )
+# 共享库和静态库共用同一批目标文件：源码只编译一次，警告选项也只写一份。
+add_library(weftline_core_objects OBJECT ${WEFTLINE_CORE_SOURCES})
+
+target_include_directories(weftline_core_objects PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+target_compile_definitions(weftline_core_objects PRIVATE WEFTLINE_CORE_BUILD)
+
+# 静态库的对象也可能被链接进共享库，Linux 下需要 PIC。
+set_target_properties(weftline_core_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+if (MSVC)
+    target_compile_options(weftline_core_objects PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(weftline_core_objects PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
 # 共享库：对外只暴露 core.h 里的 C ABI，供 C# P/Invoke 使用。
-add_library(weftline_core SHARED ${WEFTLINE_CORE_SOURCES})
+add_library(weftline_core SHARED $<TARGET_OBJECTS:weftline_core_objects>)
 
 target_include_directories(weftline_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-target_compile_definitions(weftline_core PRIVATE WEFTLINE_CORE_BUILD)
 
 if (WIN32)
     # P/Invoke 按 "weftline_core" 解析 DLL 名；MinGW/CMake 默认会加 lib 前缀，
@@ -34,19 +51,14 @@ endif()
 # 静态库：给 weftc 和单元测试用它们直接调用 C++ 内部 API。
 # Windows 默认只导出 __declspec(dllexport) 的符号，链接共享库会找不到这些内部符号
 # （Linux 默认导出全部符号，所以这个问题只在 Windows 上暴露）。
-add_library(weftline_core_static STATIC ${WEFTLINE_CORE_SOURCES})
+add_library(weftline_core_static STATIC $<TARGET_OBJECTS:weftline_core_objects>)
 
 target_include_directories(weftline_core_static PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-target_compile_definitions(weftline_core_static PUBLIC WEFTLINE_CORE_BUILD)
-
-if (MSVC)
-    target_compile_options(weftline_core PRIVATE /W4 /permissive-)
-else()
-    target_compile_options(weftline_core PRIVATE -Wall -Wextra -Wpedantic)
-endif()
+# 静态链接的调用方沿用原有语义：看到导出宏。
+target_compile_definitions(weftline_core_static INTERFACE WEFTLINE_CORE_BUILD)
 
 # 命令行入口
 add_executable(weftc src/main.cpp)
