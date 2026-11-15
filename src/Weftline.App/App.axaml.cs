@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Weftline.App.Services;
@@ -28,7 +28,7 @@ public partial class App : Application
             }
             else
             {
-                var viewModel = new MainWindowViewModel(new DialogService());
+                var viewModel = AppComposition.CreateMainWindow(new DialogService());
                 desktop.MainWindow = new MainWindow
                 {
                     DataContext = viewModel,

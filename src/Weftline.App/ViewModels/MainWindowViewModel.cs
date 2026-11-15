@@ -2,42 +2,34 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Text;
-using System.Text.Encodings.Web;
-using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Weftline.App.Models;
-using Weftline.App.Services;
 using Weftline.App.Features.Editor.Services;
 using Weftline.App.Features.Editor.ViewModels;
+using Weftline.App.Features.Graph;
 using Weftline.App.Features.Graph.Layout;
+using Weftline.App.Features.Graph.ViewModels;
 using Weftline.App.Features.Player.ViewModels;
+using Weftline.App.Models;
+using Weftline.App.Services;
 using Weftline.Core;
-using Weftline.Native;
+using Weftline.Core.Language;
 using Weftline.Core.Runtime;
+using Weftline.Native;
 
 namespace Weftline.App.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject
 {
-    private const string LayoutFileName = "weftline.layout.json";
-
-    private static readonly JsonSerializerOptions LayoutJsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-    };
-
     private readonly IDialogService _dialogs;
     private readonly EditorLanguageService _editorLanguageService;
-    private readonly ProjectAnalysisScheduler _analysisScheduler;
-    private readonly Dictionary<string, DocumentSnapshotEntry> _documentSnapshots =
-        new(StringComparer.Ordinal);
+    private readonly IProjectAnalysisScheduler _analysisScheduler;
+    private readonly IProjectLayoutStore _layoutStore;
+    private readonly IDocumentSaver _documentSaver;
+    private readonly DocumentSnapshotProvider _snapshots;
     private readonly DispatcherTimer _statusContextTimer;
     private readonly DispatcherTimer _statusCaretTimer;
     private EditorDocumentViewModel? _observedDocument;
@@ -49,9 +41,15 @@ public partial class MainWindowViewModel : ObservableObject
     private string? _lastGraphSignature;
     private string? _projectFolder;
 
-    public MainWindowViewModel(IDialogService dialogs)
+    public MainWindowViewModel(MainWindowServices services)
     {
-        _dialogs = dialogs;
+        _dialogs = services.Dialogs;
+        _analysisScheduler = services.Analysis;
+        _layoutStore = services.Layouts;
+        _documentSaver = services.Documents;
+        _snapshots = services.Snapshots;
+        _editorLanguageService = services.Language;
+
         _statusContextTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(200),
@@ -64,18 +62,12 @@ public partial class MainWindowViewModel : ObservableObject
         };
         _statusCaretTimer.Tick += OnStatusCaretTimerTick;
 
-        Explorer = new ProjectExplorerViewModel(dialogs);
-        _editorLanguageService = new EditorLanguageService();
-        Editor = new EditorHostViewModel(
-            new FileEditorDocumentLoader(),
-            new EditorIconProvider(),
-            new EditorThemeSource(),
-            _editorLanguageService);
+        Explorer = services.Explorer;
+        Editor = services.Editor;
         Status = new StatusBarViewModel();
         Graph = new GraphViewModel();
         Preview = new PreviewPanelViewModel(NavigateToSource);
 
-        _analysisScheduler = new ProjectAnalysisScheduler(CreateDocumentMap);
         _analysisScheduler.Started += OnAnalysisStarted;
         _analysisScheduler.Completed += OnAnalysisCompleted;
         _analysisScheduler.Failed += OnAnalysisFailed;
@@ -167,7 +159,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         await _analysisScheduler.ResetAsync().ConfigureAwait(true);
         Editor.CloseAll();
-        _documentSnapshots.Clear();
+        _snapshots.Clear();
         Explorer.Load(folder);
         _projectFolder = folder;
         _lastGoodProjection = null;
@@ -197,7 +189,9 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            await File.WriteAllTextAsync(document.FilePath, document.GetTextSnapshot()).ConfigureAwait(true);
+            await _documentSaver
+                .SaveAsync(document.FilePath, document.GetTextSnapshot())
+                .ConfigureAwait(true);
             document.IsModified = false;
             await CompileNowAsync().ConfigureAwait(true);
             Status.SetStatus($"已保存：{Path.GetFileName(document.FilePath)}");
@@ -212,8 +206,8 @@ public partial class MainWindowViewModel : ObservableObject
     private void SaveLayout() => LayoutSaveRequested?.Invoke(this, EventArgs.Empty);
 
     /// <summary>
-    /// 把视图导出的布局快照写入当前项目的侧车文件。
-    /// Writes a layout snapshot exported by the view to the current project sidecar.
+    /// 把视图导出的布局快照交给布局存储。
+    /// Hands the layout snapshot exported by the view to the layout store.
     /// </summary>
     public void SaveLayout(GraphLayoutSnapshot snapshot)
     {
@@ -225,9 +219,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            var path = Path.Combine(_projectFolder, LayoutFileName);
-            var document = ProjectLayoutDocument.FromSnapshot(snapshot);
-            File.WriteAllText(path, JsonSerializer.Serialize(document, LayoutJsonOptions));
+            _layoutStore.Save(_projectFolder, snapshot);
             Status.SetStatus("已保存布局");
         }
         catch (Exception exception)
@@ -237,8 +229,8 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>
-    /// 读取当前项目的布局侧车；不存在或损坏时返回 null。
-    /// Loads the current project layout sidecar; returns null when missing or invalid.
+    /// 读取当前项目的布局侧车；不存在时返回 null。
+    /// Loads the current project layout sidecar; returns null when missing.
     /// </summary>
     public GraphLayoutSnapshot? LoadLayout()
     {
@@ -247,17 +239,9 @@ public partial class MainWindowViewModel : ObservableObject
             return null;
         }
 
-        var path = Path.Combine(_projectFolder, LayoutFileName);
-
-        if (!File.Exists(path))
-        {
-            return null;
-        }
-
         try
         {
-            var document = JsonSerializer.Deserialize<ProjectLayoutDocument>(File.ReadAllText(path));
-            return document?.ToSnapshot();
+            return _layoutStore.Load(_projectFolder);
         }
         catch (Exception exception)
         {
@@ -279,13 +263,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            var path = Path.Combine(_projectFolder, LayoutFileName);
-
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-
+            _layoutStore.Clear(_projectFolder);
             Status.SetStatus("布局已重置");
         }
         catch (Exception exception)
@@ -416,7 +394,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void OnDocumentsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        _documentSnapshots.Clear();
+        _snapshots.Clear();
 
         if (ContainsWeftDocument(e.OldItems) || ContainsWeftDocument(e.NewItems))
         {
@@ -613,42 +591,6 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    private Dictionary<string, string> CreateDocumentMap()
-    {
-        var documents = new Dictionary<string, string>(StringComparer.Ordinal);
-
-        foreach (var document in Editor.Documents)
-        {
-            if (string.IsNullOrWhiteSpace(document.FilePath) ||
-                !WeftDocumentKinds.IsWeftFile(document.FilePath))
-            {
-                continue;
-            }
-
-            if (_documentSnapshots.TryGetValue(document.FilePath, out var snapshot) &&
-                ReferenceEquals(snapshot.Owner, document) &&
-                snapshot.Version == document.Version)
-            {
-                documents[document.FilePath] = snapshot.Text;
-                continue;
-            }
-
-            var text = document.GetTextSnapshot();
-            _documentSnapshots[document.FilePath] = new DocumentSnapshotEntry(
-                document,
-                document.Version,
-                text);
-            documents[document.FilePath] = text;
-        }
-
-        return documents;
-    }
-
-    private readonly record struct DocumentSnapshotEntry(
-        EditorDocumentViewModel Owner,
-        long Version,
-        string Text);
-
     private void ApplyNativeResult(ProjectAnalysisResult output)
     {
         var native = output.Native;
@@ -662,11 +604,12 @@ public partial class MainWindowViewModel : ObservableObject
         var variableCount = native.Graph?.Globals.Count ?? 0;
         var moduleCount = projection?.Modules.Count ?? 0;
 
-        var positions = BuildPositionCache(
-            native.Diagnostics.Select(static item => item.FilePath),
-            output.Documents);
-        UpdateDiagnostics(native.Diagnostics.Select(item => CreateDiagnostic(item, positions)));
-        Editor.SetDiagnostics(native.Diagnostics.Select(ToWeftDiagnostic).ToList());
+        UpdateDiagnostics(DiagnosticPresentation.CreateItems(
+            native.Diagnostics,
+            output.Documents,
+            GetDocumentText));
+        Editor.SetDiagnostics(
+            native.Diagnostics.Select(DiagnosticPresentation.ToWeftDiagnostic).ToList());
 
         Status.UpdateProject(new ProjectCompileSummary(
             moduleCount, variableCount, errors, warnings));
@@ -709,7 +652,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void UpdateGraphProjection(GraphProjection? projection)
     {
-        var signature = projection is null ? null : BuildGraphSignature(projection);
+        var signature = projection is null ? null : GraphProjectionSignature.Build(projection);
 
         if (string.Equals(signature, _lastGraphSignature, StringComparison.Ordinal))
         {
@@ -719,101 +662,6 @@ public partial class MainWindowViewModel : ObservableObject
         _lastGraphSignature = signature;
         Graph.Projection = projection;
     }
-
-    private static string BuildGraphSignature(GraphProjection projection)
-    {
-        var builder = new StringBuilder();
-        builder.Append(projection.EntryModuleId).Append('|');
-
-        foreach (var chapter in projection.Chapters)
-        {
-            builder.Append(chapter.ChapterId).Append('~')
-                .Append(chapter.Title).Append('~')
-                .Append((int)chapter.Flags).Append(':');
-
-            foreach (var moduleId in chapter.ModuleIds)
-            {
-                builder.Append(moduleId).Append(',');
-            }
-
-            builder.Append('|');
-        }
-
-        foreach (var module in projection.Modules)
-        {
-            builder.Append(module.ModuleId).Append('~')
-                .Append((int)module.Flags).Append('~')
-                .Append(string.Join(',', module.Scenes)).Append('~')
-                .Append(module.Summary.FirstLine).Append('~')
-                .Append(module.Summary.DialogueCount).Append('~')
-                .Append(module.Summary.ChoiceCount).Append('~');
-            AppendSource(builder, module.Source);
-            builder.Append('|');
-        }
-
-        foreach (var edge in projection.ModuleEdges)
-        {
-            builder.Append(edge.FromModule).Append('>').Append(edge.ToModule).Append('~')
-                .Append((int)edge.Mode).Append('~')
-                .Append(edge.Label).Append('~')
-                .Append(edge.Condition).Append('~');
-            AppendSource(builder, edge.Source);
-            builder.Append('|');
-        }
-
-        foreach (var edge in projection.ChapterEdges)
-        {
-            builder.Append(edge.FromChapter).Append('>').Append(edge.ToChapter).Append(':');
-
-            foreach (var detail in edge.Details)
-            {
-                builder.Append(detail.FromModule).Append('>').Append(detail.ToModule).Append('~')
-                    .Append((int)detail.Mode).Append('~')
-                    .Append(detail.Label).Append('~')
-                    .Append(detail.Condition).Append('~');
-                AppendSource(builder, detail.Source);
-                builder.Append(',');
-            }
-
-            builder.Append('|');
-        }
-
-        AppendReferenceMap(builder, 'c', projection.References.Characters);
-        AppendReferenceMap(builder, 'i', projection.References.Items);
-        AppendReferenceMap(builder, 's', projection.References.Scenes);
-        AppendReferenceMap(builder, 'v', projection.References.Variables);
-
-        return builder.ToString();
-    }
-
-    private static void AppendReferenceMap(
-        StringBuilder builder,
-        char kind,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> references)
-    {
-        builder.Append(kind).Append(':');
-
-        foreach (var (name, modules) in references.OrderBy(
-                     static pair => pair.Key,
-                     StringComparer.Ordinal))
-        {
-            builder.Append(name).Append('=');
-
-            foreach (var moduleId in modules)
-            {
-                builder.Append(moduleId).Append(',');
-            }
-
-            builder.Append(';');
-        }
-
-        builder.Append('|');
-    }
-
-    private static void AppendSource(StringBuilder builder, SourceLocation source)
-        => builder.Append(source.FilePath).Append('@')
-            .Append(source.Span.Start).Append(':')
-            .Append(source.Span.Length);
 
     /// <summary>
     /// 打开诊断对应的文件并定位到源码位置。
@@ -879,7 +727,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         if (text is not null)
         {
-            (line, character) = new LineIndex(text).Resolve(location.Span.Start);
+            (line, character) = DiagnosticPresentation.ResolvePosition(text, location.Span.Start);
         }
 
         Editor.NavigateTo(location.FilePath, line, character);
@@ -893,97 +741,6 @@ public partial class MainWindowViewModel : ObservableObject
         foreach (var diagnostic in diagnostics)
         {
             Diagnostics.Add(diagnostic);
-        }
-    }
-
-    private Dictionary<string, LineIndex> BuildPositionCache(
-        IEnumerable<string> filePaths,
-        IReadOnlyDictionary<string, string> documents)
-    {
-        var cache = new Dictionary<string, LineIndex>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var path in filePaths.Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            if (string.IsNullOrEmpty(path) || cache.ContainsKey(path))
-            {
-                continue;
-            }
-
-            var text = documents.TryGetValue(path, out var snapshot)
-                ? snapshot
-                : GetDocumentText(path);
-
-            if (text is not null)
-            {
-                cache[path] = new LineIndex(text);
-            }
-        }
-
-        return cache;
-    }
-
-    private static DiagnosticItem CreateDiagnostic(
-        NativeDiagnostic diagnostic,
-        IReadOnlyDictionary<string, LineIndex> positions)
-    {
-        var (line, character) = positions.TryGetValue(diagnostic.FilePath, out var index)
-            ? index.Resolve(diagnostic.Start)
-            : (1, 1);
-
-        return new DiagnosticItem(
-            diagnostic.FilePath,
-            line,
-            character,
-            diagnostic.Severity,
-            diagnostic.Code,
-            diagnostic.Message);
-    }
-
-    private static WeftDiagnostic ToWeftDiagnostic(NativeDiagnostic diagnostic)
-        => new(
-            diagnostic.FilePath,
-            new TextSpan(diagnostic.Start, diagnostic.Length),
-            diagnostic.Severity switch
-            {
-                "error" => WeftDiagnosticSeverity.Error,
-                "warning" => WeftDiagnosticSeverity.Warning,
-                _ => WeftDiagnosticSeverity.Info,
-            },
-            diagnostic.Code,
-            diagnostic.Message);
-
-    private sealed class LineIndex
-    {
-        private readonly int[] _starts;
-        private readonly int _length;
-
-        public LineIndex(string text)
-        {
-            _length = text.Length;
-
-            var starts = new List<int> { 0 };
-            for (var index = 0; index < text.Length; index++)
-            {
-                if (text[index] == '\n')
-                {
-                    starts.Add(index + 1);
-                }
-            }
-
-            _starts = starts.ToArray();
-        }
-
-        public (int Line, int Character) Resolve(int offset)
-        {
-            offset = Math.Clamp(offset, 0, _length);
-
-            var index = Array.BinarySearch(_starts, offset);
-            if (index < 0)
-            {
-                index = ~index - 1;
-            }
-
-            return (index + 1, offset - _starts[index] + 1);
         }
     }
 

@@ -1,6 +1,8 @@
 using Avalonia.Threading;
 using Weftline.App.Features.Editor.ViewModels;
 
+using Weftline.Core.Language;
+
 namespace Weftline.App.Features.Editor.Services;
 
 /// <summary>

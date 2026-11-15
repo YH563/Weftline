@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media.Imaging;
@@ -95,7 +95,7 @@ sealed class Program
 
         ThemeService.Initialize();
 
-        var viewModel = new MainWindowViewModel(new DialogService());
+        var viewModel = AppComposition.CreateMainWindow(new DialogService());
         var window = new MainWindow
         {
             DataContext = viewModel,

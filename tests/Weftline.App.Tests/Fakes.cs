@@ -4,6 +4,8 @@ using Weftline.App.Features.Editor.Rendering;
 using Weftline.App.Features.Editor.Services;
 using Weftline.Core;
 
+using Weftline.Core.Language;
+
 namespace Weftline.App.Tests;
 
 internal sealed class FakeDocumentLoader : IEditorDocumentLoader

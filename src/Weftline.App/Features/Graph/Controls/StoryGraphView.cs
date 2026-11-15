@@ -50,13 +50,14 @@ public sealed class StoryGraphView : Control
     private static readonly Cursor ArrowCursor = new(StandardCursorType.Arrow);
     private static readonly Cursor ResizeCursor = new(StandardCursorType.BottomRightCorner);
     private static readonly Cursor PanCursor = new(StandardCursorType.SizeAll);
-    private static readonly Dictionary<(string Text, double Size, bool Bold, IBrush Brush), FormattedText> TextCache = new();
+    private readonly Dictionary<(string Text, double Size, bool Bold, IBrush Brush), FormattedText> _textCache = new();
 
     private readonly Dictionary<string, Rect> _moduleBounds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Rect> _chapterBounds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Rect> _previewModuleBounds = new(StringComparer.Ordinal);
     private GraphPathHighlight _pathHighlight = GraphPathHighlight.Empty;
     private GraphFilterMatch _filterMatch = GraphFilterMatch.Empty;
+    private readonly GraphLayoutEngine _layoutEngine = new();
 
     private GraphLayout? _layout;
     private ScrollViewer? _scrollViewer;
@@ -144,7 +145,7 @@ public sealed class StoryGraphView : Control
             return default;
         }
 
-        _baseLayout ??= GraphLayoutEngine.Build(projection);
+        _baseLayout ??= _layoutEngine.Build(projection);
 
         _layout = GraphLayoutEngine.ApplyOverrides(
             projection,
@@ -178,7 +179,7 @@ public sealed class StoryGraphView : Control
 
         var previousSize = _layout?.Size ?? default;
 
-        _baseLayout ??= GraphLayoutEngine.Build(projection);
+        _baseLayout ??= _layoutEngine.Build(projection);
 
         _layout = GraphLayoutEngine.ApplyOverrides(
             projection,
@@ -1850,7 +1851,7 @@ public sealed class StoryGraphView : Control
             2);
     }
 
-    private static void DrawModuleBadges(
+    private void DrawModuleBadges(
         DrawingContext context,
         GraphModuleNode node,
         Rect bounds)
@@ -1870,7 +1871,7 @@ public sealed class StoryGraphView : Control
         }
     }
 
-    private static void DrawBadge(
+    private void DrawBadge(
         DrawingContext context,
         Point center,
         IBrush fill)
@@ -1885,7 +1886,7 @@ public sealed class StoryGraphView : Control
                 center.Y - (text.Height / 2) - 0.5));
     }
 
-    private static void DrawText(
+    private void DrawText(
         DrawingContext context,
         string text,
         Point origin,
@@ -1896,7 +1897,7 @@ public sealed class StoryGraphView : Control
         context.DrawText(GetFormattedText(text, size, brush, bold), origin);
     }
 
-    private static void DrawCenteredText(
+    private void DrawCenteredText(
         DrawingContext context,
         string text,
         Rect bounds,
@@ -1913,7 +1914,7 @@ public sealed class StoryGraphView : Control
                 bounds.Y + ((bounds.Height - formatted.Height) / 2)));
     }
 
-    private static FormattedText GetFormattedText(
+    private FormattedText GetFormattedText(
         string text,
         double size,
         IBrush brush,
@@ -1921,7 +1922,7 @@ public sealed class StoryGraphView : Control
     {
         var key = (text, size, bold, brush);
 
-        if (TextCache.TryGetValue(key, out var cached))
+        if (_textCache.TryGetValue(key, out var cached))
         {
             return cached;
         }
@@ -1934,7 +1935,7 @@ public sealed class StoryGraphView : Control
             size,
             brush);
 
-        TextCache[key] = formatted;
+        _textCache[key] = formatted;
         return formatted;
     }
 

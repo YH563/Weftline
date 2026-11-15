@@ -13,7 +13,7 @@ public partial class PreviewViewModel : ObservableObject, IDisposable
 {
     private readonly RuntimeProjection _projection;
     private readonly string _projectFolder;
-    private readonly Dictionary<string, Bitmap?> _imageCache = new(StringComparer.Ordinal);
+    private readonly PreviewImageCache _images = new();
 
     private PlayerSession _session;
     private string _lastChapterTitle = string.Empty;
@@ -57,6 +57,7 @@ public partial class PreviewViewModel : ObservableObject, IDisposable
 
         _projection = projection;
         _projectFolder = Path.GetFullPath(projectFolder);
+        _images.SetProjectFolder(_projectFolder);
 
         ProjectName = string.IsNullOrWhiteSpace(projection.ProjectName)
             ? Path.GetFileName(Path.TrimEndingDirectorySeparator(_projectFolder))
@@ -117,15 +118,7 @@ public partial class PreviewViewModel : ObservableObject, IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        foreach (var image in _imageCache.Values)
-        {
-            image?.Dispose();
-        }
-
-        _imageCache.Clear();
-    }
+    public void Dispose() => _images.Dispose();
 
     private void Restart()
     {
@@ -192,41 +185,7 @@ public partial class PreviewViewModel : ObservableObject, IDisposable
         };
     }
 
-    private Bitmap? LoadImage(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return null;
-        }
-
-        if (_imageCache.TryGetValue(path, out var cached))
-        {
-            return cached;
-        }
-
-        Bitmap? image = null;
-
-        try
-        {
-            var fullPath = Path.GetFullPath(Path.Combine(_projectFolder, path));
-            var root = Path.TrimEndingDirectorySeparator(_projectFolder);
-
-            // 只允许读取项目目录内的资源，避免 @fig 路径越界。
-            if (fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal)
-                && File.Exists(fullPath))
-            {
-                using var stream = File.OpenRead(fullPath);
-                image = new Bitmap(stream);
-            }
-        }
-        catch (Exception)
-        {
-            image = null;
-        }
-
-        _imageCache[path] = image;
-        return image;
-    }
+    private Bitmap? LoadImage(string? path) => _images.Get(path);
 
     private string BuildDebugText()
     {

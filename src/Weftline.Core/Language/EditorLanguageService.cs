@@ -1,16 +1,19 @@
-using Weftline.App.Features.Editor.Services;
-using Weftline.Core;
-using Weftline.Native;
-
-namespace Weftline.App.Services;
+namespace Weftline.Core.Language;
 
 /// <summary>
-/// 编辑器语言服务：单文件语法诊断走 native parse，悬停/补全基于最近一次项目编译结果。
+/// 编辑器语言服务：单文件语法诊断走注入的语法解析端口，悬停/补全基于最近一次项目编译结果。
+/// 不依赖 Avalonia 与 native，放在 Core 里可被 CLI、HTML 导出和测试复用。
 /// </summary>
 public sealed class EditorLanguageService : IWeftEditorLanguageService
 {
+    private readonly IWeftSyntaxParser _parser;
     private GraphProjection? _projection;
     private WeftProjectSymbols? _symbols;
+
+    /// <summary>注入单文件语法解析端口（生产环境是 native core，测试里可替换）。</summary>
+    public EditorLanguageService(IWeftSyntaxParser parser)
+        => _parser = parser;
+
     private Dictionary<string, GraphModuleNode> _modules = new(StringComparer.Ordinal);
     private Dictionary<string, GraphChapter> _chapters = new(StringComparer.Ordinal);
     private Dictionary<string, List<GraphModuleNode>> _modulesByScene = new(StringComparer.Ordinal);
@@ -60,39 +63,14 @@ public sealed class EditorLanguageService : IWeftEditorLanguageService
         }
     }
 
-    public async ValueTask<IReadOnlyList<WeftDiagnostic>> GetSyntaxDiagnosticsAsync(
+    public ValueTask<IReadOnlyList<WeftDiagnostic>> GetSyntaxDiagnosticsAsync(
         string filePath,
         string text,
         long version,
         CancellationToken cancellationToken)
-    {
-        var response = await Task.Run(
-            () => NativeWeftlineClient.Parse(filePath, text, version),
-            cancellationToken).ConfigureAwait(false);
-
-        if (cancellationToken.IsCancellationRequested)
-        {
-            return [];
-        }
-
-        var resolvedPath = string.IsNullOrEmpty(response.FilePath)
-            ? filePath
-            : response.FilePath;
-
-        return response.Diagnostics
-            .Select(diagnostic => new WeftDiagnostic(
-                resolvedPath,
-                new TextSpan(diagnostic.Start, diagnostic.Length),
-                diagnostic.Severity switch
-                {
-                    "error" => WeftDiagnosticSeverity.Error,
-                    "warning" => WeftDiagnosticSeverity.Warning,
-                    _ => WeftDiagnosticSeverity.Info,
-                },
-                diagnostic.Code,
-                diagnostic.Message))
-            .ToList();
-    }
+        => string.IsNullOrWhiteSpace(filePath)
+            ? ValueTask.FromResult<IReadOnlyList<WeftDiagnostic>>([])
+            : _parser.ParseAsync(filePath, text, version, cancellationToken);
 
     public ValueTask<WeftHoverInfo?> GetHoverAsync(
         WeftHoverContext context,
