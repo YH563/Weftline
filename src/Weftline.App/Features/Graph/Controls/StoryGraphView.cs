@@ -49,6 +49,7 @@ public sealed class StoryGraphView : Control
     private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
     private static readonly Cursor ArrowCursor = new(StandardCursorType.Arrow);
     private static readonly Cursor ResizeCursor = new(StandardCursorType.BottomRightCorner);
+    private static readonly Cursor PanCursor = new(StandardCursorType.SizeAll);
     private static readonly Dictionary<(string Text, double Size, bool Bold, IBrush Brush), FormattedText> TextCache = new();
 
     private readonly Dictionary<string, Rect> _moduleBounds = new(StringComparer.Ordinal);
@@ -84,6 +85,9 @@ public sealed class StoryGraphView : Control
     private bool _resizing;
     private bool _draggingChapter;
     private bool _resizingChapter;
+    private bool _panning;
+    private Point _panStart;
+    private Vector _panStartOffset;
     private DateTime _lastLayoutRefresh;
 
     static StoryGraphView()
@@ -627,7 +631,25 @@ public sealed class StoryGraphView : Control
     {
         base.OnPointerPressed(e);
 
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        var properties = e.GetCurrentPoint(this).Properties;
+
+        if (properties.IsMiddleButtonPressed)
+        {
+            var scrollViewer = _scrollViewer ?? FindScrollViewer();
+            if (scrollViewer is not null)
+            {
+                _panning = true;
+                _panStart = e.GetPosition(scrollViewer);
+                _panStartOffset = scrollViewer.Offset;
+                e.Pointer.Capture(this);
+                Cursor = PanCursor;
+                e.Handled = true;
+            }
+
+            return;
+        }
+
+        if (!properties.IsLeftButtonPressed)
         {
             return;
         }
@@ -732,6 +754,24 @@ public sealed class StoryGraphView : Control
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+
+        if (_panning)
+        {
+            var scrollViewer = _scrollViewer ?? FindScrollViewer();
+            if (scrollViewer is not null)
+            {
+                var current = e.GetPosition(scrollViewer);
+                var delta = _panStart - current;
+                var maxX = Math.Max(0, scrollViewer.Extent.Width - scrollViewer.Viewport.Width);
+                var maxY = Math.Max(0, scrollViewer.Extent.Height - scrollViewer.Viewport.Height);
+                var x = Math.Clamp(_panStartOffset.X + delta.X, 0, maxX);
+                var y = Math.Clamp(_panStartOffset.Y + delta.Y, 0, maxY);
+                scrollViewer.Offset = new Vector(x, y);
+                e.Handled = true;
+            }
+
+            return;
+        }
 
         var point = ToLayoutPoint(e.GetPosition(this));
 
@@ -872,6 +912,15 @@ public sealed class StoryGraphView : Control
     {
         base.OnPointerReleased(e);
 
+        if (_panning)
+        {
+            _panning = false;
+            e.Pointer.Capture(null);
+            Cursor = ArrowCursor;
+            e.Handled = true;
+            return;
+        }
+
         if (!_dragging && !_draggingChapter && !_draggingEnd)
         {
             return;
@@ -910,6 +959,17 @@ public sealed class StoryGraphView : Control
         RefreshLayout(force: true);
         LayoutChanged?.Invoke(this, EventArgs.Empty);
         e.Handled = true;
+    }
+
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+    {
+        base.OnPointerCaptureLost(e);
+
+        if (_panning)
+        {
+            _panning = false;
+            Cursor = ArrowCursor;
+        }
     }
 
     private void ScheduleHoverRedraw()

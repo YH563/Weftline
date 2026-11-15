@@ -98,6 +98,7 @@ Non-goals: portraits, audio, saves, localization, voice, RPG stats/inventory, re
 | [grammar.md](./grammar.md) | Lexing, EBNF, parsing conventions |
 | [examples.md](./examples.md) | Complete examples and walkthrough |
 | [diagnostics.md](./diagnostics.md) | Diagnostic codes and common errors |
+| [building.md](./building.md) | Build, run, tests, and benchmarks |
 
 ---
 

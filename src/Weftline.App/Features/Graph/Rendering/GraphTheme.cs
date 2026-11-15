@@ -9,7 +9,11 @@ namespace Weftline.App.Features.Graph.Rendering;
 /// </summary>
 public static class GraphTheme
 {
-    public static readonly FontFamily UiFontFamily = new("Inter, Segoe UI, sans-serif");
+    // 直接选一个带 CJK 的系统字体，避免 Linux/Skia 在 FormattedText 中
+    // 逐字回退到中文字体时出现严重的渲染卡顿。
+    // Pick a CJK-capable system font directly; per-glyph fallback in
+    // FormattedText can be extremely slow on Linux/Skia.
+    public static readonly FontFamily UiFontFamily = ResolveUiFontFamily();
     public static readonly Typeface Typeface = new(UiFontFamily);
     public static readonly Typeface BoldTypeface = new(UiFontFamily, FontStyle.Normal, FontWeight.SemiBold);
 
@@ -78,4 +82,30 @@ public static class GraphTheme
     public static readonly IBrush EndBorder = new SolidColorBrush(Color.Parse("#B7C5DE"));
     public static readonly IBrush EndText = new SolidColorBrush(Color.Parse("#4C5A73"));
     public static readonly IPen EndPen = new Pen(EndBorder, 1);
+
+    /// <summary>
+    /// 选择当前平台存在的 CJK 字体，避免 Skia 逐字回退。
+    /// Selects an installed CJK font to avoid slow per-glyph fallback.
+    /// </summary>
+    private static FontFamily ResolveUiFontFamily()
+    {
+        var candidates = OperatingSystem.IsWindows()
+            ? new[] { "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC" }
+            : OperatingSystem.IsMacOS()
+                ? new[] { "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC" }
+                : new[] { "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC", "WenQuanYi Micro Hei" };
+
+        foreach (var name in candidates)
+        {
+            var family = new FontFamily(name);
+
+            if (FontManager.Current.TryGetGlyphTypeface(new Typeface(family), out var glyph) &&
+                glyph.CharacterToGlyphMap.TryGetGlyph('你', out _))
+            {
+                return family;
+            }
+        }
+
+        return FontManager.Current.DefaultFontFamily;
+    }
 }

@@ -88,6 +88,7 @@ dotnet run --project bench/Weftline.Benchmarks -c Release
 - [docs/grammar.md](docs/grammar.md) — 词法与 EBNF
 - [docs/examples.md](docs/examples.md) — 示例与走查
 - [docs/diagnostics.md](docs/diagnostics.md) — 诊断码与常见错误
+- [docs/building.md](docs/building.md) — 完整编译、运行、测试与基准步骤
 
 ## 示例
 

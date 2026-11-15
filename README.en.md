@@ -87,6 +87,7 @@ dotnet run --project bench/Weftline.Benchmarks -c Release
 - [docs/en/grammar.md](docs/en/grammar.md) — lexing and EBNF
 - [docs/en/examples.md](docs/en/examples.md) — examples and walkthrough
 - [docs/en/diagnostics.md](docs/en/diagnostics.md) — diagnostic codes and common errors
+- [docs/en/building.md](docs/en/building.md) — full build, run, test, and benchmark steps
 
 ## Examples
 

@@ -115,9 +115,10 @@
                                                     Background="{DynamicResource Border}"
                                                     Margin="0,2,0,2" />
                                             <TextBlock Text="{Binding ChoicePrompt}"
+                                                       Margin="24,0,0,0"
                                                        FontSize="14"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource Accent}" />
+                                                       FontWeight="Bold"
+                                                       Foreground="{DynamicResource TextPrimary}" />
                                             <ItemsControl ItemsSource="{Binding Choices}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="vm:PreviewBranchViewModel">

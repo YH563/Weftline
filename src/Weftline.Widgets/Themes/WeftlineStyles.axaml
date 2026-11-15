@@ -92,16 +92,30 @@
     <Style Selector="ToggleButton">
         <Setter Property="CornerRadius" Value="6" />
     </Style>
-    <Style Selector="ToggleButton.paneToggle">
+    <Style Selector="ToggleButton.railTab">
+        <Setter Property="Width" Value="30" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Padding" Value="0" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Padding" Value="10,4" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="ToggleButton.railTab:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SurfaceMuted}" />
+    </Style>
+    <Style Selector="ToggleButton.railTab:checked">
+        <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
+        <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+    </Style>
+    <Style Selector="ToggleButton.railTab PathIcon">
         <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
     </Style>
-    <Style Selector="ToggleButton.paneToggle:checked">
-        <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
+    <Style Selector="ToggleButton.railTab:checked PathIcon">
         <Setter Property="Foreground" Value="{DynamicResource Accent}" />
     </Style>
 

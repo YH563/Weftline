@@ -97,6 +97,7 @@ Weftline 是**剧情 demo / 叙事演示工具**，不是游戏引擎，也不�
 | [grammar.md](./grammar.md) | 词法、EBNF、解析约定 |
 | [examples.md](./examples.md) | 完整示例与演示走查 |
 | [diagnostics.md](./diagnostics.md) | 诊断码与常见错误 |
+| [building.md](./building.md) | 编译、运行、测试与基准 |
 
 ---
 

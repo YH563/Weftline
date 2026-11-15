@@ -72,21 +72,21 @@ public partial class MainWindow : Window
 
         if (graph && preview)
         {
-            RightPaneGrid.RowDefinitions[1].Height = new GridLength(11, GridUnitType.Star);
-            RightPaneGrid.RowDefinitions[2].Height = new GridLength(6);
-            RightPaneGrid.RowDefinitions[3].Height = new GridLength(9, GridUnitType.Star);
+            RightPaneGrid.RowDefinitions[0].Height = new GridLength(9, GridUnitType.Star);
+            RightPaneGrid.RowDefinitions[1].Height = new GridLength(6);
+            RightPaneGrid.RowDefinitions[2].Height = new GridLength(11, GridUnitType.Star);
         }
-        else if (graph)
+        else if (preview)
         {
-            RightPaneGrid.RowDefinitions[1].Height = new GridLength(1, GridUnitType.Star);
+            RightPaneGrid.RowDefinitions[0].Height = new GridLength(1, GridUnitType.Star);
+            RightPaneGrid.RowDefinitions[1].Height = new GridLength(0);
             RightPaneGrid.RowDefinitions[2].Height = new GridLength(0);
-            RightPaneGrid.RowDefinitions[3].Height = new GridLength(0);
         }
         else
         {
+            RightPaneGrid.RowDefinitions[0].Height = new GridLength(0);
             RightPaneGrid.RowDefinitions[1].Height = new GridLength(0);
-            RightPaneGrid.RowDefinitions[2].Height = new GridLength(0);
-            RightPaneGrid.RowDefinitions[3].Height = new GridLength(1, GridUnitType.Star);
+            RightPaneGrid.RowDefinitions[2].Height = new GridLength(1, GridUnitType.Star);
         }
 
         if (becameVisible)
