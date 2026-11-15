@@ -1,4 +1,4 @@
-using Weftline.Models;
+using Weftline.Core;
 
 namespace Weftline.Native;
 
@@ -140,7 +140,7 @@ public sealed class NativeGlobal
 }
 
 /// <summary>
-/// 剧情图压缩投影的 JSON DTO；可映射为 <see cref="Weftline.Models.GraphProjection"/>。
+/// 剧情图压缩投影的 JSON DTO；可映射为 <see cref="Weftline.Core.GraphProjection"/>。
 /// </summary>
 public sealed class NativeProjection
 {

@@ -1,0 +1,18 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ControlTheme x:Key="WeftFlyoutPresenter" TargetType="FlyoutPresenter">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{DynamicResource Surface}"
+                        BorderBrush="{DynamicResource BorderStrong}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="10">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+</ResourceDictionary>

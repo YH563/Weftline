@@ -1,16 +1,13 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Weftline.App/Weftline.App.csproj" />
-    <Project Path="src/Weftline.Editor/Weftline.Editor.csproj" />
-    <Project Path="src/Weftline.Graph/Weftline.Graph.csproj" />
-    <Project Path="src/Weftline.Models/Weftline.Models.csproj" />
+    <Project Path="src/Weftline.Core/Weftline.Core.csproj" />
     <Project Path="src/Weftline.Native/Weftline.Native.csproj" />
-    <Project Path="src/Weftline.Player/Weftline.Player.csproj" />
+    <Project Path="src/Weftline.Widgets/Weftline.Widgets.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/Weftline.Editor.Tests/Weftline.Editor.Tests.csproj" />
-    <Project Path="tests/Weftline.Graph.Tests/Weftline.Graph.Tests.csproj" />
-    <Project Path="tests/Weftline.Player.Tests/Weftline.Player.Tests.csproj" />
+    <Project Path="tests/Weftline.App.Tests/Weftline.App.Tests.csproj" />
+    <Project Path="tests/Weftline.Core.Tests/Weftline.Core.Tests.csproj" />
   </Folder>
   <Folder Name="/bench/">
     <Project Path="bench/Weftline.Benchmarks/Weftline.Benchmarks.csproj" />

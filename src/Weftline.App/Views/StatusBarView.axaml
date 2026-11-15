@@ -8,11 +8,7 @@
              x:DataType="vm:StatusBarViewModel"
              x:CompileBindings="True">
 
-    <Border Height="28"
-            Padding="12,0"
-            Background="{DynamicResource SurfaceAlt}"
-            BorderBrush="{DynamicResource Border}"
-            BorderThickness="0,1,0,0">
+    <Border Classes="statusBar">
         <Grid ColumnDefinitions="Auto,*,Auto">
             <StackPanel Orientation="Horizontal"
                         Spacing="10"

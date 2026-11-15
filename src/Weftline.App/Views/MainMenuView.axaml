@@ -6,100 +6,13 @@
              x:Class="Weftline.App.Views.MainMenuView"
              x:CompileBindings="False">
 
-    <UserControl.Resources>
-        <ControlTheme x:Key="WeftlineTopLevelMenuItem" TargetType="MenuItem">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Padding" Value="10,4" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="FontWeight" Value="Medium" />
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Name="PART_Root"
-                            Background="{TemplateBinding Background}"
-                            CornerRadius="8"
-                            Margin="2,2">
-                        <Panel>
-                            <ContentPresenter Name="PART_HeaderPresenter"
-                                              Margin="{TemplateBinding Padding}"
-                                              HorizontalContentAlignment="Left"
-                                              VerticalContentAlignment="Center"
-                                              Content="{TemplateBinding Header}">
-                                <ContentPresenter.ContentTemplate>
-                                    <DataTemplate x:DataType="x:String">
-                                        <TextBlock Text="{Binding}"
-                                                   FontSize="13"
-                                                   FontWeight="Medium"
-                                                   VerticalAlignment="Center" />
-                                    </DataTemplate>
-                                </ContentPresenter.ContentTemplate>
-                            </ContentPresenter>
-
-                            <Popup Name="PART_Popup"
-                                   ShouldUseOverlayLayer="False"
-                                   PlacementTarget="{Binding $parent[MenuItem]}"
-                                   IsLightDismissEnabled="True"
-                                   IsOpen="{TemplateBinding IsSubMenuOpen, Mode=TwoWay}"
-                                   Placement="Bottom"
-                                   ClipToBounds="True">
-                                <Border Background="{DynamicResource Surface}"
-                                        BorderBrush="{DynamicResource BorderStrong}"
-                                        BorderThickness="1"
-                                        CornerRadius="8"
-                                        Padding="4">
-                                    <ScrollViewer>
-                                        <ItemsPresenter Name="PART_ItemsPresenter"
-                                                        ItemsPanel="{TemplateBinding ItemsPanel}" />
-                                    </ScrollViewer>
-                                </Border>
-                            </Popup>
-                        </Panel>
-                    </Border>
-                </ControlTemplate>
-            </Setter>
-
-            <Style Selector="^:pointerover /template/ Border#PART_Root">
-                <Setter Property="Background" Value="{DynamicResource SurfaceMuted}" />
-            </Style>
-            <Style Selector="^:open /template/ Border#PART_Root">
-                <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
-            </Style>
-        </ControlTheme>
-
-        <ControlTheme x:Key="WeftlineMenuTheme"
-                      TargetType="Menu">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="ItemContainerTheme" Value="{StaticResource WeftlineTopLevelMenuItem}" />
-            <Setter Property="ItemsPanel">
-                <ItemsPanelTemplate>
-                    <StackPanel Orientation="Horizontal" />
-                </ItemsPanelTemplate>
-            </Setter>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Height="30"
-                            Background="{TemplateBinding Background}"
-                            Padding="{TemplateBinding Padding}">
-                        <ItemsPresenter Name="PART_ItemsPresenter"
-                                        ItemsPanel="{TemplateBinding ItemsPanel}" />
-                    </Border>
-                </ControlTemplate>
-            </Setter>
-        </ControlTheme>
-    </UserControl.Resources>
-
-    <UserControl.Styles>
-        <Style Selector="MenuItem">
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Padding" Value="10,5" />
-        </Style>
-    </UserControl.Styles>
-
     <Border Background="{DynamicResource Surface}"
             BorderBrush="{DynamicResource Border}"
             BorderThickness="0,0,0,1"
             Padding="4,0">
-        <Menu FontSize="13"
-              ItemContainerTheme="{StaticResource WeftlineTopLevelMenuItem}">
+        <Menu x:Name="TopMenu"
+              FontSize="13"
+              ItemContainerTheme="{StaticResource WeftTopLevelMenuItem}">
             <MenuItem Header="文件">
                 <MenuItem Header="新建项目…"
                           InputGesture="Ctrl+N"

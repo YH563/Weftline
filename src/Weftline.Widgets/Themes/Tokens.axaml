@@ -1,0 +1,47 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="AppBackground" Color="#F3F5F8" />
+            <SolidColorBrush x:Key="Surface" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="SurfaceAlt" Color="#F8FAFC" />
+            <SolidColorBrush x:Key="SurfaceMuted" Color="#EEF2F7" />
+            <SolidColorBrush x:Key="SurfaceHover" Color="#F2F6FC" />
+            <SolidColorBrush x:Key="Border" Color="#E1E6EE" />
+            <SolidColorBrush x:Key="BorderStrong" Color="#CDD5E1" />
+            <SolidColorBrush x:Key="TextPrimary" Color="#1F2937" />
+            <SolidColorBrush x:Key="TextSecondary" Color="#5B6778" />
+            <SolidColorBrush x:Key="TextMuted" Color="#8A95A5" />
+            <SolidColorBrush x:Key="Accent" Color="#2563EB" />
+            <SolidColorBrush x:Key="AccentSoft" Color="#EAF1FF" />
+            <SolidColorBrush x:Key="AccentBorder" Color="#C9D9FF" />
+            <SolidColorBrush x:Key="Success" Color="#2F9E74" />
+            <SolidColorBrush x:Key="Warning" Color="#B7791F" />
+            <SolidColorBrush x:Key="WarningSoft" Color="#FFF7E6" />
+            <SolidColorBrush x:Key="WarningBorder" Color="#F0D49A" />
+            <SolidColorBrush x:Key="Danger" Color="#D14343" />
+            <SolidColorBrush x:Key="PopupBackdrop" Color="#F5F7FA" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="AppBackground" Color="#171A20" />
+            <SolidColorBrush x:Key="Surface" Color="#20252D" />
+            <SolidColorBrush x:Key="SurfaceAlt" Color="#252B34" />
+            <SolidColorBrush x:Key="SurfaceMuted" Color="#2B323C" />
+            <SolidColorBrush x:Key="SurfaceHover" Color="#2F3742" />
+            <SolidColorBrush x:Key="Border" Color="#343C48" />
+            <SolidColorBrush x:Key="BorderStrong" Color="#46505F" />
+            <SolidColorBrush x:Key="TextPrimary" Color="#E8EDF4" />
+            <SolidColorBrush x:Key="TextSecondary" Color="#A9B4C3" />
+            <SolidColorBrush x:Key="TextMuted" Color="#7D8897" />
+            <SolidColorBrush x:Key="Accent" Color="#6B9BFF" />
+            <SolidColorBrush x:Key="AccentSoft" Color="#24334F" />
+            <SolidColorBrush x:Key="AccentBorder" Color="#3D5580" />
+            <SolidColorBrush x:Key="Success" Color="#5BC49A" />
+            <SolidColorBrush x:Key="Warning" Color="#E0A94A" />
+            <SolidColorBrush x:Key="WarningSoft" Color="#332B1B" />
+            <SolidColorBrush x:Key="WarningBorder" Color="#6A5527" />
+            <SolidColorBrush x:Key="Danger" Color="#F07171" />
+            <SolidColorBrush x:Key="PopupBackdrop" Color="#1B2027" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

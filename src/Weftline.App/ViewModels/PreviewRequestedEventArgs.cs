@@ -1,3 +1,5 @@
+using Weftline.App.Features.Player.ViewModels;
+
 namespace Weftline.App.ViewModels;
 
 /// <summary>

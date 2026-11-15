@@ -1,4 +1,4 @@
-using Weftline.Editor.Services;
+using Weftline.App.Features.Editor.Services;
 
 namespace Weftline.App.Services;
 

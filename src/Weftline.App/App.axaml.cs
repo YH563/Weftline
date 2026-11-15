@@ -1,7 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Weftline.App.Controls;
 using Weftline.App.Services;
 using Weftline.App.ViewModels;
 using Weftline.App.Views;
@@ -15,11 +14,6 @@ public partial class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
-
-        if (OperatingSystem.IsLinux())
-        {
-            RoundedClipFix.Enable();
-        }
     }
 
     public override void OnFrameworkInitializationCompleted()

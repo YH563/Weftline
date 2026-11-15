@@ -1,5 +1,5 @@
-using Weftline.Editor.Services;
-using Weftline.Models;
+using Weftline.App.Features.Editor.Services;
+using Weftline.Core;
 using Weftline.Native;
 
 namespace Weftline.App.Services;

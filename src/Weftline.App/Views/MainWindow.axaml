@@ -1,15 +1,14 @@
-<suki:SukiWindow xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:suki="https://github.com/kikipoulet/SukiUI"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         x:Class="Weftline.App.Views.MainWindow"
         xmlns:views="using:Weftline.App.Views"
-        xmlns:editor="using:Weftline.Editor.Views"
+        xmlns:editor="using:Weftline.App.Features.Editor.Views"
         xmlns:vm="using:Weftline.App.ViewModels"
-        xmlns:graph="using:Weftline.Graph.Controls"
-        xmlns:primitives="using:Avalonia.Controls.Primitives"
+        xmlns:graph="using:Weftline.App.Features.Graph.Controls"
+        xmlns:player="using:Weftline.App.Features.Player.Views"
         x:DataType="vm:MainWindowViewModel"
         x:CompileBindings="True"
         Title="Weftline"
@@ -19,9 +18,9 @@
         MinHeight="600"
         WindowStartupLocation="CenterScreen">
 
-    <suki:SukiWindow.KeyBindings>
+    <Window.KeyBindings>
         <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}" />
-    </suki:SukiWindow.KeyBindings>
+    </Window.KeyBindings>
 
     <Grid RowDefinitions="Auto,*,Auto,Auto">
         <views:MainMenuView Grid.Row="0" />
@@ -87,7 +86,6 @@
                           RowDefinitions="Auto,*"
                           IsVisible="{Binding IsGraphVisible}">
                     <Grid Grid.Row="0"
-                          ColumnDefinitions="*,Auto,Auto"
                           Margin="12,8">
                         <StackPanel Spacing="2">
                             <StackPanel Orientation="Horizontal" Spacing="6">
@@ -102,143 +100,40 @@
                             <TextBlock Text="{Binding Graph.StatusText}"
                                        Classes="panelSubtitle" />
                         </StackPanel>
-                        <Button Grid.Column="1"
-                                Padding="11,5"
-                                Margin="0,0,6,0">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <PathIcon Data="{StaticResource IconFilter}"
-                                          Width="14"
-                                          Height="14"
-                                          Foreground="{DynamicResource TextSecondary}"
-                                          VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding Graph.FilterButtonText}"
-                                           VerticalAlignment="Center" />
-                            </StackPanel>
-                            <Button.Flyout>
-                                <Flyout Placement="BottomEdgeAlignedRight">
-                                    <ScrollViewer MaxHeight="420">
-                                        <StackPanel Width="240" Spacing="10">
-                                            <TextBlock Text="筛选"
-                                                       FontSize="14"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource TextPrimary}" />
-                                            <TextBlock Text="同维度 OR，跨维度 AND"
-                                                       FontSize="11"
-                                                       Foreground="{DynamicResource TextSecondary}" />
-                                            <TextBlock Text="角色"
-                                                       FontSize="12"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource TextSecondary}" />
-                                            <ItemsControl ItemsSource="{Binding Graph.CharacterOptions}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="vm:GraphFilterOption">
-                                                        <CheckBox Content="{Binding Name}"
-                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                                  FontSize="12" />
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                            <TextBlock Text="场景"
-                                                       FontSize="12"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource TextSecondary}" />
-                                            <ItemsControl ItemsSource="{Binding Graph.SceneOptions}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="vm:GraphFilterOption">
-                                                        <CheckBox Content="{Binding Name}"
-                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                                  FontSize="12" />
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                            <TextBlock Text="变量"
-                                                       FontSize="12"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource TextSecondary}" />
-                                            <ItemsControl ItemsSource="{Binding Graph.VariableOptions}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="vm:GraphFilterOption">
-                                                        <CheckBox Content="{Binding Name}"
-                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                                  FontSize="12" />
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                            <Button Content="清除筛选"
-                                                    Command="{Binding Graph.ClearFilterCommand}"
-                                                    HorizontalAlignment="Right"
-                                                    Padding="10,3" />
-                                        </StackPanel>
-                                    </ScrollViewer>
-                                </Flyout>
-                            </Button.Flyout>
-                        </Button>
-                        <Button Grid.Column="2"
-                                Padding="11,5"
-                                Click="OnResetGraphLayout">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <PathIcon Data="{StaticResource IconReset}"
-                                          Width="14"
-                                          Height="14"
-                                          Foreground="{DynamicResource TextSecondary}"
-                                          VerticalAlignment="Center" />
-                                <TextBlock Text="重置布局"
-                                           VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
                     </Grid>
 
                     <Grid Grid.Row="1">
                         <ScrollViewer HorizontalScrollBarVisibility="Auto"
                                       VerticalScrollBarVisibility="Auto">
                             <graph:StoryGraphView x:Name="GraphView"
-                                                  Projection="{Binding Graph.Projection}"
-                                                  Filter="{Binding Graph.Filter}" />
+                                                  Projection="{Binding Graph.Projection}" />
                         </ScrollViewer>
 
-                        <Border IsVisible="{Binding Graph.IsHoverSummaryVisible}"
+                        <Border Classes="overlay"
+                                IsVisible="{Binding Graph.IsHoverSummaryVisible}"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Bottom"
                                 Margin="12"
                                 MaxWidth="360"
                                 Padding="10,8"
-                                Background="{DynamicResource Surface}"
-                                BorderBrush="{DynamicResource BorderStrong}"
-                                BorderThickness="1"
-                                CornerRadius="8"
                                 IsHitTestVisible="False">
                             <StackPanel Spacing="4">
                                 <TextBlock Text="{Binding Graph.HoverTitle}"
                                            FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextPrimary}"
                                            TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding Graph.HoverFirstLine}"
-                                           IsVisible="{Binding Graph.HasHoverFirstLine}"
-                                           FontStyle="Italic"
-                                           Foreground="{DynamicResource TextSecondary}"
-                                           TextWrapping="Wrap"
-                                           MaxLines="3" />
                                 <TextBlock Text="{Binding Graph.HoverMeta}"
                                            FontSize="12"
                                            Foreground="{DynamicResource TextSecondary}" />
-                                <TextBlock Text="{Binding Graph.HoverDescription}"
-                                           IsVisible="{Binding Graph.HasHoverDescription}"
-                                           FontSize="12"
-                                           Foreground="{DynamicResource TextSecondary}"
-                                           TextWrapping="Wrap"
-                                           MaxLines="4" />
                             </StackPanel>
                         </Border>
 
-                        <Border IsVisible="{Binding Graph.IsChapterEdgeDetailsVisible}"
+                        <Border Classes="overlay"
+                                IsVisible="{Binding Graph.IsChapterEdgeDetailsVisible}"
                                 HorizontalAlignment="Right"
                                 VerticalAlignment="Top"
                                 Margin="12"
-                                MaxWidth="380"
-                                Background="{DynamicResource Surface}"
-                                BorderBrush="{DynamicResource BorderStrong}"
-                                BorderThickness="1"
-                                CornerRadius="8">
+                                MaxWidth="380">
                             <Grid RowDefinitions="Auto,*">
                                 <Grid Grid.Row="0"
                                       ColumnDefinitions="*,Auto"
@@ -293,7 +188,7 @@
                     <Grid x:Name="PreviewPane"
                           Grid.Row="3"
                           IsVisible="{Binding IsPreviewVisible}">
-                        <views:PreviewPanelView DataContext="{Binding Preview}" />
+                        <player:PreviewPanelView DataContext="{Binding Preview}" />
                     </Grid>
                 </Grid>
             </Border>
@@ -387,9 +282,5 @@
         </Border>
 
         <views:StatusBarView Grid.Row="3" DataContext="{Binding Status}" />
-
-        <primitives:VisualLayerManager x:Name="LayerManager"
-                                       Grid.RowSpan="4"
-                                       EnableOverlayLayer="True" />
     </Grid>
-</suki:SukiWindow>
+</Window>

@@ -1,5 +1,5 @@
 using Avalonia;
-using Weftline.Graph.Layout;
+using Weftline.App.Features.Graph.Layout;
 
 namespace Weftline.App.Models;
 

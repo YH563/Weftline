@@ -1,11 +1,17 @@
 ﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+using Weftline.App.Features.Graph.Controls;
 using Weftline.App.Services;
+using Weftline.App.Features.Player.ViewModels;
+using Weftline.App.Features.Player.Views;
 using Weftline.App.ViewModels;
 using Weftline.App.Views;
+using Weftline.Core.Runtime;
 using Weftline.Native;
 
 namespace Weftline.App;
@@ -52,13 +58,25 @@ sealed class Program
     // Avalonia 配置，不要删除；可视化设计器也会使用它。
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
+    {
+        var builder = AppBuilder.Configure<App>()
             .UsePlatformDetect()
 #if DEBUG
             .WithDeveloperTools()
 #endif
             .WithInterFont()
             .LogToTrace();
+
+        if (OperatingSystem.IsLinux())
+        {
+            builder = builder.With(new X11PlatformOptions
+            {
+                OverlayPopups = true,
+            });
+        }
+
+        return builder;
+    }
 
     private static void Capture(string outPath, string[] args)
     {
@@ -109,6 +127,62 @@ sealed class Program
         }
 
         Dispatcher.UIThread.RunJobs();
+
+        if (Array.IndexOf(args, "--graph-select") >= 0)
+        {
+            var graph = window.GetVisualDescendants()
+                .OfType<StoryGraphView>()
+                .FirstOrDefault();
+            var modules = viewModel.Graph.Projection?.Modules;
+            var moduleId = modules is { Count: > 1 }
+                ? modules[1].ModuleId
+                : modules?.FirstOrDefault()?.ModuleId;
+
+            if (graph is not null && moduleId is not null)
+            {
+                graph.SelectModule(moduleId);
+                Dispatcher.UIThread.RunJobs();
+            }
+        }
+
+        if (Array.IndexOf(args, "--graph-select-chapter") >= 0)
+        {
+            var graph = window.GetVisualDescendants()
+                .OfType<StoryGraphView>()
+                .FirstOrDefault();
+            var chapterId = viewModel.Graph.Projection?.Chapters
+                .FirstOrDefault()
+                ?.ChapterId;
+
+            if (graph is not null && chapterId is not null)
+            {
+                graph.SelectChapter(chapterId);
+                Dispatcher.UIThread.RunJobs();
+            }
+        }
+
+        if (Array.IndexOf(args, "--preview-choice") >= 0)
+        {
+            var choice = viewModel.Preview.Modules
+                .SelectMany(module => module.Choices)
+                .FirstOrDefault();
+            choice?.OpenCommand?.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        if (Array.IndexOf(args, "--menu") >= 0)
+        {
+            var menu = window.GetVisualDescendants().OfType<Menu>().FirstOrDefault();
+            if (menu is not null &&
+                menu.Items.Count > 0 &&
+                menu.Items[0] is MenuItem item)
+            {
+                item.IsSubMenuOpen = true;
+            }
+        }
+
+
+        Dispatcher.UIThread.RunJobs();
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Dispatcher.UIThread.RunJobs();
 
@@ -148,7 +222,7 @@ sealed class Program
             ?? Path.Combine(Directory.GetCurrentDirectory(), "samples");
         var start = GetOption(args, "--start");
 
-        Weftline.Player.RuntimeProjection runtime;
+        RuntimeProjection runtime;
 
         try
         {
@@ -185,6 +259,15 @@ sealed class Program
             {
                 viewModel.Advance();
                 Dispatcher.UIThread.RunJobs();
+            }
+        }
+
+        if (Array.IndexOf(args, "--combo") >= 0)
+        {
+            var combo = window.GetVisualDescendants().OfType<ComboBox>().FirstOrDefault();
+            if (combo is not null)
+            {
+                combo.IsDropDownOpen = true;
             }
         }
 

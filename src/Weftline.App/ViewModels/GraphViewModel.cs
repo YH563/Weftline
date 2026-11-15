@@ -2,7 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Weftline.Models;
+using Weftline.Core;
 
 namespace Weftline.App.ViewModels;
 

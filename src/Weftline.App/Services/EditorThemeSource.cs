@@ -1,6 +1,6 @@
 using Avalonia.Media;
-using Weftline.Editor.Rendering;
-using Weftline.Editor.Services;
+using Weftline.App.Features.Editor.Rendering;
+using Weftline.App.Features.Editor.Services;
 
 namespace Weftline.App.Services;
 

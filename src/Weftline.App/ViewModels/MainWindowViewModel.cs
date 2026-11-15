@@ -11,12 +11,13 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Weftline.App.Models;
 using Weftline.App.Services;
-using Weftline.Editor.Services;
-using Weftline.Editor.ViewModels;
-using Weftline.Graph.Layout;
-using Weftline.Models;
+using Weftline.App.Features.Editor.Services;
+using Weftline.App.Features.Editor.ViewModels;
+using Weftline.App.Features.Graph.Layout;
+using Weftline.App.Features.Player.ViewModels;
+using Weftline.Core;
 using Weftline.Native;
-using Weftline.Player;
+using Weftline.Core.Runtime;
 
 namespace Weftline.App.ViewModels;
 
@@ -164,7 +165,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task OpenProjectCoreAsync(string folder)
     {
-        _analysisScheduler.Cancel();
+        await _analysisScheduler.ResetAsync().ConfigureAwait(true);
         Editor.CloseAll();
         _documentSnapshots.Clear();
         Explorer.Load(folder);
@@ -177,8 +178,8 @@ public partial class MainWindowViewModel : ObservableObject
         _editorLanguageService.Symbols = null;
         Graph.Reset();
         Preview.Reset();
-        ProjectOpened?.Invoke(this, EventArgs.Empty);
         await CompileNowAsync().ConfigureAwait(true);
+        ProjectOpened?.Invoke(this, EventArgs.Empty);
         Status.SetStatus($"已打开：{GetFolderName(folder)}");
     }
 
@@ -676,12 +677,15 @@ public partial class MainWindowViewModel : ObservableObject
             _lastRuntime = output.Runtime;
         }
 
-        Preview.UpdateProject(
-            _projectFolder ?? string.Empty,
-            output.Runtime ?? _lastRuntime,
-            projection ?? _lastGoodProjection,
-            isStale: output.Runtime is null && errors > 0);
-        UpdatePreviewFile();
+        if (IsPreviewVisible)
+        {
+            Preview.UpdateProject(
+                _projectFolder ?? string.Empty,
+                output.Runtime ?? _lastRuntime,
+                projection ?? _lastGoodProjection,
+                isStale: output.Runtime is null && errors > 0);
+            UpdatePreviewFile();
+        }
 
         if (projection is { } available && moduleCount > 0)
         {
@@ -856,24 +860,11 @@ public partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        var chapter = _lastSymbols?.Chapters.FirstOrDefault(candidate =>
-            string.Equals(candidate.Id, module.ChapterId, StringComparison.Ordinal));
-
-        var meta = new List<string>();
-
-        if (module.Scenes.Count > 0)
-        {
-            meta.Add($"场景 {string.Join(" / ", module.Scenes)}");
-        }
-
-        meta.Add($"{module.Summary.DialogueCount} 句对话");
-        meta.Add($"{module.Summary.ChoiceCount} 个选项");
-
         Graph.ShowHover(
             module.ModuleId,
-            module.Summary.FirstLine,
-            string.Join(" · ", meta),
-            chapter?.Description);
+            null,
+            $"对话 {module.Summary.DialogueCount} · 选项 {module.Summary.ChoiceCount}",
+            null);
     }
 
     private void NavigateToSource(SourceLocation location, string label)

@@ -1,0 +1,112 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Weftline.App.Features.Editor.ViewModels"
+             xmlns:ae="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             x:Class="Weftline.App.Features.Editor.Views.WeftEditorView"
+             x:DataType="vm:EditorHostViewModel"
+             x:CompileBindings="True">
+
+
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0"
+                Background="{DynamicResource SurfaceAlt}"
+                Padding="8,6,8,6"
+                BorderBrush="{DynamicResource Border}"
+                BorderThickness="0,0,0,1">
+            <ListBox ItemsSource="{Binding Documents}"
+                     SelectedItem="{Binding SelectedDocument, Mode=TwoWay}"
+                     Classes="tabs"
+                     ItemContainerTheme="{StaticResource WeftTabItem}"
+                     SelectionMode="Single"
+                     ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                     ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:EditorDocumentViewModel">
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="6"
+                                    ToolTip.Tip="{Binding FilePath}">
+                            <PathIcon Data="{Binding IconGeometry}"
+                                      Foreground="{Binding IconBrush}"
+                                      Width="16"
+                                      Height="16"
+                                      VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding FileName}"
+                                       FontSize="13"
+                                       FontWeight="Medium"
+                                       MaxWidth="220"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="*"
+                                       IsVisible="{Binding IsModified}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Danger}"
+                                       VerticalAlignment="Center" />
+                            <Button Content="×"
+                                    Command="{Binding CloseCommand}"
+                                    Width="16"
+                                    Height="16"
+                                    Padding="0"
+                                    FontSize="13"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Foreground="{DynamicResource TextSecondary}"
+                                    Focusable="False"
+                                    VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <ae:TextEditor x:Name="TextEditor"
+                           IsVisible="{Binding HasDocument}"
+                           ShowLineNumbers="True"
+                           FontSize="14"
+                           FontFamily="Cascadia Code, JetBrains Mono, Consolas, monospace"
+                           HorizontalScrollBarVisibility="Auto"
+                           VerticalScrollBarVisibility="Auto"
+                           WordWrap="False"
+                           LineNumbersMargin="4,0,0,0">
+                <ae:TextEditor.Options>
+                    <ae:TextEditorOptions IndentationSize="4"
+                                          ConvertTabsToSpaces="True"
+                                          HighlightCurrentLine="True"
+                                          LineHeightFactor="1.25"
+                                          CutCopyWholeLine="True"
+                                          EnableRectangularSelection="True" />
+                </ae:TextEditor.Options>
+            </ae:TextEditor>
+
+            <StackPanel IsVisible="{Binding !HasDocument}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="10">
+                <PathIcon Width="40"
+                          Height="40"
+                          Foreground="{DynamicResource TextMuted}"
+                          HorizontalAlignment="Center"
+                          Data="M14,2H6C4.89,2 4,2.9 4,4V20C4,21.1 4.89,22 6,22H18C19.11,22 20,21.1 20,20V8L14,2M14,7V3.5L18.5,8H14M11,11H13V14H16V16H13V19H11V16H8V14H11V11Z" />
+                <TextBlock Text="未打开文件"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextSecondary}"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="双击左侧项目资源管理器中的文件开始编辑"
+                           FontSize="12"
+                           Foreground="{DynamicResource TextMuted}"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,7 +1,7 @@
 using Avalonia.Threading;
-using Weftline.Models;
+using Weftline.Core;
 using Weftline.Native;
-using Weftline.Player;
+using Weftline.Core.Runtime;
 
 namespace Weftline.App.Services;
 
@@ -45,6 +45,29 @@ public sealed class ProjectAnalysisScheduler
         => StartAsync(folder, reloadFromDisk, TimeSpan.Zero, buildRuntime);
 
     public void Cancel() => _cts?.Cancel();
+
+    /// <summary>
+    /// 取消当前分析并销毁 native 项目句柄，下一次编译会从磁盘全量重建。
+    /// Cancels the current analysis and disposes the native project handle so
+    /// the next compile rebuilds everything from disk.
+    /// </summary>
+    public async Task ResetAsync()
+    {
+        _cts?.Cancel();
+
+        await _gate.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            Interlocked.Increment(ref _version);
+            _client?.Dispose();
+            _client = null;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
 
     /// <summary>
     /// 用当前项目的编译缓存生成播放器载荷。

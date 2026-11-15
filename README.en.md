@@ -4,7 +4,7 @@
 
 Weftline is a story demo / narrative demonstration tool: write scripts, inspect the story graph, and export a playable HTML demo (planned for the C++ core).
 
-Current stage: the C++ language core and desktop editor are usable. The desktop app now has an IDE-style shell: project explorer, multi-tab AvaloniaEdit editor, dual-lane syntax/project analysis, merged diagnostics, hover, completion, status bar, folder switching, and basic file operations. Single-file syntax diagnostics and project semantics are scheduled independently and applied by version; project compilation syncs only changed documents incrementally. The story graph supports layout sidecars, hover summaries, double-click navigation, chapter-edge details, badges, filters, and shortest-path highlighting; the Problems panel is also wired up. An in-app story preview supports step-by-step reading, choices, conditions/effects, images, and local start modules. HTML export will be implemented in C++ later.
+Current stage: the C++ language core and desktop editor are usable. The desktop app now has an IDE-style shell: project explorer, multi-tab AvaloniaEdit editor, dual-lane syntax/project analysis, merged diagnostics, hover, completion, status bar, folder switching, and basic file operations. Single-file syntax diagnostics and project semantics are scheduled independently and applied by version; project compilation syncs only changed documents incrementally. The story graph supports hover summaries, double-click navigation, chapter-edge details, badges, and related-path highlighting; the layout is reset whenever the graph is reopened; the Problems panel is also wired up. An in-app story preview supports step-by-step reading, choices, conditions/effects, images, and local start modules. HTML export will be implemented in C++ later.
 
 ## File types
 
@@ -19,14 +19,31 @@ Current stage: the C++ language core and desktop editor are usable. The desktop 
 - All `.weft` files in one flat folder belong to the same story.
 
 
+## Project structure
+
+| Project | Responsibility |
+|---|---|
+| `src/Weftline.App` | Desktop UI, windows, views, app-level ViewModels and services |
+| `src/Weftline.Widgets` | Style-only library: design tokens, ControlThemes, style classes |
+| `src/Weftline.Core` | Domain/project models, graph analysis, player state machine |
+| `src/Weftline.Native` | C ABI/P/Invoke wrapper; dev-time native library copy |
+| `src/Weftline.App/Features` | Story graph, editor, and player UI features |
+| `src/Weftline.App/Views` | Only `.axaml` views with matching `.axaml.cs` code-behind |
+| `tests/` | `Weftline.App.Tests`, `Weftline.Core.Tests` |
+| `bench/` | `Weftline.Benchmarks` |
+
+- App contains views, bindings, and interaction only; the design system lives in `Weftline.Widgets`.
+- `Weftline.Core` does not reference Avalonia.
+- `Weftline.Native` owns the native library copy logic; App and Bench receive it through project references.
+
 ## Desktop app
 
 - Top menu bar, resizable project explorer, central editor area, and bottom status bar.
 - Project explorer: directory/file tree with lazy loading and extension-based icons; supports new file, new folder, rename, delete, and switching the project folder from the menu.
 - Editor: multi-file AvaloniaEdit tabs with close buttons, Weft syntax highlighting, line numbers, current-line highlight, a solid gutter separator, and modified markers; includes merged syntax/project diagnostics, squiggles, hover, and completion.
 - Status bar: caret position, selection length, language, current module/scene, module/variable counts, diagnostics summary, and operation status.
-- Story graph: live projection with chapter/module layers, entry/exit markers, dragging, zooming, and an END sink; hovering a module shows its summary, double-clicking a module or module edge jumps to source, and double-clicking a chapter edge shows underlying branches. Filters by character/scene/variable, badges for unreachable modules or modules that cannot reach END, and shortest-path highlighting for the selected module are also available. The Save Layout command persists manual layout and zoom to `weftline.layout.json` in the project root.
-- Theme: SukiUI light theme; Inter for UI text and JetBrains Mono for the editor when available.
+- Story graph: live projection with chapter/module layers, entry/exit markers, dragging, zooming, and an END sink; hovering a module shows its summary, double-clicking a module or module edge jumps to source, and double-clicking a chapter edge shows underlying branches. Badges for unreachable modules or modules that cannot reach END, and related-path highlighting for the selected module or chapter are also available. The Save Layout command can export the current layout, but reopening the graph returns to the automatic layout.
+- Theme: SimpleTheme as the base; design tokens and control styles live in `Weftline.Widgets`; Inter for UI text and JetBrains Mono for the editor when available.
 - The story graph and Problems panel are wired up; Output/Project Info panels are not yet.
 
 ### Build and run
@@ -40,7 +57,7 @@ dotnet build Weftline.slnx
 dotnet run --project src/Weftline.App
 ```
 
-On Windows, run the same commands from the “x64 Native Tools Command Prompt for VS 2022”; `Weftline.App.csproj` copies `weftline_core.dll` to the output directory automatically. On Linux it copies `libweftline_core.so`.
+On Windows, run the same commands from the “x64 Native Tools Command Prompt for VS 2022”; `Weftline.Native.csproj` copies `weftline_core.dll` to the output directory automatically. On Linux it copies `libweftline_core.so`.
 
 ### Tests and benchmarks
 
@@ -49,7 +66,8 @@ dotnet test Weftline.slnx
 dotnet run --project bench/Weftline.Benchmarks -c Release
 ```
 
-- `tests/Weftline.Editor.Tests` covers diagnostic merging, host integration, and syntax-analysis scheduling.
+- `tests/Weftline.App.Tests` covers diagnostic merging, host integration, and syntax-analysis scheduling.
+- `tests/Weftline.Core.Tests` covers story-graph analysis and the player state machine.
 - `bench/Weftline.Benchmarks` covers 10KB / 100KB / 1MB single-file parsing, project compilation, and `TextDocument` snapshots.
 
 ### Main UI packages
@@ -57,7 +75,7 @@ dotnet run --project bench/Weftline.Benchmarks -c Release
 | Package | Purpose |
 |---|---|
 | `Avalonia` / `Avalonia.Desktop` | Desktop UI and windows |
-| `SukiUI` | Theme, window chrome, notifications, popups |
+| `Avalonia.Themes.Simple` | Base control theme |
 | `Avalonia.AvaloniaEdit` | Code editor |
 | `CommunityToolkit.Mvvm` | ObservableObject / RelayCommand |
 | `Avalonia.Fonts.Inter` | UI font |

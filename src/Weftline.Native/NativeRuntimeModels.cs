@@ -1,5 +1,5 @@
-using Weftline.Models;
-using Weftline.Player;
+using Weftline.Core;
+using Weftline.Core.Runtime;
 
 namespace Weftline.Native;
 

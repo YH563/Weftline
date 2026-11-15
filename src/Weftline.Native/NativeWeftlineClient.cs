@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text.Json;
-using Weftline.Player;
+using Weftline.Core.Runtime;
 
 namespace Weftline.Native;
 

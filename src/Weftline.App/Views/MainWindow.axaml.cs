@@ -1,42 +1,27 @@
 using System.ComponentModel;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media;
-using SukiUI.Controls;
+using Weftline.App.Features.Player.Views;
 using Weftline.App.ViewModels;
-using Weftline.Graph.Controls;
+using Weftline.App.Features.Graph.Controls;
 
 namespace Weftline.App.Views;
 
-public partial class MainWindow : SukiWindow
+public partial class MainWindow : Window
 {
     private MainWindowViewModel? _subscribedViewModel;
     private PreviewWindow? _previewWindow;
+    private bool _wasGraphVisible;
 
     public MainWindow()
     {
         InitializeComponent();
 
-        EnablePopupOverlayLayer();
-
         GraphView.ModuleActivated += OnModuleActivated;
         GraphView.ModuleEdgeActivated += OnModuleEdgeActivated;
         GraphView.ChapterEdgeActivated += OnChapterEdgeActivated;
         GraphView.ModuleHoverChanged += OnModuleHoverChanged;
-    }
-
-
-    private void EnablePopupOverlayLayer()
-    {
-        var property = typeof(VisualLayerManager).GetProperty(
-            "EnablePopupOverlayLayer",
-            System.Reflection.BindingFlags.Instance |
-            System.Reflection.BindingFlags.NonPublic);
-
-        property?.SetValue(LayerManager, true);
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -61,8 +46,8 @@ public partial class MainWindow : SukiWindow
             _subscribedViewModel.PropertyChanged += OnViewModelPropertyChanged;
         }
 
+        _wasGraphVisible = false;
         UpdatePaneLayout();
-        ApplySavedLayout();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -78,6 +63,8 @@ public partial class MainWindow : SukiWindow
     {
         var graph = _subscribedViewModel?.IsGraphVisible ?? true;
         var preview = _subscribedViewModel?.IsPreviewVisible ?? false;
+        var becameVisible = graph && !_wasGraphVisible;
+        _wasGraphVisible = graph;
 
         GraphPane.IsVisible = graph;
         PreviewPane.IsVisible = preview;
@@ -101,12 +88,17 @@ public partial class MainWindow : SukiWindow
             RightPaneGrid.RowDefinitions[2].Height = new GridLength(0);
             RightPaneGrid.RowDefinitions[3].Height = new GridLength(1, GridUnitType.Star);
         }
+
+        if (becameVisible)
+        {
+            GraphView.ResetLayout();
+        }
     }
 
     private void OnProjectOpened(object? sender, EventArgs e)
     {
         ClosePreview();
-        ApplySavedLayout();
+        GraphView.ResetLayout();
     }
 
     private void OnPreviewRequested(object? sender, PreviewRequestedEventArgs e)
@@ -136,42 +128,12 @@ public partial class MainWindow : SukiWindow
         _previewWindow = null;
     }
 
-    private void ApplySavedLayout()
-    {
-        GraphView.ResetLayout();
-
-        if (_subscribedViewModel?.LoadLayout() is { } layout)
-        {
-            GraphView.ApplyLayout(layout);
-        }
-    }
-
     private void OnLayoutSaveRequested(object? sender, EventArgs e)
     {
         if (_subscribedViewModel is { } viewModel)
         {
             viewModel.SaveLayout(GraphView.ExportLayout());
         }
-    }
-
-    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
-    {
-        base.OnApplyTemplate(e);
-
-        if (OperatingSystem.IsLinux())
-        {
-            RootCornerRadius = default;
-
-            // 透明窗口在部分 X11/Wayland 合成器上会把圆角外区域画成黑色。
-            TransparencyLevelHint = [Avalonia.Controls.WindowTransparencyLevel.None];
-            Background = new SolidColorBrush(Color.Parse("#F2F3F5"));
-        }
-    }
-
-    private void OnResetGraphLayout(object? sender, RoutedEventArgs e)
-    {
-        GraphView.ResetLayout();
-        _subscribedViewModel?.ClearSavedLayout();
     }
 
     private void OnModuleActivated(object? sender, ModuleActivatedEventArgs e)

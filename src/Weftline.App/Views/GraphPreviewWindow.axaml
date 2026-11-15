@@ -1,0 +1,30 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:graph="using:Weftline.App.Features.Graph.Controls"
+        x:Class="Weftline.App.Views.GraphPreviewWindow"
+        Width="1440"
+        Height="900"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource AppBackground}">
+    <Grid RowDefinitions="Auto,*">
+        <Grid Grid.Row="0"
+              ColumnDefinitions="*,Auto"
+              Margin="16,12,16,8">
+            <TextBlock x:Name="HeaderText"
+                       VerticalAlignment="Center"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextPrimary}" />
+            <Button Grid.Column="1"
+                    Content="重置布局"
+                    Padding="12,4"
+                    Click="OnResetLayoutClick" />
+        </Grid>
+
+        <ScrollViewer Grid.Row="1"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+            <graph:StoryGraphView x:Name="GraphView" />
+        </ScrollViewer>
+    </Grid>
+</Window>

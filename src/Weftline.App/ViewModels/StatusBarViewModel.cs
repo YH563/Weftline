@@ -1,5 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using Weftline.Editor.ViewModels;
+using Weftline.App.Features.Editor.ViewModels;
 
 namespace Weftline.App.ViewModels;
 
