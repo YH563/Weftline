@@ -35,5 +35,8 @@
     <Compile Update="Views\StatusBarView.axaml.cs">
       <DependentUpon>StatusBarView.axaml</DependentUpon>
     </Compile>
+    <Compile Update="Views\GraphPreviewWindow.axaml.cs">
+      <DependentUpon>GraphPreviewWindow.axaml</DependentUpon>
+    </Compile>
   </ItemGroup>
 </Project>
