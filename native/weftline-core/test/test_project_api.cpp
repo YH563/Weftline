@@ -6,10 +6,9 @@
 
 TEST(ProjectApi, ReturnsDiagnosticsJson)
 {
-    WeftProject* project = weft_project_create();
+    WeftProject* project = weft_project_create(nullptr);
     ASSERT_NE(project, nullptr);
 
-    weft_project_set_folder(project, "test");
     weft_project_set_document(
         project,
         "chapter.weft",
@@ -18,13 +17,15 @@ TEST(ProjectApi, ReturnsDiagnosticsJson)
         "    [{钥匙}。]\n"
         "@next -> END\n");
 
-    char* response = weft_project_compile(project, 1, 1);
+    char* response = weft_project_compile(
+        project, WEFT_COMPILE_PARTIAL | WEFT_COMPILE_PROJECTION);
     ASSERT_NE(response, nullptr);
 
     const std::string json(response);
     weft_free(response);
     weft_project_destroy(project);
 
+    EXPECT_NE(json.find("\"schemaVersion\":4"), std::string::npos);
     EXPECT_NE(json.find("\"diagnostics\""), std::string::npos);
     EXPECT_NE(json.find("\"hasErrors\":true"), std::string::npos);
     EXPECT_NE(json.find("WFT2014"), std::string::npos);
@@ -33,7 +34,7 @@ TEST(ProjectApi, ReturnsDiagnosticsJson)
 
 TEST(ProjectApi, ReturnsSymbolsWithDescriptionsAndLocations)
 {
-    WeftProject* project = weft_project_create();
+    WeftProject* project = weft_project_create(nullptr);
     ASSERT_NE(project, nullptr);
 
     weft_project_set_document(
@@ -59,7 +60,7 @@ TEST(ProjectApi, ReturnsSymbolsWithDescriptionsAndLocations)
         "    [{萧影}。]\n"
         "@next -> END\n");
 
-    char* response = weft_project_compile(project, 0, 1);
+    char* response = weft_project_compile(project, WEFT_COMPILE_NONE);
     ASSERT_NE(response, nullptr);
 
     const std::string json(response);
@@ -82,9 +83,9 @@ TEST(ProjectApi, ReturnsSymbolsWithDescriptionsAndLocations)
     EXPECT_NE(json.find("\"filePath\":\"chapter.weft\""), std::string::npos);
 }
 
-TEST(ProjectApi, ValidProjectHasNoErrors)
+TEST(ProjectApi, ProjectionReturnsGraphAndProjection)
 {
-    WeftProject* project = weft_project_create();
+    WeftProject* project = weft_project_create(nullptr);
     ASSERT_NE(project, nullptr);
 
     weft_project_set_document(
@@ -94,7 +95,7 @@ TEST(ProjectApi, ValidProjectHasNoErrors)
         "@module A\n"
         "@next -> END\n");
 
-    char* response = weft_project_compile(project, 0, 1);
+    char* response = weft_project_compile(project, WEFT_COMPILE_PROJECTION);
     ASSERT_NE(response, nullptr);
 
     const std::string json(response);
@@ -105,14 +106,14 @@ TEST(ProjectApi, ValidProjectHasNoErrors)
     EXPECT_NE(json.find("\"diagnostics\":[]"), std::string::npos);
     EXPECT_NE(json.find("\"graph\":{"), std::string::npos);
     EXPECT_NE(json.find("\"projection\":{"), std::string::npos);
+    EXPECT_EQ(json.find("\"runtime\""), std::string::npos);
 }
 
-TEST(ProjectApi, CompileExReturnsRuntimeWhenRequested)
+TEST(ProjectApi, RuntimeOnlyOmitsGraphAndProjection)
 {
-    WeftProject* project = weft_project_create();
+    WeftProject* project = weft_project_create("test");
     ASSERT_NE(project, nullptr);
 
-    weft_project_set_folder(project, "test");
     weft_project_set_document(
         project,
         "chapter.weft",
@@ -122,7 +123,7 @@ TEST(ProjectApi, CompileExReturnsRuntimeWhenRequested)
         "    [你好]\n"
         "@next -> END { @set a true }\n");
 
-    char* response = weft_project_compile_ex(project, 0, 0, 1);
+    char* response = weft_project_compile(project, WEFT_COMPILE_RUNTIME);
     ASSERT_NE(response, nullptr);
 
     const std::string json(response);
@@ -134,11 +135,13 @@ TEST(ProjectApi, CompileExReturnsRuntimeWhenRequested)
         json.find("\"runtime\":{\"schemaVersion\":1,\"projectName\":\"test\""),
         std::string::npos);
     EXPECT_NE(json.find("\"id\":\"A\""), std::string::npos);
+    EXPECT_EQ(json.find("\"graph\""), std::string::npos);
+    EXPECT_EQ(json.find("\"projection\""), std::string::npos);
 }
 
-TEST(ProjectApi, CompileExOmitsRuntimeWhenNotRequested)
+TEST(ProjectApi, NoneOmitsRuntimeGraphAndProjection)
 {
-    WeftProject* project = weft_project_create();
+    WeftProject* project = weft_project_create(nullptr);
     ASSERT_NE(project, nullptr);
 
     weft_project_set_document(
@@ -148,7 +151,7 @@ TEST(ProjectApi, CompileExOmitsRuntimeWhenNotRequested)
         "@module A\n"
         "@next -> END\n");
 
-    char* response = weft_project_compile_ex(project, 0, 0, 0);
+    char* response = weft_project_compile(project, WEFT_COMPILE_NONE);
     ASSERT_NE(response, nullptr);
 
     const std::string json(response);
@@ -156,12 +159,14 @@ TEST(ProjectApi, CompileExOmitsRuntimeWhenNotRequested)
     weft_project_destroy(project);
 
     EXPECT_NE(json.find("\"hasErrors\":false"), std::string::npos);
+    EXPECT_EQ(json.find("\"graph\""), std::string::npos);
+    EXPECT_EQ(json.find("\"projection\""), std::string::npos);
     EXPECT_EQ(json.find("\"runtime\""), std::string::npos);
 }
 
-TEST(ProjectApi, CompileExOmitsRuntimeOnErrors)
+TEST(ProjectApi, RuntimeOmitsPayloadOnErrors)
 {
-    WeftProject* project = weft_project_create();
+    WeftProject* project = weft_project_create(nullptr);
     ASSERT_NE(project, nullptr);
 
     weft_project_set_document(
@@ -171,7 +176,7 @@ TEST(ProjectApi, CompileExOmitsRuntimeOnErrors)
         "@module A\n"
         "@next -> Missing\n");
 
-    char* response = weft_project_compile_ex(project, 0, 0, 1);
+    char* response = weft_project_compile(project, WEFT_COMPILE_RUNTIME);
     ASSERT_NE(response, nullptr);
 
     const std::string json(response);
@@ -179,12 +184,13 @@ TEST(ProjectApi, CompileExOmitsRuntimeOnErrors)
     weft_project_destroy(project);
 
     EXPECT_NE(json.find("\"hasErrors\":true"), std::string::npos);
+    EXPECT_NE(json.find("\"diagnostics\""), std::string::npos);
     EXPECT_EQ(json.find("\"runtime\""), std::string::npos);
 }
 
 TEST(ProjectApi, StrictErrorsOmitGraph)
 {
-    WeftProject* project = weft_project_create();
+    WeftProject* project = weft_project_create(nullptr);
     ASSERT_NE(project, nullptr);
 
     weft_project_set_document(
@@ -194,7 +200,7 @@ TEST(ProjectApi, StrictErrorsOmitGraph)
         "@module A\n"
         "@next -> Missing\n");
 
-    char* response = weft_project_compile(project, 0, 1);
+    char* response = weft_project_compile(project, WEFT_COMPILE_PROJECTION);
     ASSERT_NE(response, nullptr);
 
     const std::string json(response);
@@ -208,7 +214,7 @@ TEST(ProjectApi, StrictErrorsOmitGraph)
 
 TEST(ProjectApi, ReturnsRuntimeProjection)
 {
-    WeftProject* project = weft_project_create();
+    WeftProject* project = weft_project_create(nullptr);
     ASSERT_NE(project, nullptr);
 
     weft_project_set_document(
@@ -229,14 +235,14 @@ TEST(ProjectApi, ReturnsRuntimeProjection)
         "    [你好]\n"
         "@next -> END { @set 信任 true }\n");
 
-    char* response = weft_project_runtime(project);
+    char* response = weft_project_compile(project, WEFT_COMPILE_RUNTIME);
     ASSERT_NE(response, nullptr);
 
     const std::string json(response);
     weft_free(response);
     weft_project_destroy(project);
 
-    EXPECT_NE(json.find("\"schemaVersion\":1"), std::string::npos);
+    EXPECT_NE(json.find("\"schemaVersion\":4"), std::string::npos);
     EXPECT_NE(json.find("\"hasErrors\":false"), std::string::npos);
     EXPECT_NE(json.find("\"runtime\":{"), std::string::npos);
     EXPECT_NE(json.find("\"projectName\":\"测试\""), std::string::npos);
@@ -249,36 +255,11 @@ TEST(ProjectApi, ReturnsRuntimeProjection)
         std::string::npos);
 
     EXPECT_EQ(json.find("\"source\""), std::string::npos);
-    EXPECT_EQ(json.find("\"filePath\""), std::string::npos);
 }
 
-TEST(ProjectApi, RuntimeRejectsProjectWithErrors)
+TEST(ProjectApi, HandlesNullProject)
 {
-    WeftProject* project = weft_project_create();
-    ASSERT_NE(project, nullptr);
-
-    weft_project_set_document(
-        project,
-        "chapter.weft",
-        "@title 第一章\n"
-        "@module A\n"
-        "@next -> Missing\n");
-
-    char* response = weft_project_runtime(project);
-    ASSERT_NE(response, nullptr);
-
-    const std::string json(response);
-    weft_free(response);
-    weft_project_destroy(project);
-
-    EXPECT_NE(json.find("\"hasErrors\":true"), std::string::npos);
-    EXPECT_NE(json.find("\"diagnosticCount\":1"), std::string::npos);
-    EXPECT_EQ(json.find("\"runtime\""), std::string::npos);
-}
-
-TEST(ProjectApi, RuntimeHandlesNullProject)
-{
-    char* response = weft_project_runtime(nullptr);
+    char* response = weft_project_compile(nullptr, WEFT_COMPILE_NONE);
     ASSERT_NE(response, nullptr);
 
     const std::string json(response);
@@ -290,7 +271,7 @@ TEST(ProjectApi, RuntimeHandlesNullProject)
 
 TEST(ProjectApi, UpdatesDiagnosticsAfterDocumentChange)
 {
-    WeftProject* project = weft_project_create();
+    WeftProject* project = weft_project_create(nullptr);
     ASSERT_NE(project, nullptr);
 
     const char* valid =
@@ -303,14 +284,14 @@ TEST(ProjectApi, UpdatesDiagnosticsAfterDocumentChange)
         "@next -> Missing\n";
 
     weft_project_set_document(project, "chapter.weft", valid);
-    char* first = weft_project_compile(project, 0, 0);
+    char* first = weft_project_compile(project, WEFT_COMPILE_NONE);
     ASSERT_NE(first, nullptr);
     const std::string first_json(first);
     weft_free(first);
     EXPECT_NE(first_json.find("\"hasErrors\":false"), std::string::npos);
 
     weft_project_set_document(project, "chapter.weft", invalid);
-    char* second = weft_project_compile(project, 0, 0);
+    char* second = weft_project_compile(project, WEFT_COMPILE_NONE);
     ASSERT_NE(second, nullptr);
     const std::string second_json(second);
     weft_free(second);
@@ -318,7 +299,7 @@ TEST(ProjectApi, UpdatesDiagnosticsAfterDocumentChange)
     EXPECT_NE(second_json.find("WFT4001"), std::string::npos);
 
     weft_project_set_document(project, "chapter.weft", valid);
-    char* third = weft_project_compile(project, 0, 0);
+    char* third = weft_project_compile(project, WEFT_COMPILE_NONE);
     ASSERT_NE(third, nullptr);
     const std::string third_json(third);
     weft_free(third);

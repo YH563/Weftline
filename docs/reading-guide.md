@@ -35,12 +35,18 @@
 
 先看跨语言契约，再看实现：
 
-1. `interop/contract/compile.request.schema.json`
-2. `interop/contract/compile.response.schema.json`
-3. `interop/contract/parse.response.schema.json`
-4. `interop/contract/project.response.schema.json`
-5. `interop/contract/runtime.response.schema.json`
-6. `native/weftline-core/include/weftline/core.h` — 唯一对外 C ABI。
+1. `interop/contract/parse.response.schema.json`
+2. `interop/contract/project.response.schema.json`（v4，runtime 已内联）
+3. `native/weftline-core/include/weftline/core.h` — 唯一对外 C ABI。
+
+当前 C ABI 只保留：
+
+- `weft_version` / `weft_free`
+- `weft_parse_json`
+- `weft_project_create(folder)` / `destroy` / `set_document` / `remove_document`
+- `weft_project_compile(project, flags)`
+
+flags：`PARTIAL` / `PROJECTION` / `RUNTIME`。诊断和符号始终返回；图/投影和 runtime 按需返回。
 
 阅读重点：`schemaVersion`、版本回显、`error/hasErrors`、项目句柄生命周期、`weft_free` 的所有权。
 
@@ -113,8 +119,8 @@
 
 ### 2.7 C ABI 与 CLI
 
-1. `include/weftline/api/compile.hpp`
-2. `src/api/compile.cpp`
+1. `include/weftline/tools/lexer_json.hpp`
+2. `src/tools/lexer_json.cpp`
 3. `src/api/core.cpp`
 4. `src/api/parse_api.cpp`
 5. `src/api/project_api.cpp`

@@ -15,6 +15,7 @@ file(GLOB WEFTLINE_CORE_SOURCES CONFIGURE_DEPENDS
     src/ir/*.cpp
     src/generation/*.cpp
     src/api/*.cpp
+    src/tools/*.cpp
 )
 # 共享库和静态库共用同一批目标文件：源码只编译一次，警告选项也只写一份。
 add_library(weftline_core_objects OBJECT ${WEFTLINE_CORE_SOURCES})

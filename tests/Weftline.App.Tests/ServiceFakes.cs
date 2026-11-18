@@ -34,6 +34,8 @@ internal sealed class FakeNativeProjectClient : INativeProjectClient
 
     public int DisposeCount { get; private set; }
 
+    public NativeCompileFlags LastFlags { get; private set; }
+
     public NativeProjectResponse Response { get; set; } = new();
 
     public IReadOnlyDictionary<string, string> LoadFolder(
@@ -42,12 +44,10 @@ internal sealed class FakeNativeProjectClient : INativeProjectClient
         bool reloadFromDisk = false)
         => openDocuments;
 
-    public NativeProjectResponse Compile(
-        bool allowPartial,
-        bool buildProjection,
-        bool buildRuntime = false)
+    public NativeProjectResponse Compile(NativeCompileFlags flags)
     {
         CompileCount++;
+        LastFlags = flags;
         return Response;
     }
 

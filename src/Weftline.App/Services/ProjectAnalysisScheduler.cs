@@ -187,10 +187,15 @@ public sealed class ProjectAnalysisScheduler : IProjectAnalysisScheduler, IDispo
                             folder, documents, reloadFromDisk);
                         cts.Token.ThrowIfCancellationRequested();
 
-                        var native = _client.Compile(
-                            allowPartial: true,
-                            buildProjection: true,
-                            buildRuntime: buildRuntime);
+                        var flags = NativeCompileFlags.Partial
+                            | NativeCompileFlags.Projection;
+
+                        if (buildRuntime)
+                        {
+                            flags |= NativeCompileFlags.Runtime;
+                        }
+
+                        var native = _client.Compile(flags);
 
                         return new ProjectAnalysisResult(
                             native,

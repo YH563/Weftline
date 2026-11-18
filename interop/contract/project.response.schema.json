@@ -3,10 +3,15 @@
   "$id": "https://weftline.local/schema/project.response.schema.json",
   "title": "Weftline project compile response",
   "type": "object",
-  "required": ["schemaVersion", "hasErrors", "diagnostics"],
+  "required": [
+    "schemaVersion",
+    "hasErrors",
+    "diagnostics",
+    "projectName"
+  ],
   "properties": {
     "schemaVersion": {
-      "const": 3
+      "const": 4
     },
     "version": {
       "type": "string"
@@ -21,13 +26,24 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["code", "severity", "message", "filePath", "start", "length"],
+        "required": [
+          "code",
+          "severity",
+          "message",
+          "filePath",
+          "start",
+          "length"
+        ],
         "properties": {
           "code": {
             "type": "string"
           },
           "severity": {
-            "enum": ["info", "warning", "error"]
+            "enum": [
+              "info",
+              "warning",
+              "error"
+            ]
           },
           "message": {
             "type": "string"
@@ -45,7 +61,11 @@
           },
           "related": {
             "type": "object",
-            "required": ["filePath", "start", "length"],
+            "required": [
+              "filePath",
+              "start",
+              "length"
+            ],
             "properties": {
               "filePath": {
                 "type": "string"
@@ -110,14 +130,21 @@
       "description": "GraphProjection JSON；字段见 ir/graph_projection.hpp。"
     },
     "runtime": {
-      "type": "object",
-      "description": "RuntimeProjection JSON；字段见 runtime.response.schema.json。"
+      "$ref": "#/$defs/runtimeProjection"
+    },
+    "projectName": {
+      "type": "string"
     }
   },
   "$defs": {
     "symbol": {
       "type": "object",
-      "required": ["name", "filePath", "start", "length"],
+      "required": [
+        "name",
+        "filePath",
+        "start",
+        "length"
+      ],
       "properties": {
         "name": {
           "type": "string"
@@ -144,7 +171,14 @@
     },
     "chapter": {
       "type": "object",
-      "required": ["id", "title", "moduleIds", "filePath", "start", "length"],
+      "required": [
+        "id",
+        "title",
+        "moduleIds",
+        "filePath",
+        "start",
+        "length"
+      ],
       "properties": {
         "id": {
           "type": "string"
@@ -171,6 +205,279 @@
         "length": {
           "type": "integer",
           "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "runtimeProjection": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "projectName",
+        "end",
+        "chapters",
+        "globals",
+        "modules"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "projectName": {
+          "type": "string"
+        },
+        "entry": {
+          "type": "string"
+        },
+        "end": {
+          "type": "string"
+        },
+        "chapters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/runtimeChapter"
+          }
+        },
+        "globals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/runtimeGlobal"
+          }
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/runtimeModule"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "runtimeChapter": {
+      "type": "object",
+      "required": [
+        "id",
+        "title"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "runtimeGlobal": {
+      "type": "object",
+      "required": [
+        "name",
+        "initial"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "initial": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "runtimeModule": {
+      "type": "object",
+      "required": [
+        "id",
+        "chapterId",
+        "content"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "chapterId": {
+          "type": "string"
+        },
+        "scenes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/runtimeScene"
+          }
+        },
+        "content": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/runtimeContent"
+          }
+        },
+        "exit": {
+          "$ref": "#/$defs/runtimeExit"
+        }
+      },
+      "additionalProperties": false
+    },
+    "runtimeScene": {
+      "type": "object",
+      "required": [
+        "name",
+        "contentIndex"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "contentIndex": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "runtimeContent": {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "narration",
+            "dialogue",
+            "figure"
+          ]
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/runtimeSegment"
+          }
+        },
+        "speaker": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "runtimeSegment": {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "text",
+            "ref"
+          ]
+        },
+        "text": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "runtimeExit": {
+      "type": "object",
+      "required": [
+        "mode",
+        "branches"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "auto",
+            "choice"
+          ]
+        },
+        "character": {
+          "type": "string"
+        },
+        "branches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/runtimeBranch"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "runtimeBranch": {
+      "type": "object",
+      "required": [
+        "target",
+        "effects"
+      ],
+      "properties": {
+        "condition": {
+          "$ref": "#/$defs/runtimeBoolExpr"
+        },
+        "label": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/runtimeEffect"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "runtimeBoolExpr": {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "literal",
+            "ref",
+            "not",
+            "and",
+            "or"
+          ]
+        },
+        "value": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "expr": {
+          "$ref": "#/$defs/runtimeBoolExpr"
+        },
+        "left": {
+          "$ref": "#/$defs/runtimeBoolExpr"
+        },
+        "right": {
+          "$ref": "#/$defs/runtimeBoolExpr"
+        }
+      },
+      "additionalProperties": false
+    },
+    "runtimeEffect": {
+      "type": "object",
+      "required": [
+        "name",
+        "value"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false

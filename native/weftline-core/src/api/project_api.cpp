@@ -10,10 +10,8 @@
 #include <string_view>
 #include <vector>
 
-#include "weftline/api/compile.hpp"
 #include "weftline/diagnostics/diagnostic.hpp"
 #include "weftline/ir/ir_json.hpp"
-#include "weftline/ir/runtime_projection_builder.hpp"
 #include "weftline/json/json_writer.hpp"
 #include "weftline/projects/compilation_cache.hpp"
 #include "weftline/projects/project_compiler.hpp"
@@ -45,7 +43,7 @@ namespace {
         // 失败响应只保留最小字段；调用方仍按同一 schemaVersion 解析。
         weftline::json::Writer writer;
         writer.begin_object();
-        writer.key("schemaVersion").number(3);
+        writer.key("schemaVersion").number(4);
         writer.key("version").string(weft_version());
         writer.key("hasErrors").boolean(true);
         writer.key("error").string(message);
@@ -171,12 +169,13 @@ namespace {
      */
     [[nodiscard]]
     std::string project_compile_json(
-        const weftline::projects::ProjectCompilationResult& result)
+        const weftline::projects::ProjectCompilationResult& result,
+        WeftCompileFlags flags)
     {
         // 固定头部：schema、core 版本、是否有 error、项目名。
         weftline::json::Writer writer;
         writer.begin_object();
-        writer.key("schemaVersion").number(3);
+        writer.key("schemaVersion").number(4);
         writer.key("version").string(weft_version());
         writer.key("hasErrors").boolean(result.has_errors());
         writer.key("projectName").string(
@@ -213,16 +212,17 @@ namespace {
         writer.key("symbols");
         write_project_symbols(writer, result);
 
-        // 有 error 且 allow_partial=false 时不会走到这里；值可能来自编译缓存。
-        if (result.graph) {
-            writer.key("graph").raw(
-                weftline::ir::story_graph_to_json(*result.graph.value()));
-        }
+        // graph/projection 只在显式请求 PROJECTION 时返回；值可能来自编译缓存。
+        if ((flags & WEFT_COMPILE_PROJECTION) != 0) {
+            if (result.graph) {
+                writer.key("graph").raw(
+                    weftline::ir::story_graph_to_json(*result.graph.value()));
+            }
 
-        // projection 只在请求构建且成功时出现。
-        if (result.projection) {
-            writer.key("projection").raw(
-                weftline::ir::graph_projection_to_json(*result.projection.value()));
+            if (result.projection) {
+                writer.key("projection").raw(
+                    weftline::ir::graph_projection_to_json(*result.projection.value()));
+            }
         }
 
         // runtime 只在显式请求且无 error 时出现；调用方保留上一次可用载荷。
@@ -231,74 +231,6 @@ namespace {
                 weftline::ir::runtime_projection_to_json(*result.runtime.value()));
         }
 
-        writer.end_object();
-        return writer.str();
-    }
-
-    /**
-     * @brief 构造播放器载荷失败时的最小 JSON 响应。
-     *
-     * 保持与成功响应相同的 schemaVersion/hasErrors 字段，方便 C# 统一解析。
-     */
-    [[nodiscard]]
-    std::string runtime_error_json(
-        std::string_view message, std::int64_t diagnostic_count = 0)
-    {
-        weftline::json::Writer writer;
-        writer.begin_object();
-        writer.key("schemaVersion").number(1);
-        writer.key("hasErrors").boolean(true);
-        writer.key("error").string(message);
-        writer.key("diagnosticCount").number(diagnostic_count);
-        writer.end_object();
-        return writer.str();
-    }
-
-    /**
-     * @brief 把项目编译结果序列化为播放器 JSON。
-     *
-     * 有 error 或没有正式图时只返回错误信息，避免播放器消费不完整模型。
-     * runtime 可能较大，这里只在显式请求预览时序列化，不进入实时编译热路径。
-     */
-    [[nodiscard]]
-    std::string project_runtime_json(
-        const weftline::projects::ProjectCompilationResult& result)
-    {
-        std::int64_t error_count = 0;
-        std::string first_error;
-
-        for (const auto& item : result.diagnostics) {
-            if (item.diagnostic.severity
-                != weftline::diagnostics::Severity::Error) {
-                continue;
-            }
-
-            ++error_count;
-            if (first_error.empty()) {
-                first_error = weftline::source::utf16_to_utf8(
-                    item.diagnostic.message);
-            }
-        }
-
-        if (error_count > 0) {
-            return runtime_error_json(
-                first_error.empty() ? "project has errors" : first_error,
-                error_count);
-        }
-
-        if (!result.graph) {
-            return runtime_error_json("project has no story graph");
-        }
-
-        const auto runtime = weftline::ir::build_runtime_projection(
-            result.model, *result.graph.value());
-
-        weftline::json::Writer writer;
-        writer.begin_object();
-        writer.key("schemaVersion").number(1);
-        writer.key("hasErrors").boolean(false);
-        writer.key("runtime").raw(
-            weftline::ir::runtime_projection_to_json(runtime));
         writer.end_object();
         return writer.str();
     }
@@ -326,29 +258,22 @@ extern "C" {
 
 // C ABI 语义见 include/weftline/core.h；以下实现只补充生命周期和缓存约束。
 
-WeftProject* weft_project_create(void)
+WeftProject* weft_project_create(const char* folder)
 {
     // 分配失败返回 nullptr；空快照可以直接开始 set_document。
-    return new (std::nothrow) WeftProject{};
+    auto* project = new (std::nothrow) WeftProject{};
+
+    if (project != nullptr && folder != nullptr) {
+        project->snapshot.folder = folder;
+    }
+
+    return project;
 }
 
 void weft_project_destroy(WeftProject* project)
 {
     // delete nullptr 安全；文档文本、AST、绑定和图缓存随句柄析构。
     delete project;
-}
-
-void weft_project_set_folder(WeftProject* project, const char* folder)
-{
-    if (project == nullptr || folder == nullptr) {
-        return;
-    }
-    // folder 只影响缓存边界和项目名兜底，core 不扫描磁盘。
-    // 缓存 key 是文档路径；换项目后旧 AST/绑定/图结果不可复用。
-    if (project->snapshot.folder != folder) {
-        project->cache.clear();
-    }
-    project->snapshot.folder = folder;
 }
 
 void weft_project_set_document(WeftProject* project, const char* path, const char* text)
@@ -372,11 +297,7 @@ void weft_project_remove_document(WeftProject* project, const char* path)
     ++project->snapshot.version;
 }
 
-char* weft_project_compile_ex(
-    WeftProject* project,
-    int allow_partial,
-    int build_projection,
-    int build_runtime)
+char* weft_project_compile(WeftProject* project, WeftCompileFlags flags)
 {
     // 不向 C ABI 抛异常：所有失败都转换成可解析的 JSON 响应。
     try {
@@ -386,9 +307,9 @@ char* weft_project_compile_ex(
         }
 
         weftline::projects::CompilationOptions options;
-        options.allow_partial = allow_partial != 0;
-        options.build_projection = build_projection != 0;
-        options.build_runtime = build_runtime != 0;
+        options.allow_partial = (flags & WEFT_COMPILE_PARTIAL) != 0;
+        options.build_projection = (flags & WEFT_COMPILE_PROJECTION) != 0;
+        options.build_runtime = (flags & WEFT_COMPILE_RUNTIME) != 0;
 
         // 缓存随句柄存活：未变化文件复用 AST/绑定/图结果，变化部分重新编译。
         const auto result =
@@ -396,42 +317,11 @@ char* weft_project_compile_ex(
                 project->snapshot, options, &project->cache);
 
         // 返回缓冲区由调用方 weft_free；异常也统一转成 error JSON。
-        return duplicate_string(project_compile_json(result));
+        return duplicate_string(project_compile_json(result, flags));
     } catch (const std::exception& error) {
         return duplicate_string(project_error_json(error.what()));
     } catch (...) {
         return duplicate_string(project_error_json("unknown native error"));
-    }
-}
-
-char* weft_project_compile(WeftProject* project, int allow_partial, int build_projection)
-{
-    // 兼容旧调用方：等价于不请求 runtime 的 compile_ex。
-    return weft_project_compile_ex(
-        project, allow_partial, build_projection, 0);
-}
-
-char* weft_project_runtime(WeftProject* project)
-{
-    // 播放器载荷只做严格编译；有 error 时由 project_runtime_json 返回错误信息。
-    try {
-        if (project == nullptr) {
-            return duplicate_string(runtime_error_json("project is null"));
-        }
-
-        weftline::projects::CompilationOptions options;
-        options.allow_partial = false;
-        options.build_projection = false;
-
-        // 复用同一份编译缓存，避免为预览重新解析未变化文件。
-        const auto result = weftline::projects::compile(
-            project->snapshot, options, &project->cache);
-
-        return duplicate_string(project_runtime_json(result));
-    } catch (const std::exception& error) {
-        return duplicate_string(runtime_error_json(error.what()));
-    } catch (...) {
-        return duplicate_string(runtime_error_json("unknown native error"));
     }
 }
 

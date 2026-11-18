@@ -61,7 +61,7 @@ public sealed partial class GraphPreviewWindow : Window
     {
         using var client = new NativeWeftlineClient();
         client.LoadFolder(folder, new Dictionary<string, string>(StringComparer.Ordinal));
-        return client.Compile(allowPartial: true, buildProjection: true);
+        return client.Compile(NativeCompileFlags.Partial | NativeCompileFlags.Projection);
     }
 
     private void ShowError(NativeProjectResponse response)

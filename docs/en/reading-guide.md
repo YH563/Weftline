@@ -35,12 +35,18 @@ Keep the data flow in mind:
 
 Read the cross-language contracts before implementations:
 
-1. `interop/contract/compile.request.schema.json`
-2. `interop/contract/compile.response.schema.json`
-3. `interop/contract/parse.response.schema.json`
-4. `interop/contract/project.response.schema.json`
-5. `interop/contract/runtime.response.schema.json`
-6. `native/weftline-core/include/weftline/core.h` — the only exported C ABI.
+1. `interop/contract/parse.response.schema.json`
+2. `interop/contract/project.response.schema.json` (v4, runtime is inlined)
+3. `native/weftline-core/include/weftline/core.h` — the only exported C ABI.
+
+The current C ABI only keeps:
+
+- `weft_version` / `weft_free`
+- `weft_parse_json`
+- `weft_project_create(folder)` / `destroy` / `set_document` / `remove_document`
+- `weft_project_compile(project, flags)`
+
+Flags: `PARTIAL` / `PROJECTION` / `RUNTIME`. Diagnostics and symbols are always returned; graph/projection and runtime are opt-in.
 
 Watch for `schemaVersion`, version echo, `error/hasErrors`, project-handle lifetime, and `weft_free` ownership.
 
@@ -113,8 +119,8 @@ Focus: how `.wstory` generation preserves hand-written descriptions.
 
 ### 2.7 C ABI and CLI
 
-1. `include/weftline/api/compile.hpp`
-2. `src/api/compile.cpp`
+1. `include/weftline/tools/lexer_json.hpp`
+2. `src/tools/lexer_json.cpp`
 3. `src/api/core.cpp`
 4. `src/api/parse_api.cpp`
 5. `src/api/project_api.cpp`

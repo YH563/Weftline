@@ -10,6 +10,8 @@ namespace Weftline.Native;
 /// </summary>
 public sealed class NativeWeftlineClient : INativeProjectClient
 {
+    private const int ProjectSchemaVersion = 4;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -21,15 +23,10 @@ public sealed class NativeWeftlineClient : INativeProjectClient
     private string? _folder;
 
     /// <summary>
-    /// 创建 native core 项目句柄。
+    /// 项目句柄在首次 LoadFolder 时创建；版本查询和静态 Parse 不需要句柄。
     /// </summary>
     public NativeWeftlineClient()
     {
-        _handle = NativeMethods.weft_project_create();
-        if (_handle == IntPtr.Zero)
-        {
-            throw new InvalidOperationException("weft_project_create returned null.");
-        }
     }
 
     /// <summary>
@@ -85,13 +82,12 @@ public sealed class NativeWeftlineClient : INativeProjectClient
         bool reloadFromDisk = false)
     {
         var fullFolder = Path.GetFullPath(folder);
+        var folderChanged = !string.Equals(_folder, fullFolder, StringComparison.Ordinal);
 
-        if (!string.Equals(_folder, fullFolder, StringComparison.Ordinal))
+        EnsureProject(fullFolder);
+
+        if (folderChanged)
         {
-            NativeMethods.weft_project_set_folder(_handle, fullFolder);
-            _folder = fullFolder;
-            _documents.Clear();
-            _diskStamps.Clear();
             reloadFromDisk = true;
         }
 
@@ -186,17 +182,11 @@ public sealed class NativeWeftlineClient : INativeProjectClient
     /// <summary>
     /// 编译当前项目并反序列化 native 响应。
     /// </summary>
-    /// <param name="allowPartial">有错误时是否仍构建部分图。</param>
-    /// <param name="buildProjection">是否构建图投影。</param>
-    /// <param name="buildRuntime">是否在同一次编译中附带播放器载荷。</param>
-    public NativeProjectResponse Compile(
-        bool allowPartial, bool buildProjection, bool buildRuntime = false)
+    /// <param name="flags">按需选择 partial / projection / runtime 产物。</param>
+    public NativeProjectResponse Compile(NativeCompileFlags flags)
     {
-        var pointer = NativeMethods.weft_project_compile_ex(
-            _handle,
-            allowPartial ? 1 : 0,
-            buildProjection ? 1 : 0,
-            buildRuntime ? 1 : 0);
+        EnsureProjectLoaded();
+        var pointer = NativeMethods.weft_project_compile(_handle, (uint)flags);
 
         if (pointer == IntPtr.Zero)
         {
@@ -208,6 +198,12 @@ public sealed class NativeWeftlineClient : INativeProjectClient
             var json = Marshal.PtrToStringUTF8(pointer) ?? string.Empty;
             var response = JsonSerializer.Deserialize<NativeProjectResponse>(json, JsonOptions)
                 ?? throw new InvalidOperationException("Native response was empty.");
+
+            if (response.SchemaVersion != ProjectSchemaVersion)
+            {
+                throw new InvalidOperationException(
+                    $"native project schemaVersion {response.SchemaVersion} != {ProjectSchemaVersion}.");
+            }
 
             if (!string.IsNullOrEmpty(response.Error))
             {
@@ -231,32 +227,15 @@ public sealed class NativeWeftlineClient : INativeProjectClient
     /// </remarks>
     public RuntimeProjection CompileRuntime()
     {
-        var pointer = NativeMethods.weft_project_runtime(_handle);
+        var response = Compile(NativeCompileFlags.Runtime);
 
-        if (pointer == IntPtr.Zero)
+        if (response.HasErrors || response.Runtime is null)
         {
-            throw new InvalidOperationException("weft_project_runtime returned null.");
+            throw new InvalidOperationException(
+                response.Error ?? "Project has errors.");
         }
 
-        try
-        {
-            var json = Marshal.PtrToStringUTF8(pointer) ?? string.Empty;
-            var response = JsonSerializer.Deserialize<NativeRuntimeResponse>(
-                json, JsonOptions)
-                ?? throw new InvalidOperationException("Native runtime response was empty.");
-
-            if (response.HasErrors || response.Runtime is null)
-            {
-                throw new InvalidOperationException(
-                    response.Error ?? "Project has errors.");
-            }
-
-            return response.Runtime.ToRuntimeProjection();
-        }
-        finally
-        {
-            NativeMethods.weft_free(pointer);
-        }
+        return response.Runtime.ToRuntimeProjection();
     }
 
     /// <summary>
@@ -271,6 +250,39 @@ public sealed class NativeWeftlineClient : INativeProjectClient
         }
 
         GC.SuppressFinalize(this);
+    }
+
+    private void EnsureProject(string folder)
+    {
+        if (_handle != IntPtr.Zero &&
+            string.Equals(_folder, folder, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.weft_project_destroy(_handle);
+            _handle = IntPtr.Zero;
+        }
+
+        _handle = NativeMethods.weft_project_create(folder);
+        if (_handle == IntPtr.Zero)
+        {
+            throw new InvalidOperationException("weft_project_create returned null.");
+        }
+
+        _folder = folder;
+        _documents.Clear();
+        _diskStamps.Clear();
+    }
+
+    private void EnsureProjectLoaded()
+    {
+        if (_handle == IntPtr.Zero)
+        {
+            throw new InvalidOperationException("尚未加载项目文件夹。");
+        }
     }
 
     private readonly record struct FileStamp(DateTime LastWriteTimeUtc, long Length);

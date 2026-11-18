@@ -10,16 +10,11 @@ internal static partial class NativeMethods
     [LibraryImport(Library)]
     internal static partial IntPtr weft_version();
 
-    [LibraryImport(Library)]
-    internal static partial IntPtr weft_project_create();
+    [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial IntPtr weft_project_create(string folder);
 
     [LibraryImport(Library)]
     internal static partial void weft_project_destroy(IntPtr project);
-
-    [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)]
-    internal static partial void weft_project_set_folder(
-        IntPtr project,
-        string folder);
 
     [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)]
     internal static partial void weft_project_set_document(
@@ -33,14 +28,9 @@ internal static partial class NativeMethods
         string path);
 
     [LibraryImport(Library)]
-    internal static partial IntPtr weft_project_compile_ex(
+    internal static partial IntPtr weft_project_compile(
         IntPtr project,
-        int allowPartial,
-        int buildProjection,
-        int buildRuntime);
-
-    [LibraryImport(Library)]
-    internal static partial IntPtr weft_project_runtime(IntPtr project);
+        uint flags);
 
     [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)]
     internal static partial IntPtr weft_parse_json(

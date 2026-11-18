@@ -4,12 +4,11 @@
 #include <string>
 #include <string_view>
 
-#include "weftline/core.h"
 #include "weftline/diagnostics/diagnostic.hpp"
-#include "weftline/json/json_writer.hpp"
 #include "weftline/source/source_text.hpp"
 #include "weftline/syntax/ast_printer.hpp"
 #include "weftline/syntax/parser.hpp"
+#include "weftline/tools/lexer_json.hpp"
 
 namespace {
 
@@ -82,22 +81,6 @@ int main(int argc, char** argv)
         source = read_stream(std::cin);
     }
 
-    // 构造 core 的 JSON 请求；用统一 writer，避免手写转义漏掉控制字符。
-    weftline::json::Writer writer;
-    writer.begin_object();
-    writer.key("schemaVersion").number(1);
-    writer.key("filePath").string(path);
-    writer.key("text").string(source);
-    writer.end_object();
-
-    const std::string request = writer.str();
-    char* response = weft_compile_json(request.c_str());
-    if (response == nullptr) {
-        std::cerr << "weftc: native core returned no response\n";
-        return 1;
-    }
-
-    std::cout << response << '\n';
-    weft_free(response);
+    std::cout << weftline::tools::lexer_json(source, path) << '\n';
     return 0;
 }

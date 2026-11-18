@@ -23,20 +23,9 @@ extern "C" {
     WEFTLINE_API const char* weft_version(void);
 
     /**
-     * @brief 编译一份源码并返回 UTF-8 JSON。
-     *
-     * @param request_json 请求 JSON，结构见 interop/contract/compile.request.schema.json。
-     * @return 响应 JSON；由 core 分配，调用方必须用 weft_free() 释放。
-     *
-     * 响应中的 start/length 以 UTF-16 code unit 计量，与 C#/ArkTS 字符串偏移一致。
-     * 仅当响应缓冲区分配失败时返回 NULL。
-     */
-    WEFTLINE_API char* weft_compile_json(const char* request_json);
-
-    /**
      * @brief 释放 core 返回的文本缓冲区。
      *
-     * 适用于 weft_compile_json / weft_parse_json / weft_project_compile。
+     * 适用于 weft_parse_json / weft_project_compile 等所有返回文本的接口。
      */
     WEFTLINE_API void weft_free(char* pointer);
 
@@ -59,23 +48,38 @@ extern "C" {
      * @brief 不透明项目句柄，用于实时诊断。
      *
      * 单个句柄不是线程安全的；请在同一线程内创建、更新和编译。
+     * core 不访问磁盘：文档文本由宿主通过 weft_project_set_document 传入。
      */
     typedef struct WeftProject WeftProject;
 
     /**
-     * @brief 创建一个空项目句柄。
+     * @brief 项目编译选项位。
+     *
+     * 诊断、符号和项目名始终返回；其他产物按位选择：
+     * - WEFT_COMPILE_PARTIAL：有 error 时仍构建部分图；
+     * - WEFT_COMPILE_PROJECTION：返回 graph 和 projection；
+     * - WEFT_COMPILE_RUNTIME：无 error 时返回 runtime 播放器载荷。
+     *
+     * 严格模式是默认；PARTIAL 需要显式开启。
      */
-    WEFTLINE_API WeftProject* weft_project_create(void);
+    typedef unsigned int WeftCompileFlags;
+
+#define WEFT_COMPILE_NONE       0u
+#define WEFT_COMPILE_PARTIAL    (1u << 0)
+#define WEFT_COMPILE_PROJECTION (1u << 1)
+#define WEFT_COMPILE_RUNTIME    (1u << 2)
+
+    /**
+     * @brief 创建一个空项目句柄。
+     *
+     * @param folder 项目文件夹，仅用于项目名回退；可为 NULL。
+     */
+    WEFTLINE_API WeftProject* weft_project_create(const char* folder);
 
     /**
      * @brief 销毁项目句柄；会释放其持有的文档文本。
      */
     WEFTLINE_API void weft_project_destroy(WeftProject* project);
-
-    /**
-     * @brief 设置项目文件夹（仅用于显示/项目名回退）。
-     */
-    WEFTLINE_API void weft_project_set_folder(WeftProject* project, const char* folder);
 
     /**
      * @brief 添加或覆盖一个文档。
@@ -92,47 +96,18 @@ extern "C" {
     WEFTLINE_API void weft_project_remove_document(WeftProject* project, const char* path);
 
     /**
-     * @brief 编译当前项目并返回 UTF-8 JSON 诊断。
+     * @brief 编译当前项目并返回 UTF-8 JSON。
      *
-     * @param allow_partial 有 error 时是否仍构建图和投影。
-     * @param build_projection 是否在响应中附带 GraphProjection；关闭时仍返回诊断和符号。
+     * 响应 schema 见 interop/contract/project.response.schema.json：
+     * - 始终包含 schemaVersion、version、projectName、hasErrors、diagnostics、symbols；
+     * - flags 含 PROJECTION 时包含 graph 和 projection；
+     * - flags 含 RUNTIME 且无 error 时包含 runtime。
+     *
      * @return JSON；由 core 分配，调用方必须用 weft_free() 释放。
+     *         仅当响应缓冲区分配失败时返回 NULL。
      */
     WEFTLINE_API char* weft_project_compile(
-        WeftProject* project, int allow_partial, int build_projection);
-
-    /**
-     * @brief 编译当前项目并返回 JSON，可选择附带播放器载荷。
-     *
-     * 与 weft_project_compile 相同，只是多一个 build_runtime 参数：
-     * - build_runtime != 0 且无 error 时，响应附带 runtime 字段；
-     * - 有 error 时不构建 runtime，调用方应保留上一次可用载荷。
-     *
-     * @return JSON；由 core 分配，调用方必须用 weft_free() 释放。
-     *         仅当响应缓冲区分配失败时返回 NULL。
-     */
-    WEFTLINE_API char* weft_project_compile_ex(
-        WeftProject* project,
-        int allow_partial,
-        int build_projection,
-        int build_runtime);
-
-    /**
-     * @brief 编译当前项目并返回播放器载荷 JSON。
-     *
-     * 只做严格编译（有 error 时不产出载荷），复用项目句柄内的编译缓存。
-     * 响应结构：
-     *   { "schemaVersion": 1, "hasErrors": false, "runtime": { ... } }
-     * 失败时：
-     *   { "schemaVersion": 1, "hasErrors": true, "error": "...",
-     *     "diagnosticCount": N }
-     *
-     * runtime 不含源码位置、诊断或 .wstory 设计记录，供剧本预览和 HTML 导出使用。
-     *
-     * @return JSON；由 core 分配，调用方必须用 weft_free() 释放。
-     *         仅当响应缓冲区分配失败时返回 NULL。
-     */
-    WEFTLINE_API char* weft_project_runtime(WeftProject* project);
+        WeftProject* project, WeftCompileFlags flags);
 
 #ifdef __cplusplus
 }

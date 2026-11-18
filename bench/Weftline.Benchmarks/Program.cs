@@ -60,10 +60,10 @@ internal static class Program
 
                 var openDocuments = new Dictionary<string, string>(StringComparer.Ordinal);
                 client.LoadFolder(folder, openDocuments, reloadFromDisk: true);
-                client.Compile(allowPartial: true, buildProjection: true);
+                client.Compile(NativeCompileFlags.Partial | NativeCompileFlags.Projection);
 
                 var warm = Measure(
-                    () => client.Compile(allowPartial: true, buildProjection: true),
+                    () => client.Compile(NativeCompileFlags.Partial | NativeCompileFlags.Projection),
                     2,
                     IterationsFor(size));
                 PrintRow(
@@ -77,7 +77,7 @@ internal static class Program
                     {
                         using var fresh = new NativeWeftlineClient();
                         fresh.LoadFolder(folder, openDocuments, reloadFromDisk: true);
-                        fresh.Compile(allowPartial: true, buildProjection: true);
+                        fresh.Compile(NativeCompileFlags.Partial | NativeCompileFlags.Projection);
                     },
                     1,
                     ColdIterationsFor(size));

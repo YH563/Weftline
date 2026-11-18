@@ -4,18 +4,6 @@ using Weftline.Core.Runtime;
 namespace Weftline.Native;
 
 /// <summary>
-/// 播放器载荷响应。
-/// </summary>
-public sealed class NativeRuntimeResponse
-{
-    public int SchemaVersion { get; set; }
-    public bool HasErrors { get; set; }
-    public string? Error { get; set; }
-    public int DiagnosticCount { get; set; }
-    public NativeRuntimeProjection? Runtime { get; set; }
-}
-
-/// <summary>
 /// native 播放器载荷的 JSON DTO。
 /// </summary>
 public sealed class NativeRuntimeProjection

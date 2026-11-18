@@ -26,6 +26,10 @@ public sealed class ProjectAnalysisSchedulerTests
         await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(1, client.CompileCount);
+        Assert.Equal(
+            Weftline.Native.NativeCompileFlags.Partial
+                | Weftline.Native.NativeCompileFlags.Projection,
+            client.LastFlags);
     }
 
     [Fact]
@@ -82,9 +86,7 @@ public sealed class ProjectAnalysisSchedulerTests
             => openDocuments;
 
         public Weftline.Native.NativeProjectResponse Compile(
-            bool allowPartial,
-            bool buildProjection,
-            bool buildRuntime = false)
+            Weftline.Native.NativeCompileFlags flags)
             => throw new InvalidOperationException("native compile failed");
 
         public Weftline.Core.Runtime.RuntimeProjection CompileRuntime()
