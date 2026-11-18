@@ -1,18 +1,20 @@
 using Avalonia.Threading;
 using Weftline.App.Features.Editor.ViewModels;
+using Weftline.App.Services;
 
 namespace Weftline.App.Features.Editor.Services;
 
 /// <summary>
 /// 单文件语法分析调度：按文档防抖、取消，并在应用结果前校验文档版本。
 /// </summary>
-public sealed class SyntaxAnalysisScheduler
+public sealed class SyntaxAnalysisScheduler : IDisposable
 {
     private static readonly TimeSpan DebounceDelay = TimeSpan.FromMilliseconds(100);
 
     private readonly IWeftEditorLanguageService _languageService;
     private readonly object _sync = new();
     private readonly Dictionary<EditorDocumentViewModel, CancellationTokenSource> _pending = [];
+    private bool _disposed;
 
     public SyntaxAnalysisScheduler(IWeftEditorLanguageService languageService)
     {
@@ -21,6 +23,11 @@ public sealed class SyntaxAnalysisScheduler
 
     public void Schedule(EditorDocumentViewModel document)
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         if (!WeftDocumentKinds.IsWeftFile(document.FilePath))
         {
             Cancel(document);
@@ -68,6 +75,17 @@ public sealed class SyntaxAnalysisScheduler
         }
     }
 
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        CancelAll();
+    }
+
     private async Task RunAsync(
         EditorDocumentViewModel document,
         CancellationTokenSource cts)
@@ -108,8 +126,9 @@ public sealed class SyntaxAnalysisScheduler
         catch (OperationCanceledException)
         {
         }
-        catch
+        catch (Exception exception)
         {
+            AppLog.Error(exception, "语法分析失败");
         }
         finally
         {

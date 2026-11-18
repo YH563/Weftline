@@ -1,3 +1,5 @@
+using System.Text;
+using Weftline.App.Features.Editor.Services;
 using Weftline.App.Features.Editor.ViewModels;
 using Weftline.Core;
 
@@ -99,6 +101,28 @@ public sealed class EditorDocumentViewModelTests
         Assert.Equal(0, document.GetOffset(1, 1));
         Assert.Equal(5, document.GetOffset(2, 2));
         Assert.Equal(7, document.GetOffset(99, 99));
+    }
+
+    [Fact]
+    public async Task SaveUsesOriginalEncodingAndClearsModifiedFlag()
+    {
+        var loader = new FakeDocumentLoader();
+        var format = new EditorFileFormat(
+            new UnicodeEncoding(bigEndian: false, byteOrderMark: false),
+            EmitBom: true);
+
+        loader.Files["a.weft"] = "@title 旧";
+        loader.Formats["a.weft"] = format;
+
+        var document = new EditorDocumentViewModel(loader, new FakeIconProvider());
+        document.OpenFile("a.weft");
+        document.UpdateText("@title 新", markModified: true);
+
+        await document.SaveAsync();
+
+        Assert.Equal("@title 新", loader.Files["a.weft"]);
+        Assert.Equal(format, loader.Formats["a.weft"]);
+        Assert.False(document.IsModified);
     }
 
     private static EditorDocumentViewModel CreateDocument()

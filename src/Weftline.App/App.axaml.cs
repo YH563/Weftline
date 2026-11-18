@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Weftline.App.Services;
@@ -18,9 +18,13 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        AppLog.Initialize();
+        AppLog.InitializeUi();
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             ThemeService.Initialize();
+            AppLog.Info("应用启动");
 
             if (GraphPreviewFolder is { } folder)
             {

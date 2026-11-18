@@ -59,7 +59,31 @@ public partial class ProjectExplorerViewModel : ObservableObject
 
     public event EventHandler<ProjectFileChange>? FileSystemChanged;
 
+    /// <summary>
+    /// 删除前调用；返回 false 取消删除。用于保护删除范围内未保存的文档。
+    /// Invoked before deletion; false cancels it, protecting unsaved documents.
+    /// </summary>
+    public Func<string, Task<bool>>? DeleteConfirmation { get; set; }
+
     public void RequestFileOpen(string path) => FileOpenRequested?.Invoke(this, path);
+
+    /// <summary>
+    /// 外部文件变化后刷新树并尽量保留展开状态和选中项。
+    /// Refreshes the tree after external changes while preserving expansion and selection.
+    /// </summary>
+    public void RefreshFromDisk()
+    {
+        var selectedPath = SelectedNode?.FullPath;
+        ReloadAndSelect(null);
+
+        if (string.IsNullOrEmpty(selectedPath))
+        {
+            return;
+        }
+
+        SelectedNode = VisibleNodes.FirstOrDefault(node =>
+            string.Equals(node.FullPath, selectedPath, StringComparison.OrdinalIgnoreCase));
+    }
 
     public void Load(string folder)
     {
@@ -111,6 +135,7 @@ public partial class ProjectExplorerViewModel : ObservableObject
         }
         catch (Exception exception)
         {
+            AppLog.Error(exception, $"新建文件失败：{path}");
             await _dialogs.ShowMessageAsync("无法新建文件", exception.Message).ConfigureAwait(true);
         }
     }
@@ -148,6 +173,7 @@ public partial class ProjectExplorerViewModel : ObservableObject
         }
         catch (Exception exception)
         {
+            AppLog.Error(exception, $"新建文件夹失败：{path}");
             await _dialogs.ShowMessageAsync("无法新建文件夹", exception.Message).ConfigureAwait(true);
         }
     }
@@ -205,6 +231,7 @@ public partial class ProjectExplorerViewModel : ObservableObject
         }
         catch (Exception exception)
         {
+            AppLog.Error(exception, $"重命名失败：{node.FullPath}");
             await _dialogs.ShowMessageAsync("无法重命名", exception.Message).ConfigureAwait(true);
         }
     }
@@ -227,6 +254,12 @@ public partial class ProjectExplorerViewModel : ObservableObject
             return;
         }
 
+        if (DeleteConfirmation is { } confirmation &&
+            !await confirmation(node.FullPath).ConfigureAwait(true))
+        {
+            return;
+        }
+
         var parent = Path.GetDirectoryName(node.FullPath) ?? RootPath;
 
         try
@@ -245,6 +278,7 @@ public partial class ProjectExplorerViewModel : ObservableObject
         }
         catch (Exception exception)
         {
+            AppLog.Error(exception, $"删除失败：{node.FullPath}");
             await _dialogs.ShowMessageAsync("无法删除", exception.Message).ConfigureAwait(true);
         }
     }

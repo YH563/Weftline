@@ -11,24 +11,31 @@ internal sealed class FakeDocumentLoader : IEditorDocumentLoader
     public Dictionary<string, string> Files { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
-    public string ReadAllText(string path)
-        => Files.TryGetValue(path, out var text)
-            ? text
-            : throw new FileNotFoundException(path);
+    public Dictionary<string, EditorFileFormat> Formats { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
 
-    public void WriteAllText(string path, string text) => Files[path] = text;
+    public EditorFileContent Read(string path)
+    {
+        if (!Files.TryGetValue(path, out var text))
+        {
+            throw new FileNotFoundException(path);
+        }
 
-    public Task<string> ReadAllTextAsync(
-        string path,
-        CancellationToken cancellationToken = default)
-        => Task.FromResult(ReadAllText(path));
+        var format = Formats.TryGetValue(path, out var existing)
+            ? existing
+            : EditorFileFormat.Utf8NoBom;
 
-    public Task WriteAllTextAsync(
+        return new EditorFileContent(text, format);
+    }
+
+    public Task WriteAsync(
         string path,
         string text,
+        EditorFileFormat format,
         CancellationToken cancellationToken = default)
     {
-        WriteAllText(path, text);
+        Files[path] = text;
+        Formats[path] = format;
         return Task.CompletedTask;
     }
 }

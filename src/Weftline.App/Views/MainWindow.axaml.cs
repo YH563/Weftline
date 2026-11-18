@@ -2,9 +2,10 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Weftline.App.Features.Player.Views;
-using Weftline.App.ViewModels;
 using Weftline.App.Features.Graph.Controls;
+using Weftline.App.Features.Player.Views;
+using Weftline.App.Services;
+using Weftline.App.ViewModels;
 
 namespace Weftline.App.Views;
 
@@ -13,6 +14,7 @@ public partial class MainWindow : Window
     private MainWindowViewModel? _subscribedViewModel;
     private PreviewWindow? _previewWindow;
     private bool _wasGraphVisible;
+    private bool _closeConfirmed;
 
     public MainWindow()
     {
@@ -22,6 +24,46 @@ public partial class MainWindow : Window
         GraphView.ModuleEdgeActivated += OnModuleEdgeActivated;
         GraphView.ChapterEdgeActivated += OnChapterEdgeActivated;
         GraphView.ModuleHoverChanged += OnModuleHoverChanged;
+    }
+
+    protected override async void OnClosing(WindowClosingEventArgs e)
+    {
+        base.OnClosing(e);
+
+        if (e.Cancel ||
+            _closeConfirmed ||
+            DataContext is not MainWindowViewModel viewModel ||
+            !viewModel.HasUnsavedChanges)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+
+        try
+        {
+            if (!await viewModel.ConfirmDiscardChangesAsync("关闭窗口").ConfigureAwait(true))
+            {
+                return;
+            }
+
+            _closeConfirmed = true;
+            Close();
+        }
+        catch (Exception exception)
+        {
+            AppLog.Error(exception, "关闭窗口前确认未保存修改失败");
+        }
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.Dispose();
+        }
+
+        base.OnClosed(e);
     }
 
     protected override void OnDataContextChanged(EventArgs e)

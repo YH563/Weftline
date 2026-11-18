@@ -1,7 +1,7 @@
 using Avalonia.Threading;
 using Weftline.Core;
-using Weftline.Native;
 using Weftline.Core.Runtime;
+using Weftline.Native;
 
 namespace Weftline.App.Services;
 
@@ -16,7 +16,7 @@ public sealed record ProjectAnalysisResult(
 /// 项目级分析调度：防抖、单飞、取消与 latest-wins。
 /// 文档快照和结果应用都回到 UI 线程，native 调用在后台串行执行。
 /// </summary>
-public sealed class ProjectAnalysisScheduler
+public sealed class ProjectAnalysisScheduler : IDisposable
 {
     private static readonly TimeSpan DebounceDelay = TimeSpan.FromMilliseconds(150);
 
@@ -25,6 +25,7 @@ public sealed class ProjectAnalysisScheduler
     private NativeWeftlineClient? _client;
     private CancellationTokenSource? _cts;
     private long _version;
+    private bool _disposed;
 
     public ProjectAnalysisScheduler(
         Func<IReadOnlyDictionary<string, string>> documentsProvider)
@@ -39,12 +40,34 @@ public sealed class ProjectAnalysisScheduler
     public event Action<Exception>? Failed;
 
     public void Schedule(string folder, bool reloadFromDisk, bool buildRuntime = false)
-        => _ = StartAsync(folder, reloadFromDisk, DebounceDelay, buildRuntime);
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _ = StartAsync(folder, reloadFromDisk, DebounceDelay, buildRuntime);
+    }
 
     public Task RunNowAsync(string folder, bool reloadFromDisk, bool buildRuntime = false)
-        => StartAsync(folder, reloadFromDisk, TimeSpan.Zero, buildRuntime);
+        => _disposed
+            ? Task.CompletedTask
+            : StartAsync(folder, reloadFromDisk, TimeSpan.Zero, buildRuntime);
 
     public void Cancel() => _cts?.Cancel();
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _cts?.Cancel();
+        _cts = null;
+        _ = DisposeClientAsync();
+    }
 
     /// <summary>
     /// 取消当前分析并销毁 native 项目句柄，下一次编译会从磁盘全量重建。
@@ -76,6 +99,7 @@ public sealed class ProjectAnalysisScheduler
     public async Task<RuntimeProjection> CompileRuntimeAsync(
         CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
@@ -99,7 +123,7 @@ public sealed class ProjectAnalysisScheduler
         TimeSpan delay,
         bool buildRuntime)
     {
-        if (string.IsNullOrWhiteSpace(folder))
+        if (_disposed || string.IsNullOrWhiteSpace(folder))
         {
             return Task.CompletedTask;
         }
@@ -195,6 +219,21 @@ public sealed class ProjectAnalysisScheduler
                 await Dispatcher.UIThread.InvokeAsync(
                     () => Failed?.Invoke(exception));
             }
+        }
+    }
+
+    private async Task DisposeClientAsync()
+    {
+        await _gate.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            _client?.Dispose();
+            _client = null;
+        }
+        finally
+        {
+            _gate.Release();
         }
     }
 

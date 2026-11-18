@@ -2,11 +2,16 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Weftline.App.Features.Editor.Services;
+using Weftline.App.Services;
 using Weftline.Core;
 
 namespace Weftline.App.Features.Editor.ViewModels;
 
-public partial class EditorHostViewModel : ObservableObject
+public sealed record EditorOpenFailedEventArgs(string FilePath, Exception Error);
+
+public readonly record struct ExternalReloadResult(int Reloaded, int Conflicts);
+
+public partial class EditorHostViewModel : ObservableObject, IDisposable
 {
     private readonly IEditorDocumentLoader _loader;
     private readonly IEditorIconProvider _iconProvider;
@@ -20,6 +25,18 @@ public partial class EditorHostViewModel : ObservableObject
     /// 请求把光标定位到指定文档位置；视图层收到后负责滚动和聚焦。
     /// </summary>
     public event EventHandler<EditorDocumentViewModel>? NavigationRequested;
+
+    /// <summary>
+    /// 打开文件失败时触发；失败的文件不会加入标签页。
+    /// Raised when opening a file fails; the failed file is not added as a tab.
+    /// </summary>
+    public event EventHandler<EditorOpenFailedEventArgs>? OpenFailed;
+
+    /// <summary>
+    /// 关闭有未保存修改的标签页前调用；返回 false 表示取消关闭。
+    /// Invoked before closing a modified tab; false cancels the close.
+    /// </summary>
+    public Func<EditorDocumentViewModel, Task<bool>>? CloseConfirmation { get; set; }
 
     [ObservableProperty]
     private EditorDocumentViewModel? _selectedDocument;
@@ -47,7 +64,7 @@ public partial class EditorHostViewModel : ObservableObject
 
     public bool HasDocument => SelectedDocument is not null;
 
-    public void OpenFile(string path)
+    public bool OpenFile(string path)
     {
         var existing = Documents.FirstOrDefault(document =>
             string.Equals(document.FilePath, path, StringComparison.OrdinalIgnoreCase));
@@ -55,11 +72,11 @@ public partial class EditorHostViewModel : ObservableObject
         if (existing is not null)
         {
             SelectedDocument = existing;
-            return;
+            return true;
         }
 
         var document = new EditorDocumentViewModel(_loader, _iconProvider);
-        document.CloseCommand = new RelayCommand(() => CloseDocument(document));
+        document.CloseCommand = new AsyncRelayCommand(() => CloseDocumentAsync(document));
 
         try
         {
@@ -67,9 +84,9 @@ public partial class EditorHostViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            document.FilePath = path;
-            document.Title = Path.GetFileName(path);
-            document.UpdateText(exception.Message, false);
+            AppLog.Error(exception, $"打开文件失败：{path}");
+            OpenFailed?.Invoke(this, new EditorOpenFailedEventArgs(path, exception));
+            return false;
         }
 
         if (_diagnosticsByFile.TryGetValue(document.FilePath, out var diagnostics))
@@ -81,6 +98,59 @@ public partial class EditorHostViewModel : ObservableObject
         Documents.Add(document);
         SelectedDocument = document;
         _syntaxScheduler?.Schedule(document);
+        return true;
+    }
+
+    /// <summary>
+    /// 外部文件变化后重新加载未修改的已打开文档；未保存文档保留现状并计入冲突。
+    /// Reloads unmodified open documents after external changes; modified documents
+    /// are left untouched and reported as conflicts.
+    /// </summary>
+    public int CountModifiedDocumentsUnder(string path)
+        => Documents.Count(document =>
+            document.IsModified && IsSameOrUnder(document.FilePath, path));
+
+    public ExternalReloadResult ReloadDocumentsFromDisk(
+        IReadOnlyCollection<string> changedPaths)
+    {
+        var reloaded = 0;
+        var conflicts = 0;
+
+        foreach (var document in Documents.ToList())
+        {
+            if (!IsAffected(document.FilePath, changedPaths))
+            {
+                continue;
+            }
+
+            if (document.IsModified)
+            {
+                conflicts++;
+                continue;
+            }
+
+            try
+            {
+                document.ReloadFromDisk(_loader.Read(document.FilePath));
+                reloaded++;
+            }
+            catch (FileNotFoundException)
+            {
+                CloseDocument(document);
+                reloaded++;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                CloseDocument(document);
+                reloaded++;
+            }
+            catch (Exception exception)
+            {
+                AppLog.Error(exception, $"重新读取文件失败：{document.FilePath}");
+            }
+        }
+
+        return new ExternalReloadResult(reloaded, conflicts);
     }
 
     /// <summary>
@@ -115,9 +185,7 @@ public partial class EditorHostViewModel : ObservableObject
     /// </summary>
     public void NavigateTo(string path, int line, int column)
     {
-        OpenFile(path);
-
-        if (SelectedDocument is not { } document)
+        if (!OpenFile(path) || SelectedDocument is not { } document)
         {
             return;
         }
@@ -140,6 +208,12 @@ public partial class EditorHostViewModel : ObservableObject
 
         Documents.Clear();
         SelectedDocument = null;
+    }
+
+    public void Dispose()
+    {
+        _syntaxScheduler?.Dispose();
+        CloseAll();
     }
 
     public void CloseDocumentsUnder(string path)
@@ -167,6 +241,28 @@ public partial class EditorHostViewModel : ObservableObject
                 : Path.Combine(newPath, relative);
             _syntaxScheduler?.Schedule(document);
         }
+    }
+
+    public async Task<bool> CloseDocumentAsync(EditorDocumentViewModel document)
+    {
+        if (document.IsModified && CloseConfirmation is { } confirmation)
+        {
+            try
+            {
+                if (!await confirmation(document).ConfigureAwait(true))
+                {
+                    return false;
+                }
+            }
+            catch (Exception exception)
+            {
+                AppLog.Error(exception, $"确认关闭失败：{document.FilePath}");
+                return false;
+            }
+        }
+
+        CloseDocument(document);
+        return true;
     }
 
     public void CloseDocument(EditorDocumentViewModel document)
@@ -202,6 +298,21 @@ public partial class EditorHostViewModel : ObservableObject
 
         _syntaxScheduler?.Schedule(document);
         DocumentTextChanged?.Invoke(this, document);
+    }
+
+    private static bool IsAffected(
+        string filePath,
+        IReadOnlyCollection<string> changedPaths)
+    {
+        foreach (var changedPath in changedPaths)
+        {
+            if (IsSameOrUnder(filePath, changedPath))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsSameOrUnder(string path, string root)
