@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Weftline.App.Features.Editor.Services;
 using Weftline.App.Services;
 using Weftline.Core;
+using Weftline.Core.Language;
 
 namespace Weftline.App.Features.Editor.ViewModels;
 
@@ -131,7 +132,7 @@ public partial class EditorHostViewModel : ObservableObject, IDisposable
 
             try
             {
-                document.ReloadFromDisk(_loader.Read(document.FilePath));
+                document.ReloadFromDisk(_loader.ReadAllText(document.FilePath));
                 reloaded++;
             }
             catch (FileNotFoundException)

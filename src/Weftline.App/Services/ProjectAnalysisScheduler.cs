@@ -1,4 +1,3 @@
-using Avalonia.Threading;
 using Weftline.Core;
 using Weftline.Core.Runtime;
 using Weftline.Native;
@@ -16,21 +15,27 @@ public sealed record ProjectAnalysisResult(
 /// 项目级分析调度：防抖、单飞、取消与 latest-wins。
 /// 文档快照和结果应用都回到 UI 线程，native 调用在后台串行执行。
 /// </summary>
-public sealed class ProjectAnalysisScheduler : IDisposable
+public sealed class ProjectAnalysisScheduler : IProjectAnalysisScheduler, IDisposable
 {
     private static readonly TimeSpan DebounceDelay = TimeSpan.FromMilliseconds(150);
 
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Func<IReadOnlyDictionary<string, string>> _documentsProvider;
-    private NativeWeftlineClient? _client;
+    private readonly Func<INativeProjectClient> _clientFactory;
+    private readonly IUiDispatcher _dispatcher;
+    private INativeProjectClient? _client;
     private CancellationTokenSource? _cts;
     private long _version;
     private bool _disposed;
 
     public ProjectAnalysisScheduler(
-        Func<IReadOnlyDictionary<string, string>> documentsProvider)
+        Func<IReadOnlyDictionary<string, string>> documentsProvider,
+        Func<INativeProjectClient>? clientFactory = null,
+        IUiDispatcher? dispatcher = null)
     {
         _documentsProvider = documentsProvider;
+        _clientFactory = clientFactory ?? (static () => new NativeWeftlineClient());
+        _dispatcher = dispatcher ?? new AvaloniaUiDispatcher();
     }
 
     public event Action? Started;
@@ -160,7 +165,7 @@ public sealed class ProjectAnalysisScheduler : IDisposable
                     return;
                 }
 
-                await Dispatcher.UIThread.InvokeAsync(
+                await _dispatcher.InvokeAsync(
                     () => Started?.Invoke());
 
                 if (IsStale(version, cts))
@@ -168,7 +173,7 @@ public sealed class ProjectAnalysisScheduler : IDisposable
                     return;
                 }
 
-                var documents = await Dispatcher.UIThread.InvokeAsync(
+                var documents = await _dispatcher.InvokeAsync(
                     _documentsProvider);
 
                 var result = await Task.Run(
@@ -176,7 +181,7 @@ public sealed class ProjectAnalysisScheduler : IDisposable
                     {
                         cts.Token.ThrowIfCancellationRequested();
 
-                        _client ??= new NativeWeftlineClient();
+                        _client ??= _clientFactory();
 
                         var projectDocuments = _client.LoadFolder(
                             folder, documents, reloadFromDisk);
@@ -201,7 +206,7 @@ public sealed class ProjectAnalysisScheduler : IDisposable
                     return;
                 }
 
-                await Dispatcher.UIThread.InvokeAsync(
+                await _dispatcher.InvokeAsync(
                     () => Completed?.Invoke(result));
             }
             finally
@@ -216,7 +221,7 @@ public sealed class ProjectAnalysisScheduler : IDisposable
         {
             if (!IsStale(version, cts))
             {
-                await Dispatcher.UIThread.InvokeAsync(
+                await _dispatcher.InvokeAsync(
                     () => Failed?.Invoke(exception));
             }
         }

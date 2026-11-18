@@ -5,6 +5,8 @@ using AvaloniaEdit;
 using Weftline.App.Features.Editor.Services;
 using Weftline.Core;
 
+using Weftline.Core.Language;
+
 namespace Weftline.App.Features.Editor.Controls;
 
 /// <summary>

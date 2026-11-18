@@ -109,6 +109,12 @@ dotnet run --project bench/Weftline.Benchmarks -c Release
 
 ## 7. 常见问题
 
+### 日志位置
+
+- Linux：`~/.local/share/Weftline/logs/app-YYYYMMDD.log`
+- Windows：`%LOCALAPPDATA%\Weftline\logs\app-YYYYMMDD.log`
+- 日志包含未处理异常、分析失败、打开/保存失败和外部文件重载错误。
+
 ### `DllNotFoundException: weftline_core`
 
 - 先构建 native core。

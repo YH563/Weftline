@@ -1,6 +1,14 @@
+using System.Globalization;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Weftline.App.Features.Graph.Layout;
+using Weftline.App.Features.Graph.Rendering;
 using Weftline.Core;
+using Weftline.Core.Graph.Analysis;
 
 namespace Weftline.App.Features.Graph.Controls;
 
@@ -340,6 +348,7 @@ public sealed partial class StoryGraphView
         Point Control2,
         Point End,
         double ArrowInset);
+
     private static bool IsResizeHandle(Rect bounds, Point point)
         => new Rect(
             bounds.Right - ResizeHandleSize,

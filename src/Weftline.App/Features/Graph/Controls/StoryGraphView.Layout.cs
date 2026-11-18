@@ -1,6 +1,14 @@
+using System.Globalization;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Weftline.App.Features.Graph.Layout;
+using Weftline.App.Features.Graph.Rendering;
 using Weftline.Core;
+using Weftline.Core.Graph.Analysis;
 
 namespace Weftline.App.Features.Graph.Controls;
 
@@ -119,6 +127,7 @@ public sealed partial class StoryGraphView
            double.IsFinite(bounds.Height) &&
            bounds.Width > 0 &&
            bounds.Height > 0;
+
     private bool IsFilterActive => Filter is { IsEmpty: false };
 
     private static bool HasSameStructure(
@@ -198,6 +207,7 @@ public sealed partial class StoryGraphView
 
         return true;
     }
+
     private static Rect ClampModuleBounds(Rect proposed, Rect chapterBounds)
     {
         if (chapterBounds.Width <= 0 || chapterBounds.Height <= 0)

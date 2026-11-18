@@ -84,6 +84,21 @@ public static class FileIconResolver
         return ByExtension.TryGetValue(extension, out var icon) ? icon : File;
     }
 
+    /// <summary>
+    /// 解析矢量图标。没有初始化 Avalonia 平台时（单元测试、纯逻辑脚本）
+    /// 退化为透明占位，避免静态构造直接抛异常。
+    /// </summary>
     private static FileIconInfo Create(string path, string color)
-        => new(Geometry.Parse(path), new SolidColorBrush(Color.Parse(color)));
+    {
+        try
+        {
+            return new FileIconInfo(
+                Geometry.Parse(path),
+                new SolidColorBrush(Color.Parse(color)));
+        }
+        catch (Exception)
+        {
+            return new FileIconInfo(new StreamGeometry(), Brushes.Transparent);
+        }
+    }
 }

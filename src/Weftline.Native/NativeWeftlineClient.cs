@@ -8,7 +8,7 @@ namespace Weftline.Native;
 /// C++ core 的项目句柄封装。
 /// 单个实例不是线程安全的；请在同一个逻辑线程/串行调用中使用。
 /// </summary>
-public sealed class NativeWeftlineClient : IDisposable
+public sealed class NativeWeftlineClient : INativeProjectClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

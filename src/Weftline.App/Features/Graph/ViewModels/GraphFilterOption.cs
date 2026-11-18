@@ -1,6 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace Weftline.App.ViewModels;
+namespace Weftline.App.Features.Graph.ViewModels;
 
 /// <summary>
 /// 筛选面板中的一个可选符号。

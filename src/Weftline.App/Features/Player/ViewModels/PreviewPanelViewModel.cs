@@ -13,7 +13,7 @@ namespace Weftline.App.Features.Player.ViewModels;
 /// </summary>
 public partial class PreviewPanelViewModel : ObservableObject, IDisposable
 {
-    private readonly Dictionary<string, Bitmap?> _imageCache = new(StringComparer.Ordinal);
+    private readonly PreviewImageCache _images = new();
     private readonly Action<SourceLocation, string> _navigate;
 
     private RuntimeProjection? _runtime;
@@ -63,7 +63,7 @@ public partial class PreviewPanelViewModel : ObservableObject, IDisposable
         if (!string.Equals(_projectFolder, projectFolder, StringComparison.Ordinal))
         {
             _projectFolder = projectFolder;
-            ClearImageCache();
+            _images.SetProjectFolder(projectFolder);
         }
 
         _runtime = runtime;
@@ -93,7 +93,7 @@ public partial class PreviewPanelViewModel : ObservableObject, IDisposable
         _projection = null;
         _currentFilePath = null;
         Modules.Clear();
-        ClearImageCache();
+        _images.Clear();
         IsEmpty = true;
         IsStale = false;
         EmptyMessage = "打开 .weft 文件后显示预览";
@@ -102,7 +102,7 @@ public partial class PreviewPanelViewModel : ObservableObject, IDisposable
         StatusText = "未打开文件";
     }
 
-    public void Dispose() => ClearImageCache();
+    public void Dispose() => _images.Dispose();
 
     private void Rebuild()
     {
@@ -283,7 +283,7 @@ public partial class PreviewPanelViewModel : ObservableObject, IDisposable
             RuntimeContentKind.Dialogue
                 => PreviewLineViewModel.Dialogue(content.Speaker ?? string.Empty, text),
             RuntimeContentKind.Figure
-                => PreviewLineViewModel.Figure(LoadImage(content.Path), content.Path),
+                => PreviewLineViewModel.Figure(_images.Get(content.Path), content.Path),
             _ => PreviewLineViewModel.Narration(text),
         };
     }
@@ -342,53 +342,6 @@ public partial class PreviewPanelViewModel : ObservableObject, IDisposable
         EmptyMessage = message;
         ChapterTitle = string.Empty;
         StatusText = string.IsNullOrEmpty(FileName) ? message : $"{FileName} · {message}";
-    }
-
-    private Bitmap? LoadImage(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return null;
-        }
-
-        if (_imageCache.TryGetValue(path, out var cached))
-        {
-            return cached;
-        }
-
-        Bitmap? image = null;
-
-        try
-        {
-            var fullPath = Path.GetFullPath(Path.Combine(_projectFolder, path));
-            var root = Path.TrimEndingDirectorySeparator(_projectFolder);
-
-            if (fullPath.StartsWith(
-                    root + Path.DirectorySeparatorChar,
-                    StringComparison.Ordinal) &&
-                File.Exists(fullPath))
-            {
-                using var stream = File.OpenRead(fullPath);
-                image = new Bitmap(stream);
-            }
-        }
-        catch (Exception)
-        {
-            image = null;
-        }
-
-        _imageCache[path] = image;
-        return image;
-    }
-
-    private void ClearImageCache()
-    {
-        foreach (var image in _imageCache.Values)
-        {
-            image?.Dispose();
-        }
-
-        _imageCache.Clear();
     }
 
     private static bool IsSamePath(string? left, string? right)

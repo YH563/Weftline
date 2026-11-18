@@ -18,7 +18,7 @@ namespace Weftline.App.Features.Graph.Layout;
 /// the same rank are placed side by side, and ranks flow top to bottom. Chapter
 /// width is determined by the widest rank row.
 /// </summary>
-public static class GraphLayoutEngine
+public sealed class GraphLayoutEngine
 {
     public const double CanvasPadding = 28;
     public const double ChapterGap = 72;
@@ -33,13 +33,16 @@ public static class GraphLayoutEngine
     public const double MinChapterWidth = 140;
     public const double MaxModuleWidth = 220;
 
-    private static readonly Dictionary<string, double> ModuleWidthCache = new(StringComparer.Ordinal);
+    /// <summary>
+    /// 模块宽度按模块 ID 缓存；实例级缓存避免跨项目/跨视图共享可变状态。
+    /// </summary>
+    private readonly Dictionary<string, double> _moduleWidthCache = new(StringComparer.Ordinal);
 
     /// <summary>
     /// 构建完整布局。模块宽度按标题测量，章节按 rank 分层。
     /// Builds the full layout. Module widths are measured from titles and chapters are ranked.
     /// </summary>
-    public static GraphLayout Build(
+    public GraphLayout Build(
         GraphProjection projection,
         GraphLayoutOptions? options = null)
     {
@@ -281,7 +284,7 @@ public static class GraphLayoutEngine
                 CanvasPadding));
     }
 
-    private static Dictionary<string, double> MeasureModuleWidths(
+    private Dictionary<string, double> MeasureModuleWidths(
         IReadOnlyList<GraphModuleNode> modules)
     {
         var widths = new Dictionary<string, double>(StringComparer.Ordinal);
@@ -289,7 +292,7 @@ public static class GraphLayoutEngine
 
         foreach (var module in modules)
         {
-            if (!ModuleWidthCache.TryGetValue(module.ModuleId, out var width))
+            if (!_moduleWidthCache.TryGetValue(module.ModuleId, out var width))
             {
                 var text = new FormattedText(
                     module.ModuleId,
@@ -300,7 +303,7 @@ public static class GraphLayoutEngine
                     Brushes.Black);
 
                 width = Math.Clamp(text.Width + 44, 96, maxWidth);
-                ModuleWidthCache[module.ModuleId] = width;
+                _moduleWidthCache[module.ModuleId] = width;
             }
 
             widths[module.ModuleId] = width;

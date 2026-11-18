@@ -1,6 +1,4 @@
-using Weftline.Core;
-
-namespace Weftline.App.Features.Editor.Services;
+namespace Weftline.Core.Language;
 
 public interface IWeftEditorLanguageService
 {

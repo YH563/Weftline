@@ -24,7 +24,7 @@ internal static class ShotRunner
         var dark = ApplyTheme(args);
         ThemeService.Initialize();
 
-        var viewModel = new MainWindowViewModel(new DialogService());
+        var viewModel = AppComposition.CreateMainWindow(new DialogService());
         var window = new MainWindow
         {
             DataContext = viewModel,

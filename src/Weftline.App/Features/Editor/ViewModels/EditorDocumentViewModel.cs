@@ -24,7 +24,6 @@ public partial class EditorDocumentViewModel : ObservableObject
 
     private readonly IEditorDocumentLoader _loader;
     private readonly IEditorIconProvider _iconProvider;
-    private EditorFileFormat _format = EditorFileFormat.Utf8NoBom;
     private IReadOnlyList<WeftDiagnostic> _syntaxDiagnostics = [];
     private IReadOnlyList<WeftDiagnostic> _projectDiagnostics = [];
     private string? _lastFirstLine;
@@ -93,10 +92,9 @@ public partial class EditorDocumentViewModel : ObservableObject
 
     public void OpenFile(string path)
     {
-        var content = _loader.Read(path);
+        var text = _loader.ReadAllText(path);
         FilePath = path;
-        _format = content.Format;
-        ReplaceDocument(content.Text);
+        ReplaceDocument(text);
         IsModified = false;
         CaretLine = 1;
         CaretColumn = 1;
@@ -104,42 +102,6 @@ public partial class EditorDocumentViewModel : ObservableObject
         SelectionLength = 0;
         ScrollOffsetX = 0;
         ScrollOffsetY = 0;
-    }
-
-    /// <summary>
-    /// 用磁盘上的新内容替换未修改的文档，保留原编码信息。
-    /// Replaces an unmodified document with fresh disk content and keeps its encoding.
-    /// </summary>
-    public void ReloadFromDisk(EditorFileContent content)
-    {
-        _format = content.Format;
-
-        if (string.Equals(Document.Text, content.Text, StringComparison.Ordinal))
-        {
-            IsModified = false;
-            return;
-        }
-
-        ReplaceDocument(content.Text);
-        IsModified = false;
-        TextChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    /// <summary>
-    /// 按原编码和 BOM 策略原子保存当前文档。
-    /// Atomically saves the document using its original encoding and BOM policy.
-    /// </summary>
-    public async Task SaveAsync(CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(FilePath))
-        {
-            throw new InvalidOperationException("当前文档还没有文件路径。");
-        }
-
-        await _loader
-            .WriteAsync(FilePath, GetTextSnapshot(), _format, cancellationToken)
-            .ConfigureAwait(true);
-        IsModified = false;
     }
 
     public void UpdateText(string text, bool markModified)
@@ -159,6 +121,23 @@ public partial class EditorDocumentViewModel : ObservableObject
         }
 
         RefreshFirstLine();
+        TextChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// 用磁盘上的新内容替换未修改的文档。
+    /// Replaces an unmodified document with fresh disk content.
+    /// </summary>
+    public void ReloadFromDisk(string text)
+    {
+        if (string.Equals(Document.Text, text, StringComparison.Ordinal))
+        {
+            IsModified = false;
+            return;
+        }
+
+        ReplaceDocument(text);
+        IsModified = false;
         TextChanged?.Invoke(this, EventArgs.Empty);
     }
 

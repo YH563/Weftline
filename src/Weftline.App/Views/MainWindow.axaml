@@ -7,6 +7,7 @@
         xmlns:views="using:Weftline.App.Views"
         xmlns:editor="using:Weftline.App.Features.Editor.Views"
         xmlns:vm="using:Weftline.App.ViewModels"
+        xmlns:graphvm="using:Weftline.App.Features.Graph.ViewModels"
         xmlns:graph="using:Weftline.App.Features.Graph.Controls"
         xmlns:player="using:Weftline.App.Features.Player.Views"
         x:DataType="vm:MainWindowViewModel"
@@ -152,7 +153,7 @@
                                     <ItemsControl ItemsSource="{Binding Graph.ChapterEdgeDetails}"
                                                   Margin="10,0,10,10">
                                         <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="vm:ChapterEdgeDetailItem">
+                                            <DataTemplate x:DataType="graphvm:ChapterEdgeDetailItem">
                                                 <TextBlock Text="{Binding Text}"
                                                            FontSize="12"
                                                            Foreground="{DynamicResource TextSecondary}"

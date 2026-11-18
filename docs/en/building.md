@@ -109,6 +109,12 @@ See `./preview.sh --help` for more options.
 
 ## 7. Troubleshooting
 
+### Log location
+
+- Linux: `~/.local/share/Weftline/logs/app-YYYYMMDD.log`
+- Windows: `%LOCALAPPDATA%\Weftline\logs\app-YYYYMMDD.log`
+- Logs include unhandled exceptions, analysis failures, open/save failures, and external reload errors.
+
 ### `DllNotFoundException: weftline_core`
 
 - Build the native core first.

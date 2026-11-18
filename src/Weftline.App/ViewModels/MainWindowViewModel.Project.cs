@@ -1,10 +1,24 @@
-using System.Text.Json;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Text;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Weftline.App.Features.Editor.Services;
+using Weftline.App.Features.Editor.ViewModels;
+using Weftline.App.Features.Graph;
 using Weftline.App.Features.Graph.Layout;
+using Weftline.App.Features.Graph.ViewModels;
+using Weftline.App.Features.Player.ViewModels;
 using Weftline.App.Models;
 using Weftline.App.Services;
+using Weftline.Core;
+using Weftline.Core.Language;
+using Weftline.Core.Runtime;
+using Weftline.Native;
 
 namespace Weftline.App.ViewModels;
 
@@ -60,7 +74,7 @@ public partial class MainWindowViewModel
     {
         await _analysisScheduler.ResetAsync().ConfigureAwait(true);
         Editor.CloseAll();
-        _documentSnapshots.Clear();
+        _snapshots.Clear();
         Explorer.Load(folder);
         _projectFolder = folder;
         StartWatching(folder);
@@ -97,7 +111,10 @@ public partial class MainWindowViewModel
 
         try
         {
-            await document.SaveAsync().ConfigureAwait(true);
+            await _documentSaver
+                .SaveAsync(document.FilePath, document.GetTextSnapshot())
+                .ConfigureAwait(true);
+            document.IsModified = false;
             await CompileNowAsync().ConfigureAwait(true);
             Status.SetStatus($"已保存：{Path.GetFileName(document.FilePath)}");
         }
@@ -112,8 +129,8 @@ public partial class MainWindowViewModel
     private void SaveLayout() => LayoutSaveRequested?.Invoke(this, EventArgs.Empty);
 
     /// <summary>
-    /// 把视图导出的布局快照写入当前项目的侧车文件。
-    /// Writes a layout snapshot exported by the view to the current project sidecar.
+    /// 把视图导出的布局快照交给布局存储。
+    /// Hands the layout snapshot exported by the view to the layout store.
     /// </summary>
     public void SaveLayout(GraphLayoutSnapshot snapshot)
     {
@@ -125,9 +142,7 @@ public partial class MainWindowViewModel
 
         try
         {
-            var path = Path.Combine(_projectFolder, LayoutFileName);
-            var document = ProjectLayoutDocument.FromSnapshot(snapshot);
-            File.WriteAllText(path, JsonSerializer.Serialize(document, LayoutJsonOptions));
+            _layoutStore.Save(_projectFolder, snapshot);
             Status.SetStatus("已保存布局");
         }
         catch (Exception exception)
@@ -137,8 +152,8 @@ public partial class MainWindowViewModel
     }
 
     /// <summary>
-    /// 读取当前项目的布局侧车；不存在或损坏时返回 null。
-    /// Loads the current project layout sidecar; returns null when missing or invalid.
+    /// 读取当前项目的布局侧车；不存在时返回 null。
+    /// Loads the current project layout sidecar; returns null when missing.
     /// </summary>
     public GraphLayoutSnapshot? LoadLayout()
     {
@@ -147,17 +162,9 @@ public partial class MainWindowViewModel
             return null;
         }
 
-        var path = Path.Combine(_projectFolder, LayoutFileName);
-
-        if (!File.Exists(path))
-        {
-            return null;
-        }
-
         try
         {
-            var document = JsonSerializer.Deserialize<ProjectLayoutDocument>(File.ReadAllText(path));
-            return document?.ToSnapshot();
+            return _layoutStore.Load(_projectFolder);
         }
         catch (Exception exception)
         {
@@ -179,13 +186,7 @@ public partial class MainWindowViewModel
 
         try
         {
-            var path = Path.Combine(_projectFolder, LayoutFileName);
-
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-
+            _layoutStore.Clear(_projectFolder);
             Status.SetStatus("布局已重置");
         }
         catch (Exception exception)

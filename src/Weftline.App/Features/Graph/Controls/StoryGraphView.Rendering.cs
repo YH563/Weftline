@@ -1,9 +1,14 @@
 using System.Globalization;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Weftline.App.Features.Graph.Layout;
 using Weftline.App.Features.Graph.Rendering;
 using Weftline.Core;
+using Weftline.Core.Graph.Analysis;
 
 namespace Weftline.App.Features.Graph.Controls;
 
@@ -405,7 +410,7 @@ public sealed partial class StoryGraphView
             2);
     }
 
-    private static void DrawModuleBadges(
+    private void DrawModuleBadges(
         DrawingContext context,
         GraphModuleNode node,
         Rect bounds)
@@ -425,7 +430,7 @@ public sealed partial class StoryGraphView
         }
     }
 
-    private static void DrawBadge(
+    private void DrawBadge(
         DrawingContext context,
         Point center,
         IBrush fill)
@@ -440,7 +445,7 @@ public sealed partial class StoryGraphView
                 center.Y - (text.Height / 2) - 0.5));
     }
 
-    private static void DrawText(
+    private void DrawText(
         DrawingContext context,
         string text,
         Point origin,
@@ -451,7 +456,7 @@ public sealed partial class StoryGraphView
         context.DrawText(GetFormattedText(text, size, brush, bold), origin);
     }
 
-    private static void DrawCenteredText(
+    private void DrawCenteredText(
         DrawingContext context,
         string text,
         Rect bounds,
@@ -468,7 +473,7 @@ public sealed partial class StoryGraphView
                 bounds.Y + ((bounds.Height - formatted.Height) / 2)));
     }
 
-    private static FormattedText GetFormattedText(
+    private FormattedText GetFormattedText(
         string text,
         double size,
         IBrush brush,
@@ -476,7 +481,7 @@ public sealed partial class StoryGraphView
     {
         var key = (text, size, bold, brush);
 
-        if (TextCache.TryGetValue(key, out var cached))
+        if (_textCache.TryGetValue(key, out var cached))
         {
             return cached;
         }
@@ -489,7 +494,7 @@ public sealed partial class StoryGraphView
             size,
             brush);
 
-        TextCache[key] = formatted;
+        _textCache[key] = formatted;
         return formatted;
     }
 

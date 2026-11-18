@@ -1,120 +1,29 @@
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Text;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Weftline.App.Features.Editor.Services;
+using Weftline.App.Features.Editor.ViewModels;
+using Weftline.App.Features.Graph;
+using Weftline.App.Features.Graph.Layout;
+using Weftline.App.Features.Graph.ViewModels;
+using Weftline.App.Features.Player.ViewModels;
+using Weftline.App.Models;
+using Weftline.App.Services;
 using Weftline.Core;
+using Weftline.Core.Language;
+using Weftline.Core.Runtime;
+using Weftline.Native;
 
 namespace Weftline.App.ViewModels;
 
 public partial class MainWindowViewModel
 {
-    private void UpdateGraphProjection(GraphProjection? projection)
-    {
-        var signature = projection is null ? null : BuildGraphSignature(projection);
-
-        if (string.Equals(signature, _lastGraphSignature, StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        _lastGraphSignature = signature;
-        Graph.Projection = projection;
-    }
-
-    private static string BuildGraphSignature(GraphProjection projection)
-    {
-        var builder = new StringBuilder();
-        builder.Append(projection.EntryModuleId).Append('|');
-
-        foreach (var chapter in projection.Chapters)
-        {
-            builder.Append(chapter.ChapterId).Append('~')
-                .Append(chapter.Title).Append('~')
-                .Append((int)chapter.Flags).Append(':');
-
-            foreach (var moduleId in chapter.ModuleIds)
-            {
-                builder.Append(moduleId).Append(',');
-            }
-
-            builder.Append('|');
-        }
-
-        foreach (var module in projection.Modules)
-        {
-            builder.Append(module.ModuleId).Append('~')
-                .Append((int)module.Flags).Append('~')
-                .Append(string.Join(',', module.Scenes)).Append('~')
-                .Append(module.Summary.FirstLine).Append('~')
-                .Append(module.Summary.DialogueCount).Append('~')
-                .Append(module.Summary.ChoiceCount).Append('~');
-            AppendSource(builder, module.Source);
-            builder.Append('|');
-        }
-
-        foreach (var edge in projection.ModuleEdges)
-        {
-            builder.Append(edge.FromModule).Append('>').Append(edge.ToModule).Append('~')
-                .Append((int)edge.Mode).Append('~')
-                .Append(edge.Label).Append('~')
-                .Append(edge.Condition).Append('~');
-            AppendSource(builder, edge.Source);
-            builder.Append('|');
-        }
-
-        foreach (var edge in projection.ChapterEdges)
-        {
-            builder.Append(edge.FromChapter).Append('>').Append(edge.ToChapter).Append(':');
-
-            foreach (var detail in edge.Details)
-            {
-                builder.Append(detail.FromModule).Append('>').Append(detail.ToModule).Append('~')
-                    .Append((int)detail.Mode).Append('~')
-                    .Append(detail.Label).Append('~')
-                    .Append(detail.Condition).Append('~');
-                AppendSource(builder, detail.Source);
-                builder.Append(',');
-            }
-
-            builder.Append('|');
-        }
-
-        AppendReferenceMap(builder, 'c', projection.References.Characters);
-        AppendReferenceMap(builder, 'i', projection.References.Items);
-        AppendReferenceMap(builder, 's', projection.References.Scenes);
-        AppendReferenceMap(builder, 'v', projection.References.Variables);
-
-        return builder.ToString();
-    }
-
-    private static void AppendReferenceMap(
-        StringBuilder builder,
-        char kind,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> references)
-    {
-        builder.Append(kind).Append(':');
-
-        foreach (var (name, modules) in references.OrderBy(
-                     static pair => pair.Key,
-                     StringComparer.Ordinal))
-        {
-            builder.Append(name).Append('=');
-
-            foreach (var moduleId in modules)
-            {
-                builder.Append(moduleId).Append(',');
-            }
-
-            builder.Append(';');
-        }
-
-        builder.Append('|');
-    }
-
-    private static void AppendSource(StringBuilder builder, SourceLocation source)
-        => builder.Append(source.FilePath).Append('@')
-            .Append(source.Span.Start).Append(':')
-            .Append(source.Span.Length);
-
-    /// <summary>
-    /// 打开诊断对应的文件并定位到源码位置。
     /// </summary>
     public void NavigateToDiagnostic(DiagnosticItem diagnostic)
         => Editor.NavigateTo(diagnostic.FilePath, diagnostic.Line, diagnostic.Character);
@@ -177,7 +86,7 @@ public partial class MainWindowViewModel
 
         if (text is not null)
         {
-            (line, character) = new LineIndex(text).Resolve(location.Span.Start);
+            (line, character) = DiagnosticPresentation.ResolvePosition(text, location.Span.Start);
         }
 
         Editor.NavigateTo(location.FilePath, line, character);

@@ -15,6 +15,7 @@ sealed class Program
     public static void Main(string[] args)
     {
         AppLog.Initialize();
+
         var previewShotIndex = Array.IndexOf(args, "--preview-shot");
         if (previewShotIndex >= 0)
         {

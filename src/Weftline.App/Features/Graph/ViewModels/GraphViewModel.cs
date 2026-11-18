@@ -4,7 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Weftline.Core;
 
-namespace Weftline.App.ViewModels;
+namespace Weftline.App.Features.Graph.ViewModels;
 
 /// <summary>
 /// 一条章节边明细的展示文本。

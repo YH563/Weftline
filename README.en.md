@@ -4,7 +4,7 @@
 
 Weftline is a story demo / narrative demonstration tool: write scripts, inspect the story graph, and export a playable HTML demo (planned for the C++ core).
 
-Current stage: the C++ language core and desktop editor are usable. The desktop app now has an IDE-style shell: project explorer, multi-tab AvaloniaEdit editor, dual-lane syntax/project analysis, merged diagnostics, hover, completion, status bar, folder switching, and basic file operations. Single-file syntax diagnostics and project semantics are scheduled independently and applied by version; project compilation syncs only changed documents incrementally. The story graph supports hover summaries, double-click navigation, chapter-edge details, badges, and related-path highlighting; the layout is reset whenever the graph is reopened; the Problems panel is also wired up. An in-app story preview supports step-by-step reading, choices, conditions/effects, images, and local start modules. HTML export will be implemented in C++ later.
+Current stage: the C++ language core and desktop editor are usable. The desktop app now has an IDE-style shell: project explorer, multi-tab AvaloniaEdit editor, dual-lane syntax/project analysis, merged diagnostics, hover, completion, status bar, folder switching, and basic file operations. Single-file syntax diagnostics and project semantics are scheduled independently and applied by version; project compilation syncs only changed documents incrementally. The story graph supports hover summaries, double-click navigation, chapter-edge details, badges, and related-path highlighting; the layout is reset whenever the graph is reopened; the Problems panel is also wired up. An in-app story preview supports step-by-step reading, choices, conditions/effects, images, and local start modules. Saving preserves the original encoding/BOM and writes atomically; closing the window, switching projects, or deleting files prompts for unsaved changes; external file changes reload unmodified documents automatically; failures are written to a local log. HTML export will be implemented in C++ later.
 
 ## File types
 
@@ -88,6 +88,7 @@ dotnet run --project bench/Weftline.Benchmarks -c Release
 - [docs/en/examples.md](docs/en/examples.md) — examples and walkthrough
 - [docs/en/diagnostics.md](docs/en/diagnostics.md) — diagnostic codes and common errors
 - [docs/en/building.md](docs/en/building.md) — full build, run, test, and benchmark steps
+- [docs/en/reading-guide.md](docs/en/reading-guide.md) — complete reading order from native core to the Avalonia frontend
 
 ## Examples
 

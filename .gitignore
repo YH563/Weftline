@@ -44,3 +44,5 @@ harmony/**/oh_modules/
 .VSCodeCounter/
 # UI preview output
 preview/
+
+.zed/

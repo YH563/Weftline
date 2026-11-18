@@ -1,34 +1,35 @@
 using System.Collections.ObjectModel;
-using System.Text.Encodings.Web;
-using System.Text.Json;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Text;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Weftline.App.Features.Editor.Services;
 using Weftline.App.Features.Editor.ViewModels;
+using Weftline.App.Features.Graph;
+using Weftline.App.Features.Graph.Layout;
+using Weftline.App.Features.Graph.ViewModels;
 using Weftline.App.Features.Player.ViewModels;
+using Weftline.App.Models;
 using Weftline.App.Services;
 using Weftline.Core;
+using Weftline.Core.Language;
 using Weftline.Core.Runtime;
+using Weftline.Native;
 
 namespace Weftline.App.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject, IDisposable
 {
-    private const string LayoutFileName = "weftline.layout.json";
-
-    private static readonly JsonSerializerOptions LayoutJsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-    };
-
     private readonly IDialogService _dialogs;
     private readonly EditorLanguageService _editorLanguageService;
-    private readonly ProjectAnalysisScheduler _analysisScheduler;
-    private readonly Dictionary<string, DocumentSnapshotEntry> _documentSnapshots =
-        new(StringComparer.Ordinal);
+    private readonly IProjectAnalysisScheduler _analysisScheduler;
+    private readonly IProjectLayoutStore _layoutStore;
+    private readonly IDocumentSaver _documentSaver;
+    private readonly DocumentSnapshotProvider _snapshots;
     private readonly DispatcherTimer _statusContextTimer;
     private readonly DispatcherTimer _statusCaretTimer;
     private EditorDocumentViewModel? _observedDocument;
@@ -42,9 +43,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private ProjectFolderWatcher? _projectWatcher;
     private bool _disposed;
 
-    public MainWindowViewModel(IDialogService dialogs)
+    public MainWindowViewModel(MainWindowServices services)
     {
-        _dialogs = dialogs;
+        _dialogs = services.Dialogs;
+        _analysisScheduler = services.Analysis;
+        _layoutStore = services.Layouts;
+        _documentSaver = services.Documents;
+        _snapshots = services.Snapshots;
+        _editorLanguageService = services.Language;
+
         _statusContextTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(200),
@@ -57,18 +64,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         };
         _statusCaretTimer.Tick += OnStatusCaretTimerTick;
 
-        Explorer = new ProjectExplorerViewModel(dialogs);
-        _editorLanguageService = new EditorLanguageService();
-        Editor = new EditorHostViewModel(
-            new FileEditorDocumentLoader(),
-            new EditorIconProvider(),
-            new EditorThemeSource(),
-            _editorLanguageService);
+        Explorer = services.Explorer;
+        Editor = services.Editor;
         Status = new StatusBarViewModel();
         Graph = new GraphViewModel();
         Preview = new PreviewPanelViewModel(NavigateToSource);
 
-        _analysisScheduler = new ProjectAnalysisScheduler(CreateDocumentMap);
         _analysisScheduler.Started += OnAnalysisStarted;
         _analysisScheduler.Completed += OnAnalysisCompleted;
         _analysisScheduler.Failed += OnAnalysisFailed;

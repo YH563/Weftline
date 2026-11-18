@@ -4,6 +4,8 @@ using Weftline.App.Features.Editor.Rendering;
 using Weftline.App.Features.Editor.Services;
 using Weftline.Core;
 
+using Weftline.Core.Language;
+
 namespace Weftline.App.Tests;
 
 internal sealed class FakeDocumentLoader : IEditorDocumentLoader
@@ -11,31 +13,24 @@ internal sealed class FakeDocumentLoader : IEditorDocumentLoader
     public Dictionary<string, string> Files { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
-    public Dictionary<string, EditorFileFormat> Formats { get; } =
-        new(StringComparer.OrdinalIgnoreCase);
+    public string ReadAllText(string path)
+        => Files.TryGetValue(path, out var text)
+            ? text
+            : throw new FileNotFoundException(path);
 
-    public EditorFileContent Read(string path)
-    {
-        if (!Files.TryGetValue(path, out var text))
-        {
-            throw new FileNotFoundException(path);
-        }
+    public void WriteAllText(string path, string text) => Files[path] = text;
 
-        var format = Formats.TryGetValue(path, out var existing)
-            ? existing
-            : EditorFileFormat.Utf8NoBom;
+    public Task<string> ReadAllTextAsync(
+        string path,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult(ReadAllText(path));
 
-        return new EditorFileContent(text, format);
-    }
-
-    public Task WriteAsync(
+    public Task WriteAllTextAsync(
         string path,
         string text,
-        EditorFileFormat format,
         CancellationToken cancellationToken = default)
     {
-        Files[path] = text;
-        Formats[path] = format;
+        WriteAllText(path, text);
         return Task.CompletedTask;
     }
 }

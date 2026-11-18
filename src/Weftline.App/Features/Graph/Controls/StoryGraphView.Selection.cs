@@ -1,3 +1,12 @@
+using System.Globalization;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using Weftline.App.Features.Graph.Layout;
+using Weftline.App.Features.Graph.Rendering;
 using Weftline.Core;
 using Weftline.Core.Graph.Analysis;
 

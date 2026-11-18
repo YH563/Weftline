@@ -1,7 +1,9 @@
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Weftline.App.Features.Graph.Layout;
 using Weftline.App.Features.Graph.Rendering;
@@ -48,13 +50,14 @@ public sealed partial class StoryGraphView : Control
     private static readonly Cursor ArrowCursor = new(StandardCursorType.Arrow);
     private static readonly Cursor ResizeCursor = new(StandardCursorType.BottomRightCorner);
     private static readonly Cursor PanCursor = new(StandardCursorType.SizeAll);
-    private static readonly Dictionary<(string Text, double Size, bool Bold, IBrush Brush), FormattedText> TextCache = new();
+    private readonly Dictionary<(string Text, double Size, bool Bold, IBrush Brush), FormattedText> _textCache = new();
 
     private readonly Dictionary<string, Rect> _moduleBounds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Rect> _chapterBounds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Rect> _previewModuleBounds = new(StringComparer.Ordinal);
     private GraphPathHighlight _pathHighlight = GraphPathHighlight.Empty;
     private GraphFilterMatch _filterMatch = GraphFilterMatch.Empty;
+    private readonly GraphLayoutEngine _layoutEngine = new();
 
     private GraphLayout? _layout;
     private ScrollViewer? _scrollViewer;
@@ -94,6 +97,7 @@ public sealed partial class StoryGraphView : Control
         AffectsRender<StoryGraphView>(ProjectionProperty);
         AffectsRender<StoryGraphView>(FilterProperty);
     }
+
     public GraphProjection? Projection
     {
         get => GetValue(ProjectionProperty);
@@ -141,7 +145,7 @@ public sealed partial class StoryGraphView : Control
             return default;
         }
 
-        _baseLayout ??= GraphLayoutEngine.Build(projection);
+        _baseLayout ??= _layoutEngine.Build(projection);
 
         _layout = GraphLayoutEngine.ApplyOverrides(
             projection,
@@ -156,6 +160,7 @@ public sealed partial class StoryGraphView : Control
             Math.Max(_layout.Size.Width * Zoom, viewport.Width),
             Math.Max(_layout.Size.Height * Zoom, viewport.Height));
     }
+
     private void RefreshLayout(bool force = false)
     {
         if (Projection is not { } projection)
@@ -174,7 +179,7 @@ public sealed partial class StoryGraphView : Control
 
         var previousSize = _layout?.Size ?? default;
 
-        _baseLayout ??= GraphLayoutEngine.Build(projection);
+        _baseLayout ??= _layoutEngine.Build(projection);
 
         _layout = GraphLayoutEngine.ApplyOverrides(
             projection,
@@ -291,6 +296,7 @@ public sealed partial class StoryGraphView : Control
 
         return null;
     }
+
     /// <summary>
     /// 用户完成一次拖动或缩放后触发。
     /// Raised after the user finishes a drag or resize.

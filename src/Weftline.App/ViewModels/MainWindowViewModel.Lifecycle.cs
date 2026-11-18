@@ -1,4 +1,24 @@
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Text;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Weftline.App.Features.Editor.Services;
+using Weftline.App.Features.Editor.ViewModels;
+using Weftline.App.Features.Graph;
+using Weftline.App.Features.Graph.Layout;
+using Weftline.App.Features.Graph.ViewModels;
+using Weftline.App.Features.Player.ViewModels;
+using Weftline.App.Models;
 using Weftline.App.Services;
+using Weftline.Core;
+using Weftline.Core.Language;
+using Weftline.Core.Runtime;
+using Weftline.Native;
 
 namespace Weftline.App.ViewModels;
 
@@ -94,7 +114,11 @@ public partial class MainWindowViewModel
         _analysisScheduler.Started -= OnAnalysisStarted;
         _analysisScheduler.Completed -= OnAnalysisCompleted;
         _analysisScheduler.Failed -= OnAnalysisFailed;
-        _analysisScheduler.Dispose();
+
+        if (_analysisScheduler is IDisposable disposableScheduler)
+        {
+            disposableScheduler.Dispose();
+        }
 
         Editor.Dispose();
         Preview.Dispose();
