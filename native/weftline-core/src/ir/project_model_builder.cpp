@@ -1,4 +1,4 @@
-#include "weftline/ir/project_model_builder.hpp"
+#include "weftline/ir/builders.hpp"
 
 #include <algorithm>
 #include <optional>
@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "weftline/projects/description_map.hpp"
 #include "weftline/source/source_text.hpp"
 #include "weftline/source/text_utils.hpp"
 #include "weftline/syntax/ast.hpp"
@@ -16,8 +17,9 @@
 namespace weftline::ir {
     namespace {
 
-        using Description = std::optional<std::u16string>;
-        using DescriptionMap = std::unordered_map<std::u16string, Description>;
+        using projects::build_description_map;
+        using projects::DescriptionMap;
+        using projects::get_description;
 
         [[nodiscard]] std::u16string folder_name(std::string_view folder)
         {
@@ -34,30 +36,6 @@ namespace weftline::ir {
             }
 
             return source::utf8_to_utf16(std::string(folder.substr(start, end - start)));
-        }
-
-        // .wstory 描述按名字索引；没有描述时保留空 optional。
-        template <typename Entry>
-        [[nodiscard]] DescriptionMap build_description_map(
-            const std::vector<Entry>& entries,
-            std::u16string Entry::*name,
-            std::optional<syntax::TextBlock> Entry::*description)
-        {
-            DescriptionMap map;
-            for (const auto& entry : entries) {
-                const auto& value = entry.*description;
-                map.try_emplace(
-                    entry.*name,
-                    value ? Description{value->text} : Description{});
-            }
-            return map;
-        }
-
-        [[nodiscard]] Description get_description(
-            const DescriptionMap& descriptions, std::u16string_view name)
-        {
-            const auto found = descriptions.find(std::u16string(name));
-            return found == descriptions.end() ? Description{} : found->second;
         }
 
         // 章节顺序按 .weft 文件中的首次出现；模块列表保持源顺序。
@@ -201,24 +179,19 @@ namespace weftline::ir {
         if (wstory != nullptr) {
             chapter_descriptions = build_description_map(
                 wstory->chapters,
-                &syntax::WStoryChapter::title,
-                &syntax::WStoryChapter::description);
+                &syntax::WStoryChapter::title);
             variable_descriptions = build_description_map(
                 wstory->variables,
-                &syntax::WStoryVariable::name,
-                &syntax::WStoryVariable::description);
+                &syntax::WStoryVariable::name);
             character_descriptions = build_description_map(
                 wstory->characters,
-                &syntax::WStoryCharacter::name,
-                &syntax::WStoryCharacter::description);
+                &syntax::WStoryCharacter::name);
             item_descriptions = build_description_map(
                 wstory->items,
-                &syntax::WStoryItem::name,
-                &syntax::WStoryItem::description);
+                &syntax::WStoryItem::name);
             scene_descriptions = build_description_map(
                 wstory->scenes,
-                &syntax::WStoryScene::name,
-                &syntax::WStoryScene::description);
+                &syntax::WStoryScene::name);
         }
 
         return ProjectModel{

@@ -37,7 +37,8 @@
 
 1. `interop/contract/parse.response.schema.json`
 2. `interop/contract/project.response.schema.json`（v4，runtime 已内联）
-3. `native/weftline-core/include/weftline/core.h` — 唯一对外 C ABI。
+3. `interop/contract/README.md` — 响应约定：版本、数组策略、内存所有权
+4. `native/weftline-core/include/weftline/core.h` — 唯一对外 C ABI。
 
 当前 C ABI 只保留：
 
@@ -108,6 +109,8 @@ flags：`PARTIAL` / `PROJECTION` / `RUNTIME`。诊断和符号始终返回；图
 4. `include/weftline/ir/graph_projection.hpp` → `src/ir/graph_projection_builder.cpp`
 5. `include/weftline/ir/runtime_projection.hpp` → `src/ir/runtime_projection_builder.cpp`
 6. `include/weftline/ir/ir_json.hpp` → `src/ir/ir_json.cpp`
+
+五个 `build_*` 入口统一声明在 `include/weftline/ir/builders.hpp`，按 ProjectModel → StoryGraph → GraphAnalysis → GraphProjection 的顺序排列；实现仍分在各自的 `*_builder.cpp`。
 
 重点：`ProjectModel` 是语义汇总；`StoryGraph` 是未压缩图；`GraphProjection` 是 UI 投影；`RuntimeProjection` 是播放器载荷。
 

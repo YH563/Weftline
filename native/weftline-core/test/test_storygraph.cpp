@@ -6,8 +6,7 @@
 #include <string_view>
 #include <vector>
 
-#include "weftline/ir/project_model_builder.hpp"
-#include "weftline/ir/story_graph_builder.hpp"
+#include "weftline/ir/builders.hpp"
 #include "weftline/projects/project_binder.hpp"
 #include "weftline/projects/project_loader.hpp"
 #include "weftline/projects/project_snapshot.hpp"

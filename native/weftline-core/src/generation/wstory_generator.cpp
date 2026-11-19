@@ -1,19 +1,20 @@
 #include "weftline/generation/wstory_generator.hpp"
 
-#include <optional>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
+#include "weftline/projects/description_map.hpp"
 #include "weftline/source/text_utils.hpp"
 
 namespace weftline::generation {
     namespace {
 
-        using DescriptionMap = std::unordered_map<std::u16string, std::u16string>;
+        using projects::build_description_map;
+        using projects::DescriptionMap;
+        using projects::get_description;
 
         // 保留作者写的描述；空描述也输出 []，让生成结果结构稳定。
         [[nodiscard]] std::u16string format_description(std::u16string_view text)
@@ -26,28 +27,6 @@ namespace weftline::generation {
             result += text;
             result.push_back(u']');
             return result;
-        }
-
-        [[nodiscard]] std::u16string get_description(
-            const DescriptionMap& descriptions, std::u16string_view name)
-        {
-            const auto found = descriptions.find(std::u16string(name));
-            return found == descriptions.end() ? std::u16string{} : found->second;
-        }
-
-        // 从旧 .wstory 收集“名字 → 描述”，生成时只覆盖声明部分，描述原样保留。
-        template <typename Entry>
-        [[nodiscard]] DescriptionMap build_description_map(
-            const std::vector<Entry>& entries,
-            std::u16string Entry::*name,
-            std::optional<syntax::TextBlock> Entry::*description)
-        {
-            DescriptionMap map;
-            for (const auto& entry : entries) {
-                const auto& value = entry.*description;
-                map[entry.*name] = value ? value->text : std::u16string{};
-            }
-            return map;
         }
 
         // 输出一个声明分组；没有条目时整组省略。
@@ -73,7 +52,8 @@ namespace weftline::generation {
                 builder.push_back(u' ');
                 builder += name;
                 builder.push_back(u' ');
-                builder += format_description(get_description(descriptions, name));
+                builder += format_description(
+                    get_description(descriptions, name).value_or(u""));
                 builder.push_back(u'\n');
             }
         }
@@ -139,24 +119,19 @@ namespace weftline::generation {
         if (existing != nullptr) {
             chapter_descriptions = build_description_map(
                 existing->chapters,
-                &syntax::WStoryChapter::title,
-                &syntax::WStoryChapter::description);
+                &syntax::WStoryChapter::title);
             character_descriptions = build_description_map(
                 existing->characters,
-                &syntax::WStoryCharacter::name,
-                &syntax::WStoryCharacter::description);
+                &syntax::WStoryCharacter::name);
             item_descriptions = build_description_map(
                 existing->items,
-                &syntax::WStoryItem::name,
-                &syntax::WStoryItem::description);
+                &syntax::WStoryItem::name);
             scene_descriptions = build_description_map(
                 existing->scenes,
-                &syntax::WStoryScene::name,
-                &syntax::WStoryScene::description);
+                &syntax::WStoryScene::name);
             variable_descriptions = build_description_map(
                 existing->variables,
-                &syntax::WStoryVariable::name,
-                &syntax::WStoryVariable::description);
+                &syntax::WStoryVariable::name);
         }
 
         std::u16string project_name;
@@ -210,7 +185,7 @@ namespace weftline::generation {
                 builder += value ? u"true" : u"false";
                 builder.push_back(u' ');
                 builder += format_description(
-                    get_description(variable_descriptions, name));
+                    get_description(variable_descriptions, name).value_or(u""));
                 builder.push_back(u'\n');
             }
         }

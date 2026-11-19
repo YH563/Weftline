@@ -1,4 +1,4 @@
-#include "weftline/ir/graph_projection_builder.hpp"
+#include "weftline/ir/builders.hpp"
 
 #include <algorithm>
 #include <optional>
@@ -9,7 +9,6 @@
 #include <utility>
 #include <vector>
 
-#include "weftline/ir/graph_analysis_builder.hpp"
 #include "weftline/source/text_utils.hpp"
 
 namespace weftline::ir {

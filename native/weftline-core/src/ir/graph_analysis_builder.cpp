@@ -1,4 +1,4 @@
-#include "weftline/ir/graph_analysis_builder.hpp"
+#include "weftline/ir/builders.hpp"
 
 #include <deque>
 #include <map>

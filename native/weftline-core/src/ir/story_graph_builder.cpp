@@ -1,4 +1,4 @@
-#include "weftline/ir/story_graph_builder.hpp"
+#include "weftline/ir/builders.hpp"
 
 #include <algorithm>
 #include <memory>
@@ -9,7 +9,6 @@
 #include <utility>
 #include <vector>
 
-#include "weftline/ir/project_model_builder.hpp"
 #include "weftline/projects/project_entry.hpp"
 #include "weftline/support/overloaded.hpp"
 #include "weftline/syntax/ast.hpp"

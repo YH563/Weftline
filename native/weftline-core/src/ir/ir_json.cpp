@@ -1,7 +1,9 @@
 #include "weftline/ir/ir_json.hpp"
 
+#include <algorithm>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "weftline/json/json_writer.hpp"
@@ -113,8 +115,11 @@ namespace weftline::ir {
             writer.end_object();
         }
 
-        // 出口分支：可选条件/文案、目标、效果数组和源码位置。
-        void write_branch(json::Writer& writer, const IrExitBranch& branch)
+        // 出口分支：可选条件/文案、目标、效果数组。
+        // StoryGraph 与播放器两种载荷字段一致，只有 source 是否存在不同；
+        // 用同一个模板生成，两份输出不会再各自漂移。
+        template <typename Branch>
+        void write_branch(json::Writer& writer, const Branch& branch)
         {
             writer.begin_object();
 
@@ -134,14 +139,17 @@ namespace weftline::ir {
             }
             writer.end_array();
 
-            writer.key("source");
-            write_source(writer, branch.source);
+            if constexpr (requires { branch.source; }) {
+                writer.key("source");
+                write_source(writer, branch.source);
+            }
 
             writer.end_object();
         }
 
-        // 出口块：模式、可选角色、分支列表和自己的源码位置。
-        void write_exit(json::Writer& writer, const IrExitBlock& exit)
+        // 出口块：模式、可选角色、分支列表；播放器版没有源码位置。
+        template <typename Exit>
+        void write_exit(json::Writer& writer, const Exit& exit)
         {
             writer.begin_object();
             writer.key("mode").string(exit_mode_name(exit.mode));
@@ -156,30 +164,31 @@ namespace weftline::ir {
             }
             writer.end_array();
 
-            writer.key("source");
-            write_source(writer, exit.source);
+            if constexpr (requires { exit.source; }) {
+                writer.key("source");
+                write_source(writer, exit.source);
+            }
 
             writer.end_object();
         }
 
-        // 模块完整展开正文和出口；这是 StoryGraph JSON，不是压缩投影。
-        void write_module(json::Writer& writer, const IrModule& module)
+        // 模块完整展开正文和出口；StoryGraph 版带源码位置，播放器版不带。
+        template <typename Module>
+        void write_module(json::Writer& writer, const Module& module)
         {
             writer.begin_object();
             writer.key("id").string(source::utf16_to_utf8(module.id));
             writer.key("chapterId").string(source::utf16_to_utf8(module.chapter_id));
 
-            if (!module.scenes.empty()) {
-                writer.key("scenes").begin_array();
-                for (const auto& scene : module.scenes) {
-                    writer.begin_object();
-                    writer.key("name").string(source::utf16_to_utf8(scene.name));
-                    writer.key("contentIndex").number(
-                        static_cast<std::int64_t>(scene.content_index));
-                    writer.end_object();
-                }
-                writer.end_array();
+            writer.key("scenes").begin_array();
+            for (const auto& scene : module.scenes) {
+                writer.begin_object();
+                writer.key("name").string(source::utf16_to_utf8(scene.name));
+                writer.key("contentIndex").number(
+                    static_cast<std::int64_t>(scene.content_index));
+                writer.end_object();
             }
+            writer.end_array();
 
             writer.key("content").begin_array();
             for (const auto& content : module.content) {
@@ -192,8 +201,10 @@ namespace weftline::ir {
                 write_exit(writer, *module.exit);
             }
 
-            writer.key("source");
-            write_source(writer, module.source);
+            if constexpr (requires { module.source; }) {
+                writer.key("source");
+                write_source(writer, module.source);
+            }
 
             writer.end_object();
         }
@@ -282,13 +293,11 @@ namespace weftline::ir {
             writer.key("moduleId").string(source::utf16_to_utf8(module.module_id));
             writer.key("chapterId").string(source::utf16_to_utf8(module.chapter_id));
 
-            if (!module.scenes.empty()) {
-                writer.key("scenes").begin_array();
-                for (const auto& scene : module.scenes) {
-                    writer.string(source::utf16_to_utf8(scene));
-                }
-                writer.end_array();
+            writer.key("scenes").begin_array();
+            for (const auto& scene : module.scenes) {
+                writer.string(source::utf16_to_utf8(scene));
             }
+            writer.end_array();
 
             writer.key("branchCount").number(module.branch_count);
             write_module_flags(writer, module.flags);
@@ -302,9 +311,10 @@ namespace weftline::ir {
             writer.end_object();
         }
 
-        // 一条真实模块边；external 表示目标在另一章节。
-        void write_module_edge(
-            json::Writer& writer, const GraphModuleEdge& edge)
+        // 模块边（GraphModuleEdge）与章节边明细（ChapterEdgeDetail）字段一致，
+        // 只有 external 是否存在不同；同一个模板覆盖两种载荷。
+        template <typename Edge>
+        void write_edge(json::Writer& writer, const Edge& edge)
         {
             writer.begin_object();
             writer.key("fromModule").string(source::utf16_to_utf8(edge.from_module));
@@ -319,31 +329,12 @@ namespace weftline::ir {
                 write_bool_expr(writer, *edge.condition);
             }
 
-            writer.key("external").boolean(edge.external);
+            if constexpr (requires { edge.external; }) {
+                writer.key("external").boolean(edge.external);
+            }
+
             writer.key("source");
             write_source(writer, edge.source);
-            writer.end_object();
-        }
-
-        // 章节聚合边下的底层模块分支，保留条件和源码位置。
-        void write_chapter_edge_detail(
-            json::Writer& writer, const ChapterEdgeDetail& detail)
-        {
-            writer.begin_object();
-            writer.key("fromModule").string(source::utf16_to_utf8(detail.from_module));
-            writer.key("toModule").string(source::utf16_to_utf8(detail.to_module));
-            writer.key("mode").string(exit_mode_name(detail.mode));
-
-            if (detail.label) {
-                writer.key("label").string(source::utf16_to_utf8(*detail.label));
-            }
-            if (detail.condition) {
-                writer.key("condition");
-                write_bool_expr(writer, *detail.condition);
-            }
-
-            writer.key("source");
-            write_source(writer, detail.source);
             writer.end_object();
         }
 
@@ -358,7 +349,7 @@ namespace weftline::ir {
 
             writer.key("details").begin_array();
             for (const auto& detail : edge.details) {
-                write_chapter_edge_detail(writer, detail);
+                write_edge(writer, detail);
             }
             writer.end_array();
 
@@ -366,15 +357,32 @@ namespace weftline::ir {
         }
 
         // 引用索引：名字 → 模块 ID 列表，供 C# 筛选面板反查。
+        // unordered_map 的遍历顺序不稳定（跨 STL/插入历史不同），这里按名字排序输出，
+        // 保证同一份数据逐字节一致，golden/差分对比才有意义。
         void write_reference_map(
             json::Writer& writer,
             const std::unordered_map<std::u16string, std::vector<std::u16string>>& map)
         {
+            using Entry = std::pair<const std::u16string, std::vector<std::u16string>>;
+
+            std::vector<const Entry*> entries;
+            entries.reserve(map.size());
+            for (const auto& item : map) {
+                entries.push_back(&item);
+            }
+
+            std::sort(
+                entries.begin(),
+                entries.end(),
+                [](const Entry* left, const Entry* right) {
+                    return left->first < right->first;
+                });
+
             writer.begin_object();
 
-            for (const auto& [name, modules] : map) {
-                writer.key(source::utf16_to_utf8(name)).begin_array();
-                for (const auto& module_id : modules) {
+            for (const auto* entry : entries) {
+                writer.key(source::utf16_to_utf8(entry->first)).begin_array();
+                for (const auto& module_id : entry->second) {
                     writer.string(source::utf16_to_utf8(module_id));
                 }
                 writer.end_array();
@@ -398,83 +406,8 @@ namespace weftline::ir {
             writer.end_object();
         }
 
-        // 播放器分支省略源码位置，只保留条件、文案、目标和效果。
-        void write_runtime_branch(
-            json::Writer& writer, const RuntimeBranch& branch)
-        {
-            writer.begin_object();
-
-            if (branch.condition) {
-                writer.key("condition");
-                write_bool_expr(writer, *branch.condition);
-            }
-            if (branch.label) {
-                writer.key("label").string(source::utf16_to_utf8(*branch.label));
-            }
-
-            writer.key("target").string(source::utf16_to_utf8(branch.target));
-
-            writer.key("effects").begin_array();
-            for (const auto& effect : branch.effects) {
-                write_effect(writer, effect);
-            }
-            writer.end_array();
-
-            writer.end_object();
-        }
-
-        // 播放器出口同样去源码位置，模式、角色和分支顺序保持不变。
-        void write_runtime_exit(json::Writer& writer, const RuntimeExit& exit)
-        {
-            writer.begin_object();
-            writer.key("mode").string(exit_mode_name(exit.mode));
-
-            if (exit.character) {
-                writer.key("character").string(source::utf16_to_utf8(*exit.character));
-            }
-
-            writer.key("branches").begin_array();
-            for (const auto& branch : exit.branches) {
-                write_runtime_branch(writer, branch);
-            }
-            writer.end_array();
-
-            writer.end_object();
-        }
-
-        // 播放器模块：完整正文与可选出口，不写 module/exit 的源码范围。
-        void write_runtime_module(
-            json::Writer& writer, const RuntimeModule& module)
-        {
-            writer.begin_object();
-            writer.key("id").string(source::utf16_to_utf8(module.id));
-            writer.key("chapterId").string(source::utf16_to_utf8(module.chapter_id));
-
-            if (!module.scenes.empty()) {
-                writer.key("scenes").begin_array();
-                for (const auto& scene : module.scenes) {
-                    writer.begin_object();
-                    writer.key("name").string(source::utf16_to_utf8(scene.name));
-                    writer.key("contentIndex").number(
-                        static_cast<std::int64_t>(scene.content_index));
-                    writer.end_object();
-                }
-                writer.end_array();
-            }
-
-            writer.key("content").begin_array();
-            for (const auto& content : module.content) {
-                write_content(writer, content);
-            }
-            writer.end_array();
-
-            if (module.exit) {
-                writer.key("exit");
-                write_runtime_exit(writer, *module.exit);
-            }
-
-            writer.end_object();
-        }
+        // 播放器分支、出口、模块与 StoryGraph 版共用 write_branch / write_exit /
+        // write_module：模板里没有 source 成员时自动不写源码位置。
 
     } // namespace
 
@@ -490,13 +423,11 @@ namespace weftline::ir {
             writer.key("entry").string(source::utf16_to_utf8(*graph.entry));
         }
 
-        if (!graph.entry_candidates.empty()) {
-            writer.key("entryCandidates").begin_array();
-            for (const auto& candidate : graph.entry_candidates) {
-                writer.string(source::utf16_to_utf8(candidate));
-            }
-            writer.end_array();
+        writer.key("entryCandidates").begin_array();
+        for (const auto& candidate : graph.entry_candidates) {
+            writer.string(source::utf16_to_utf8(candidate));
         }
+        writer.end_array();
 
         writer.key("globals").begin_array();
         for (const auto& global : graph.globals) {
@@ -552,7 +483,7 @@ namespace weftline::ir {
 
         writer.key("modules").begin_array();
         for (const auto& module : projection.modules) {
-            write_runtime_module(writer, module);
+            write_module(writer, module);
         }
         writer.end_array();
 
@@ -571,13 +502,11 @@ namespace weftline::ir {
                 source::utf16_to_utf8(*projection.entry_module_id));
         }
 
-        if (!projection.entry_candidates.empty()) {
-            writer.key("entryCandidates").begin_array();
-            for (const auto& candidate : projection.entry_candidates) {
-                writer.string(source::utf16_to_utf8(candidate));
-            }
-            writer.end_array();
+        writer.key("entryCandidates").begin_array();
+        for (const auto& candidate : projection.entry_candidates) {
+            writer.string(source::utf16_to_utf8(candidate));
         }
+        writer.end_array();
 
         writer.key("chapters").begin_array();
         for (const auto& chapter : projection.chapters) {
@@ -593,7 +522,7 @@ namespace weftline::ir {
 
         writer.key("moduleEdges").begin_array();
         for (const auto& edge : projection.module_edges) {
-            write_module_edge(writer, edge);
+            write_edge(writer, edge);
         }
         writer.end_array();
 

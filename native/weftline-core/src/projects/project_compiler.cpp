@@ -7,11 +7,7 @@
 #include <vector>
 
 #include "weftline/diagnostics/diagnostic.hpp"
-#include "weftline/ir/graph_analysis_builder.hpp"
-#include "weftline/ir/graph_projection_builder.hpp"
-#include "weftline/ir/project_model_builder.hpp"
-#include "weftline/ir/runtime_projection_builder.hpp"
-#include "weftline/ir/story_graph_builder.hpp"
+#include "weftline/ir/builders.hpp"
 #include "weftline/projects/compilation_cache.hpp"
 #include "weftline/projects/project_binder.hpp"
 #include "weftline/projects/validator.hpp"

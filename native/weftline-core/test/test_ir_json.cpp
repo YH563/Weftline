@@ -6,10 +6,8 @@
 #include <variant>
 #include <vector>
 
-#include "weftline/ir/graph_projection_builder.hpp"
+#include "weftline/ir/builders.hpp"
 #include "weftline/ir/ir_json.hpp"
-#include "weftline/ir/project_model_builder.hpp"
-#include "weftline/ir/story_graph_builder.hpp"
 #include "weftline/projects/project_binder.hpp"
 #include "weftline/projects/project_loader.hpp"
 #include "weftline/source/source_text.hpp"
@@ -81,6 +79,9 @@ namespace {
                   std::string::npos);
         EXPECT_NE(json.find("\"effects\":[{\"name\":\"a\",\"value\":true}]"),
                   std::string::npos);
+
+        // StoryGraph 载荷必须带源码位置；播放器载荷不带（见 test_runtime_projection）。
+        EXPECT_NE(json.find("\"source\":{\"filePath\""), std::string::npos);
     }
 
     TEST(IrJson, SerializesEntryCandidates)
@@ -170,6 +171,57 @@ namespace {
         EXPECT_NE(json.find("\"references\":{"), std::string::npos);
         EXPECT_NE(json.find("\"variables\":{\"a\":[\"M\"]}"),
                   std::string::npos);
+    }
+
+    TEST(IrJson, SerializesReferencesInStableOrder)
+    {
+        // unordered_map 的遍历序不可依赖：输出必须按键排序，两次序列化完全一致。
+        weftline::ir::GraphProjection projection;
+        projection.references.variables.emplace(
+            u"zeta", std::vector<std::u16string>{u"M2"});
+        projection.references.variables.emplace(
+            u"alpha", std::vector<std::u16string>{u"M1"});
+        projection.references.variables.emplace(
+            u"mu", std::vector<std::u16string>{u"M0"});
+
+        const auto first = weftline::ir::graph_projection_to_json(projection);
+        const auto second = weftline::ir::graph_projection_to_json(projection);
+        EXPECT_EQ(first, second);
+
+        const auto alpha = first.find("\"alpha\"");
+        const auto mu = first.find("\"mu\"");
+        const auto zeta = first.find("\"zeta\"");
+        ASSERT_NE(alpha, std::string::npos);
+        ASSERT_NE(mu, std::string::npos);
+        ASSERT_NE(zeta, std::string::npos);
+        EXPECT_LT(alpha, mu);
+        EXPECT_LT(mu, zeta);
+    }
+
+    TEST(IrJson, WritesEmptyArrays)
+    {
+        // 契约：数组字段始终出现，空就是 []；可选标量（entryModuleId）缺失。
+        weftline::ir::GraphProjection projection;
+
+        weftline::ir::GraphChapter chapter;
+        chapter.chapter_id = u"C";
+        projection.chapters.push_back(chapter);
+
+        weftline::ir::GraphModuleNode node;
+        node.module_id = u"M";
+        projection.modules.push_back(node);
+
+        const auto json = weftline::ir::graph_projection_to_json(projection);
+
+        EXPECT_EQ(json.find("\"entryModuleId\""), std::string::npos);
+
+        EXPECT_NE(json.find("\"entryCandidates\":[]"), std::string::npos);
+        EXPECT_NE(json.find("\"scenes\":[]"), std::string::npos);
+        EXPECT_NE(json.find("\"moduleIds\":[]"), std::string::npos);
+        EXPECT_NE(json.find("\"chapters\":[{"), std::string::npos);
+        EXPECT_NE(json.find("\"modules\":[{"), std::string::npos);
+        EXPECT_NE(json.find("\"moduleEdges\":[]"), std::string::npos);
+        EXPECT_NE(json.find("\"chapterEdges\":[]"), std::string::npos);
     }
 
 } // namespace

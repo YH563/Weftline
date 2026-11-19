@@ -37,7 +37,8 @@ Read the cross-language contracts before implementations:
 
 1. `interop/contract/parse.response.schema.json`
 2. `interop/contract/project.response.schema.json` (v4, runtime is inlined)
-3. `native/weftline-core/include/weftline/core.h` — the only exported C ABI.
+3. `interop/contract/README.md` — response conventions: versions, array policy, memory ownership
+4. `native/weftline-core/include/weftline/core.h` — the only exported C ABI.
 
 The current C ABI only keeps:
 
@@ -108,6 +109,8 @@ Focus: flat directory, `.weft` as the only declaration source, forward reference
 4. `include/weftline/ir/graph_projection.hpp` → `src/ir/graph_projection_builder.cpp`
 5. `include/weftline/ir/runtime_projection.hpp` → `src/ir/runtime_projection_builder.cpp`
 6. `include/weftline/ir/ir_json.hpp` → `src/ir/ir_json.cpp`
+
+All five `build_*` entry points are declared in `include/weftline/ir/builders.hpp`, in pipeline order (ProjectModel → StoryGraph → GraphAnalysis → GraphProjection); each implementation stays in its own `*_builder.cpp`.
 
 Focus: `ProjectModel` is the semantic summary; `StoryGraph` is the uncompressed graph; `GraphProjection` is the UI projection; `RuntimeProjection` is the player payload.
 

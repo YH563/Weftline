@@ -20,7 +20,7 @@ native/
 - 文件名用 `snake_case`。
 - C++ 头文件用 `.hpp`；对外 C ABI 用 `.h`（例如 `core.h`），因为它要能被 C/FFI 使用。
 - 内部头文件必须用 `#pragma once`；`core.h` 使用 include guard。
-- 一个 `.cpp` 对应一个同名头文件（`lexer.cpp` ↔ `lexer.hpp`）。
+- 一个 `.cpp` 对应一个同名头文件（`lexer.cpp` ↔ `lexer.hpp`）。唯一例外是 IR 构造器：`build_*` 的声明集中在 `ir/builders.hpp`，实现仍按阶段分在 `src/ir/*_builder.cpp`。
 - 不要在新的目录层级里重复 `weftline/` 前缀；`include/weftline/` 已经提供了命名空间根。
 
 ---
