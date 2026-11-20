@@ -90,6 +90,7 @@ dotnet run --project bench/Weftline.Benchmarks -c Release
 - [docs/diagnostics.md](docs/diagnostics.md) — 诊断码与常见错误
 - [docs/building.md](docs/building.md) — 完整编译、运行、测试与基准步骤
 - [docs/reading-guide.md](docs/reading-guide.md) — 从 native core 到 Avalonia 前端的完整代码阅读顺序
+- [docs/roadmap.md](docs/roadmap.md) — 后续开发路线图
 
 ## 示例
 
