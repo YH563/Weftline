@@ -1,4 +1,4 @@
-#include "weftline/ir/ir_json.hpp"
+#include "weftline/serialization/ir_json.hpp"
 
 #include <algorithm>
 #include <string>
@@ -9,7 +9,7 @@
 #include "weftline/json/json_writer.hpp"
 #include "weftline/source/source_text.hpp"
 
-namespace weftline::ir {
+namespace weftline::serialization {
     namespace {
 
         // 所有源码位置统一写成 { filePath, span: { start, length } }，
@@ -28,29 +28,29 @@ namespace weftline::ir {
         }
 
         // IR 布尔表达式按 kind 递归输出；子节点是 shared_ptr，可安全共享。
-        void write_bool_expr(json::Writer& writer, const IrBoolExpr& expression)
+        void write_bool_expr(json::Writer& writer, const ir::IrBoolExpr& expression)
         {
             writer.begin_object();
-            writer.key("kind").string(bool_expr_kind_name(expression.kind));
+            writer.key("kind").string(ir::bool_expr_kind_name(expression.kind));
 
             switch (expression.kind) {
-                case BoolExprKind::Literal:
+                case ir::BoolExprKind::Literal:
                     writer.key("value").boolean(expression.value);
                     break;
-                case BoolExprKind::Ref:
+                case ir::BoolExprKind::Ref:
                     if (!expression.name.empty()) {
                         writer.key("name").string(
                             source::utf16_to_utf8(expression.name));
                     }
                     break;
-                case BoolExprKind::Not:
+                case ir::BoolExprKind::Not:
                     if (expression.operand) {
                         writer.key("expr");
                         write_bool_expr(writer, *expression.operand);
                     }
                     break;
-                case BoolExprKind::And:
-                case BoolExprKind::Or:
+                case ir::BoolExprKind::And:
+                case ir::BoolExprKind::Or:
                     if (expression.left) {
                         writer.key("left");
                         write_bool_expr(writer, *expression.left);
@@ -66,12 +66,12 @@ namespace weftline::ir {
         }
 
         // 正文片段只有两种：text 或 ref（{名字}）。
-        void write_segment(json::Writer& writer, const IrTextSegment& segment)
+        void write_segment(json::Writer& writer, const ir::IrTextSegment& segment)
         {
             writer.begin_object();
-            writer.key("kind").string(text_segment_kind_name(segment.kind));
+            writer.key("kind").string(ir::text_segment_kind_name(segment.kind));
 
-            if (segment.kind == TextSegmentKind::Text) {
+            if (segment.kind == ir::TextSegmentKind::Text) {
                 writer.key("text").string(source::utf16_to_utf8(segment.text));
             } else {
                 writer.key("name").string(source::utf16_to_utf8(segment.name));
@@ -81,13 +81,13 @@ namespace weftline::ir {
         }
 
         // 内容块：旁白/对话带 segments，对话额外带 speaker，图片带 path。
-        void write_content(json::Writer& writer, const IrContentBlock& content)
+        void write_content(json::Writer& writer, const ir::IrContentBlock& content)
         {
             writer.begin_object();
-            writer.key("kind").string(content_kind_name(content.kind));
+            writer.key("kind").string(ir::content_kind_name(content.kind));
 
-            if (content.kind == ContentKind::Narration
-                || content.kind == ContentKind::Dialogue) {
+            if (content.kind == ir::ContentKind::Narration
+                || content.kind == ir::ContentKind::Dialogue) {
                 writer.key("segments").begin_array();
                 for (const auto& segment : content.segments) {
                     write_segment(writer, segment);
@@ -95,11 +95,11 @@ namespace weftline::ir {
                 writer.end_array();
             }
 
-            if (content.kind == ContentKind::Dialogue && content.speaker) {
+            if (content.kind == ir::ContentKind::Dialogue && content.speaker) {
                 writer.key("speaker").string(source::utf16_to_utf8(*content.speaker));
             }
 
-            if (content.kind == ContentKind::Figure && content.path) {
+            if (content.kind == ir::ContentKind::Figure && content.path) {
                 writer.key("path").string(source::utf16_to_utf8(*content.path));
             }
 
@@ -107,7 +107,7 @@ namespace weftline::ir {
         }
 
         // @set 效果统一为 name + boolean value。
-        void write_effect(json::Writer& writer, const IrAssignment& effect)
+        void write_effect(json::Writer& writer, const ir::IrAssignment& effect)
         {
             writer.begin_object();
             writer.key("name").string(source::utf16_to_utf8(effect.name));
@@ -116,7 +116,7 @@ namespace weftline::ir {
         }
 
         // 出口分支：可选条件/文案、目标、效果数组。
-        // StoryGraph 与播放器两种载荷字段一致，只有 source 是否存在不同；
+        // ir::StoryGraph 与播放器两种载荷字段一致，只有 source 是否存在不同；
         // 用同一个模板生成，两份输出不会再各自漂移。
         template <typename Branch>
         void write_branch(json::Writer& writer, const Branch& branch)
@@ -152,7 +152,7 @@ namespace weftline::ir {
         void write_exit(json::Writer& writer, const Exit& exit)
         {
             writer.begin_object();
-            writer.key("mode").string(exit_mode_name(exit.mode));
+            writer.key("mode").string(ir::exit_mode_name(exit.mode));
 
             if (exit.character) {
                 writer.key("character").string(source::utf16_to_utf8(*exit.character));
@@ -172,7 +172,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
-        // 模块完整展开正文和出口；StoryGraph 版带源码位置，播放器版不带。
+        // 模块完整展开正文和出口；ir::StoryGraph 版带源码位置，播放器版不带。
         template <typename Module>
         void write_module(json::Writer& writer, const Module& module)
         {
@@ -211,44 +211,44 @@ namespace weftline::ir {
 
         // 角标用字符串数组输出，避免 C# 依赖位值。
         void write_chapter_flags(
-            json::Writer& writer, GraphChapterFlags flags)
+            json::Writer& writer, graph::GraphChapterFlags flags)
         {
             writer.key("flags").begin_array();
-            if (has_flag(flags, GraphChapterFlags::Entry)) {
+            if (graph::has_flag(flags, graph::GraphChapterFlags::Entry)) {
                 writer.string("entry");
             }
-            if (has_flag(flags, GraphChapterFlags::EntryCandidate)) {
+            if (graph::has_flag(flags, graph::GraphChapterFlags::EntryCandidate)) {
                 writer.string("entryCandidate");
             }
-            if (has_flag(flags, GraphChapterFlags::HasIncoming)) {
+            if (graph::has_flag(flags, graph::GraphChapterFlags::HasIncoming)) {
                 writer.string("hasIncoming");
             }
-            if (has_flag(flags, GraphChapterFlags::HasOutgoing)) {
+            if (graph::has_flag(flags, graph::GraphChapterFlags::HasOutgoing)) {
                 writer.string("hasOutgoing");
             }
-            if (has_flag(flags, GraphChapterFlags::HasEndEdge)) {
+            if (graph::has_flag(flags, graph::GraphChapterFlags::HasEndEdge)) {
                 writer.string("hasEndEdge");
             }
             writer.end_array();
         }
 
         void write_module_flags(
-            json::Writer& writer, GraphModuleFlags flags)
+            json::Writer& writer, graph::GraphModuleFlags flags)
         {
             writer.key("flags").begin_array();
-            if (has_flag(flags, GraphModuleFlags::Entry)) {
+            if (graph::has_flag(flags, graph::GraphModuleFlags::Entry)) {
                 writer.string("entry");
             }
-            if (has_flag(flags, GraphModuleFlags::EntryCandidate)) {
+            if (graph::has_flag(flags, graph::GraphModuleFlags::EntryCandidate)) {
                 writer.string("entryCandidate");
             }
-            if (has_flag(flags, GraphModuleFlags::TargetsEnd)) {
+            if (graph::has_flag(flags, graph::GraphModuleFlags::TargetsEnd)) {
                 writer.string("targetsEnd");
             }
-            if (has_flag(flags, GraphModuleFlags::Unreachable)) {
+            if (graph::has_flag(flags, graph::GraphModuleFlags::Unreachable)) {
                 writer.string("unreachable");
             }
-            if (has_flag(flags, GraphModuleFlags::CannotReachEnd)) {
+            if (graph::has_flag(flags, graph::GraphModuleFlags::CannotReachEnd)) {
                 writer.string("cannotReachEnd");
             }
             writer.end_array();
@@ -256,7 +256,7 @@ namespace weftline::ir {
 
         // 悬停摘要：首行可选，对话/选项数量始终存在。
         void write_summary(
-            json::Writer& writer, const GraphModuleSummary& summary)
+            json::Writer& writer, const graph::GraphModuleSummary& summary)
         {
             writer.begin_object();
             if (summary.first_line) {
@@ -269,7 +269,7 @@ namespace weftline::ir {
         }
 
         // 章节容器：ID、标题、模块顺序和角标。
-        void write_chapter(json::Writer& writer, const GraphChapter& chapter)
+        void write_chapter(json::Writer& writer, const graph::GraphChapter& chapter)
         {
             writer.begin_object();
             writer.key("chapterId").string(source::utf16_to_utf8(chapter.chapter_id));
@@ -287,7 +287,7 @@ namespace weftline::ir {
 
         // 模块节点：图视图显示所需的元数据，不含正文。
         void write_module_node(
-            json::Writer& writer, const GraphModuleNode& module)
+            json::Writer& writer, const graph::GraphModuleNode& module)
         {
             writer.begin_object();
             writer.key("moduleId").string(source::utf16_to_utf8(module.module_id));
@@ -311,7 +311,7 @@ namespace weftline::ir {
             writer.end_object();
         }
 
-        // 模块边（GraphModuleEdge）与章节边明细（ChapterEdgeDetail）字段一致，
+        // 模块边（graph::GraphModuleEdge）与章节边明细（graph::ChapterEdgeDetail）字段一致，
         // 只有 external 是否存在不同；同一个模板覆盖两种载荷。
         template <typename Edge>
         void write_edge(json::Writer& writer, const Edge& edge)
@@ -319,7 +319,7 @@ namespace weftline::ir {
             writer.begin_object();
             writer.key("fromModule").string(source::utf16_to_utf8(edge.from_module));
             writer.key("toModule").string(source::utf16_to_utf8(edge.to_module));
-            writer.key("mode").string(exit_mode_name(edge.mode));
+            writer.key("mode").string(ir::exit_mode_name(edge.mode));
 
             if (edge.label) {
                 writer.key("label").string(source::utf16_to_utf8(*edge.label));
@@ -339,7 +339,7 @@ namespace weftline::ir {
         }
 
         // 章节边按源/目标章节聚合，details 保留底层模块对。
-        void write_chapter_edge(json::Writer& writer, const ChapterEdge& edge)
+        void write_chapter_edge(json::Writer& writer, const graph::ChapterEdge& edge)
         {
             writer.begin_object();
             writer.key("fromChapter").string(source::utf16_to_utf8(edge.from_chapter));
@@ -392,7 +392,7 @@ namespace weftline::ir {
         }
 
         // 四类引用并列输出；没有引用的类别输出空对象。
-        void write_references(json::Writer& writer, const ReferenceIndex& references)
+        void write_references(json::Writer& writer, const graph::ReferenceIndex& references)
         {
             writer.begin_object();
             writer.key("characters");
@@ -406,13 +406,13 @@ namespace weftline::ir {
             writer.end_object();
         }
 
-        // 播放器分支、出口、模块与 StoryGraph 版共用 write_branch / write_exit /
+        // 播放器分支、出口、模块与 ir::StoryGraph 版共用 write_branch / write_exit /
         // write_module：模板里没有 source 成员时自动不写源码位置。
 
     } // namespace
 
-    // StoryGraph JSON 用于调试和 HTML 载荷，包含完整正文。
-    std::string story_graph_to_json(const StoryGraph& graph)
+    // ir::StoryGraph JSON 用于调试和 HTML 载荷，包含完整正文。
+    std::string story_graph_to_json(const ir::StoryGraph& graph)
     {
         json::Writer writer;
         writer.begin_object();
@@ -448,8 +448,8 @@ namespace weftline::ir {
         return writer.str();
     }
 
-    // RuntimeProjection JSON 只携带播放器需要的数据；源码位置已在构建阶段丢弃。
-    std::string runtime_projection_to_json(const RuntimeProjection& projection)
+    // runtime::RuntimeProjection JSON 只携带播放器需要的数据；源码位置已在构建阶段丢弃。
+    std::string runtime_projection_to_json(const runtime::RuntimeProjection& projection)
     {
         json::Writer writer;
         writer.begin_object();
@@ -491,8 +491,8 @@ namespace weftline::ir {
         return writer.str();
     }
 
-    // GraphProjection JSON 是图视图的压缩载荷：不含完整正文。
-    std::string graph_projection_to_json(const GraphProjection& projection)
+    // graph::GraphProjection JSON 是图视图的压缩载荷：不含完整正文。
+    std::string graph_projection_to_json(const graph::GraphProjection& projection)
     {
         json::Writer writer;
         writer.begin_object();
@@ -539,4 +539,4 @@ namespace weftline::ir {
         return writer.str();
     }
 
-} // namespace weftline::ir
+} // namespace weftline::serialization

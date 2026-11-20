@@ -12,6 +12,7 @@ public enum NativeCompileFlags : uint
     Partial = 1u << 0,
     Projection = 1u << 1,
     Runtime = 1u << 2,
+    WStory = 1u << 3,
 }
 
 /// <summary>

@@ -200,14 +200,52 @@ namespace weftline::projects {
         const auto entries = resolve_entries(project);
         const auto syntax_by_title = build_syntax_map(project, index);
 
-        std::vector<std::u16string> entry_points;
-        if (entries.default_entry) {
-            entry_points.push_back(*entries.default_entry);
+        const bool has_known_entry = !entries.default_entry
+            || index.modules.find(*entries.default_entry) != index.modules.end();
+
+        if (entries.is_explicit && entries.default_entry && !has_known_entry) {
+            std::u16string message = u"入口模块不存在：";
+            message += *entries.default_entry;
+            out.push_back(ProjectDiagnostic{
+                project.wstory_path.empty() ? project.folder : project.wstory_path,
+                diagnostics::Diagnostic{
+                    std::string(diagnostics::DiagnosticCode::EntryNotFound),
+                    diagnostics::Severity::Error,
+                    std::move(message),
+                    project.wstory ? project.wstory->entry_span
+                                   : source::TextSpan{0, 0},
+                    std::nullopt,
+                },
+            });
         }
-        entry_points.insert(
-            entry_points.end(),
-            entries.candidates.begin(),
-            entries.candidates.end());
+
+        if (!entries.is_explicit && entries.default_in_degree > 0 && entries.default_entry) {
+            std::u16string message = u"没有零入度模块，已按最小入度选择入口：";
+            message += *entries.default_entry;
+            out.push_back(ProjectDiagnostic{
+                project.wstory_path.empty() ? project.folder : project.wstory_path,
+                diagnostics::Diagnostic{
+                    std::string(diagnostics::DiagnosticCode::EntryInCycle),
+                    diagnostics::Severity::Warning,
+                    std::move(message),
+                    source::TextSpan{0, 0},
+                    std::nullopt,
+                },
+            });
+        }
+
+        std::vector<std::u16string> entry_points;
+
+        // 显式入口不存在时跳过可达性，避免把所有模块都报成不可达。
+        if (!(entries.is_explicit && entries.default_entry && !has_known_entry)) {
+            if (has_known_entry && entries.default_entry) {
+                entry_points.push_back(*entries.default_entry);
+            }
+            entry_points.insert(
+                entry_points.end(),
+                entries.candidates.begin(),
+                entries.candidates.end());
+        }
 
         validate_targets(project, index, out);
 

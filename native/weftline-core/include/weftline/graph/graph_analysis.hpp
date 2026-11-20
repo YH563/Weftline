@@ -11,7 +11,7 @@
 #include "weftline/ir/story_graph.hpp"
 #include "weftline/source/location.hpp"
 
-namespace weftline::ir {
+namespace weftline::graph {
 
     /**
      * @brief 按符号种类归类的引用索引。
@@ -33,9 +33,9 @@ namespace weftline::ir {
     {
         std::u16string from_module;
         std::u16string to_module;
-        ExitMode mode{ExitMode::Auto};
+        ir::ExitMode mode{ir::ExitMode::Auto};
         std::optional<std::u16string> label;
-        std::optional<IrBoolExpr> condition;
+        std::optional<ir::IrBoolExpr> condition;
         source::SourceLocation source;
     };
 
@@ -79,4 +79,4 @@ namespace weftline::ir {
             std::size_t limit = 50) const;
     };
 
-} // namespace weftline::ir
+} // namespace weftline::graph

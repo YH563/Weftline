@@ -17,10 +17,18 @@ native/
 └── CMakeLists.txt / CMakePresets.json
 ```
 
+模块边界：
+
+- `ir/`：语义 IR（`ProjectModel`、`StoryGraph`）。
+- `graph/`：从 IR 派生的图分析与 UI 投影（`GraphAnalysis`、`GraphProjection`）。
+- `runtime/`：预览与 HTML 导出共用的播放载荷（`RuntimeProjection`）。
+- `serialization/`：跨语言 JSON 序列化。
+- `projects/`：加载、绑定、校验、编译与缓存。
+
 - 文件名用 `snake_case`。
 - C++ 头文件用 `.hpp`；对外 C ABI 用 `.h`（例如 `core.h`），因为它要能被 C/FFI 使用。
 - 内部头文件必须用 `#pragma once`；`core.h` 使用 include guard。
-- 一个 `.cpp` 对应一个同名头文件（`lexer.cpp` ↔ `lexer.hpp`）。唯一例外是 IR 构造器：`build_*` 的声明集中在 `ir/builders.hpp`，实现仍按阶段分在 `src/ir/*_builder.cpp`。
+- 一个 `.cpp` 对应一个同名头文件（`lexer.cpp` ↔ `lexer.hpp`）。唯一例外是构造入口：各模块的 `build_*` 声明集中在 `ir/builders.hpp`、`graph/builders.hpp`、`runtime/builders.hpp`，实现仍按阶段分在 `src/<module>/*_builder.cpp`。
 - 不要在新的目录层级里重复 `weftline/` 前缀；`include/weftline/` 已经提供了命名空间根。
 
 ---

@@ -25,6 +25,9 @@ public interface IProjectAnalysisScheduler
     /// <summary>用当前编译缓存生成播放器载荷。</summary>
     Task<RuntimeProjection> CompileRuntimeAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>用当前项目生成 .wstory 文本，不写磁盘。</summary>
+    Task<string> GenerateWStoryAsync(CancellationToken cancellationToken = default);
+
     /// <summary>取消当前分析并销毁 native 句柄。</summary>
     Task ResetAsync();
 

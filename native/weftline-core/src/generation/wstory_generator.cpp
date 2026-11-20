@@ -62,7 +62,7 @@ namespace weftline::generation {
 
     // .wstory 生成器：声明以 .weft 为准，描述/概要/文档从 existing 继承。
     std::u16string generate(
-        std::span<const syntax::WeftFile> weft_files,
+        std::span<const syntax::WeftFile*> weft_files,
         const syntax::WStoryFile* existing,
         std::u16string_view fallback_project_name)
     {
@@ -79,30 +79,30 @@ namespace weftline::generation {
         std::unordered_set<std::u16string> seen_scenes;
 
         // 声明去重且保持首次出现顺序，与 ProjectBinder 的规则一致。
-        for (const auto& weft : weft_files) {
-            if (seen_chapters.insert(weft.title).second) {
-                chapters.push_back(weft.title);
+        for (const auto* weft : weft_files) {
+            if (seen_chapters.insert(weft->title).second) {
+                chapters.push_back(weft->title);
             }
 
-            for (const auto& variable : weft.variables) {
+            for (const auto& variable : weft->variables) {
                 if (seen_variables.insert(variable.name).second) {
                     variables.emplace_back(variable.name, variable.value);
                 }
             }
 
-            for (const auto& character : weft.characters) {
+            for (const auto& character : weft->characters) {
                 if (seen_characters.insert(character.name).second) {
                     characters.push_back(character.name);
                 }
             }
 
-            for (const auto& item : weft.items) {
+            for (const auto& item : weft->items) {
                 if (seen_items.insert(item.name).second) {
                     items.push_back(item.name);
                 }
             }
 
-            for (const auto& scene : weft.scenes) {
+            for (const auto& scene : weft->scenes) {
                 if (seen_scenes.insert(scene.name).second) {
                     scenes.push_back(scene.name);
                 }
@@ -146,6 +146,12 @@ namespace weftline::generation {
         builder += u"@project ";
         builder += project_name;
         builder.push_back(u'\n');
+
+        if (existing != nullptr && existing->entry) {
+            builder += u"    @entry ";
+            builder += *existing->entry;
+            builder.push_back(u'\n');
+        }
 
         if (existing != nullptr && existing->summary) {
             builder += u"    @summary ";
@@ -191,6 +197,20 @@ namespace weftline::generation {
         }
 
         return builder;
+    }
+
+    // 连续对象版本：测试或生成工具持有 vector<WeftFile>，这里转成指针后复用同一实现。
+    std::u16string generate(
+        std::span<const syntax::WeftFile> weft_files,
+        const syntax::WStoryFile* existing,
+        std::u16string_view fallback_project_name)
+    {
+        std::vector<const syntax::WeftFile*> pointers;
+        pointers.reserve(weft_files.size());
+        for (const auto& file : weft_files) {
+            pointers.push_back(&file);
+        }
+        return generate(pointers, existing, fallback_project_name);
     }
 
 } // namespace weftline::generation

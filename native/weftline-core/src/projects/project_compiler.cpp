@@ -7,6 +7,9 @@
 #include <vector>
 
 #include "weftline/diagnostics/diagnostic.hpp"
+#include "weftline/generation/wstory_generator.hpp"
+#include "weftline/graph/builders.hpp"
+#include "weftline/runtime/builders.hpp"
 #include "weftline/ir/builders.hpp"
 #include "weftline/projects/compilation_cache.hpp"
 #include "weftline/projects/project_binder.hpp"
@@ -91,9 +94,9 @@ namespace weftline::projects {
         const bool errors = has_error_diagnostics(diagnostics);
 
         std::optional<std::shared_ptr<const ir::StoryGraph>> graph;
-        std::optional<std::shared_ptr<const ir::GraphAnalysis>> analysis;
-        std::optional<std::shared_ptr<const ir::GraphProjection>> projection;
-        std::optional<std::shared_ptr<const ir::RuntimeProjection>> runtime;
+        std::optional<std::shared_ptr<const graph::GraphAnalysis>> analysis;
+        std::optional<std::shared_ptr<const graph::GraphProjection>> projection;
+        std::optional<std::shared_ptr<const runtime::RuntimeProjection>> runtime;
 
         // 阶段 5：图/分析/投影。strict 模式有 error 时不产出正式图。
         if (!errors || options.allow_partial) {
@@ -113,8 +116,8 @@ namespace weftline::projects {
                         projection = cached->projection;
                     } else {
                         // 缓存里只有图，没有投影：只补建投影，不重算图和分析。
-                        auto built = std::make_shared<ir::GraphProjection>(
-                            ir::build_graph_projection(
+                        auto built = std::make_shared<graph::GraphProjection>(
+                            graph::build_graph_projection(
                                 model, *cached->graph, *cached->analysis));
                         projection = built;
                         cached->projection = built;
@@ -125,15 +128,15 @@ namespace weftline::projects {
                 // 结构变化：重建图和分析；投影按请求决定是否构建。
                 auto built_graph = std::make_shared<ir::StoryGraph>(
                     ir::build_story_graph(project, model));
-                auto built_analysis = std::make_shared<ir::GraphAnalysis>(
-                    ir::build_graph_analysis(model, *built_graph));
+                auto built_analysis = std::make_shared<graph::GraphAnalysis>(
+                    graph::build_graph_analysis(model, *built_graph));
 
                 graph = built_graph;
                 analysis = built_analysis;
 
                 if (options.build_projection) {
-                    auto built_projection = std::make_shared<ir::GraphProjection>(
-                        ir::build_graph_projection(
+                    auto built_projection = std::make_shared<graph::GraphProjection>(
+                        graph::build_graph_projection(
                             model, *built_graph, *built_analysis));
                     projection = built_projection;
 
@@ -158,8 +161,25 @@ namespace weftline::projects {
         // 阶段 6：播放器载荷只在显式请求且无 error 时构建。
         // 有 error 时调用方应保留上一次可用 runtime，避免播放不完整模型。
         if (options.build_runtime && !errors && graph) {
-            runtime = std::make_shared<const ir::RuntimeProjection>(
-                ir::build_runtime_projection(model, *graph.value()));
+            runtime = std::make_shared<const runtime::RuntimeProjection>(
+                runtime::build_runtime_projection(model, *graph.value()));
+        }
+
+        // 阶段 7：.wstory 文本按请求生成；声明来自 .weft，描述从现有 .wstory 继承。
+        std::optional<std::u16string> wstory;
+        if (options.build_wstory) {
+            std::vector<const syntax::WeftFile*> asts;
+            asts.reserve(project.weft_files.size());
+            for (const auto& file : project.weft_files) {
+                if (file.ast) {
+                    asts.push_back(file.ast.get());
+                }
+            }
+
+            wstory = generation::generate(
+                asts,
+                project.wstory ? &*project.wstory : nullptr,
+                model.project.name);
         }
 
         return ProjectCompilationResult{
@@ -171,6 +191,7 @@ namespace weftline::projects {
             std::move(analysis),
             std::move(projection),
             std::move(runtime),
+            std::move(wstory),
         };
     }
 

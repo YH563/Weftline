@@ -8,8 +8,8 @@
 #include <vector>
 
 #include "weftline/diagnostics/diagnostic.hpp"
-#include "weftline/ir/graph_analysis.hpp"
-#include "weftline/ir/graph_projection.hpp"
+#include "weftline/graph/graph_analysis.hpp"
+#include "weftline/graph/graph_projection.hpp"
 #include "weftline/ir/story_graph.hpp"
 #include "weftline/projects/project_index.hpp"
 #include "weftline/syntax/ast.hpp"
@@ -64,8 +64,8 @@ namespace weftline::projects {
     {
         std::vector<ProjectFile> files;
         std::shared_ptr<const ir::StoryGraph> graph;
-        std::shared_ptr<const ir::GraphAnalysis> analysis;
-        std::shared_ptr<const ir::GraphProjection> projection;
+        std::shared_ptr<const graph::GraphAnalysis> analysis;
+        std::shared_ptr<const graph::GraphProjection> projection;
         bool has_projection{};
     };
 

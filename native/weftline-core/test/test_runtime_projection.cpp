@@ -6,7 +6,8 @@
 #include <string_view>
 
 #include "weftline/ir/builders.hpp"
-#include "weftline/ir/ir_json.hpp"
+#include "weftline/runtime/builders.hpp"
+#include "weftline/serialization/ir_json.hpp"
 #include "weftline/projects/project_binder.hpp"
 #include "weftline/projects/project_loader.hpp"
 #include "weftline/projects/project_snapshot.hpp"
@@ -16,8 +17,8 @@ namespace {
     using weftline::ir::BoolExprKind;
     using weftline::ir::ContentKind;
     using weftline::ir::ExitMode;
-    using weftline::ir::RuntimeModule;
-    using weftline::ir::RuntimeProjection;
+    using weftline::runtime::RuntimeModule;
+    using weftline::runtime::RuntimeProjection;
     using weftline::projects::ProjectSnapshot;
 
     [[nodiscard]] std::string read_file(const std::string& path)
@@ -66,7 +67,7 @@ namespace {
         const auto model =
             weftline::ir::build_project_model(project, binding.index);
         const auto graph = weftline::ir::build_story_graph(project, model);
-        runtime = weftline::ir::build_runtime_projection(model, graph);
+        runtime = weftline::runtime::build_runtime_projection(model, graph);
         return true;
     }
 
@@ -165,7 +166,7 @@ namespace {
             weftline::ir::build_project_model(project, binding.index);
         const auto graph = weftline::ir::build_story_graph(project, model);
         const auto runtime =
-            weftline::ir::build_runtime_projection(model, graph);
+            weftline::runtime::build_runtime_projection(model, graph);
 
         const auto* module = find_module(runtime, u"M");
         ASSERT_NE(module, nullptr);
@@ -175,7 +176,7 @@ namespace {
         EXPECT_EQ(module->scenes[1].name, u"医院");
         EXPECT_EQ(module->scenes[1].content_index, 2u);
 
-        const auto json = weftline::ir::runtime_projection_to_json(runtime);
+        const auto json = weftline::serialization::runtime_projection_to_json(runtime);
         EXPECT_NE(
             json.find("\"scenes\":[{\"name\":\"街道\",\"contentIndex\":1}"),
             std::string::npos);
@@ -186,7 +187,7 @@ namespace {
         RuntimeProjection runtime;
         ASSERT_TRUE(build_sample_runtime(runtime));
 
-        const auto json = weftline::ir::runtime_projection_to_json(runtime);
+        const auto json = weftline::serialization::runtime_projection_to_json(runtime);
 
         EXPECT_NE(json.find("\"schemaVersion\":1"), std::string::npos);
         EXPECT_NE(json.find("\"projectName\":\"雨夜\""), std::string::npos);

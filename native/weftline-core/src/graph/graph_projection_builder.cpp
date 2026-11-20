@@ -1,4 +1,4 @@
-#include "weftline/ir/builders.hpp"
+#include "weftline/graph/builders.hpp"
 
 #include <algorithm>
 #include <optional>
@@ -11,13 +11,13 @@
 
 #include "weftline/source/text_utils.hpp"
 
-namespace weftline::ir {
+namespace weftline::graph {
     namespace {
 
-        [[nodiscard]] std::unordered_map<std::u16string, const IrModule*> by_id(
-            const StoryGraph& graph)
+        [[nodiscard]] std::unordered_map<std::u16string, const ir::IrModule*> by_id(
+            const ir::StoryGraph& graph)
         {
-            std::unordered_map<std::u16string, const IrModule*> modules;
+            std::unordered_map<std::u16string, const ir::IrModule*> modules;
             for (const auto& module : graph.modules) {
                 modules.emplace(module.id, &module);
             }
@@ -72,12 +72,12 @@ namespace weftline::ir {
 
         // 章节顺序以 ProjectModel 为准；没有声明章节的模块补一个同名虚拟章节。
         [[nodiscard]] std::vector<GraphChapter> build_chapters(
-            const ProjectModel& model,
-            const StoryGraph& graph,
+            const ir::ProjectModel& model,
+            const ir::StoryGraph& graph,
             const GraphAnalysis& analysis,
             const std::unordered_set<std::u16string>& entry_candidates)
         {
-            std::unordered_map<std::u16string, std::vector<const IrModule*>>
+            std::unordered_map<std::u16string, std::vector<const ir::IrModule*>>
                 modules_by_chapter;
             std::vector<std::u16string> chapter_order;
 
@@ -151,11 +151,11 @@ namespace weftline::ir {
         }
 
         [[nodiscard]] std::u16string segment_text(
-            const std::vector<IrTextSegment>& segments)
+            const std::vector<ir::IrTextSegment>& segments)
         {
             std::u16string text;
             for (const auto& segment : segments) {
-                if (segment.kind == TextSegmentKind::Text) {
+                if (segment.kind == ir::TextSegmentKind::Text) {
                     text += segment.text;
                 } else {
                     text += segment.name;
@@ -165,16 +165,16 @@ namespace weftline::ir {
         }
 
         [[nodiscard]] std::optional<std::u16string> first_line(
-            const IrContentBlock& content)
+            const ir::IrContentBlock& content)
         {
             std::u16string text;
 
             switch (content.kind) {
-                case ContentKind::Narration:
-                case ContentKind::Dialogue:
+                case ir::ContentKind::Narration:
+                case ir::ContentKind::Dialogue:
                     text = segment_text(content.segments);
                     break;
-                case ContentKind::Figure:
+                case ir::ContentKind::Figure:
                     text = content.path ? *content.path : std::u16string{};
                     break;
             }
@@ -197,7 +197,7 @@ namespace weftline::ir {
         }
 
         // 悬停摘要：首个非空内容块的首行、对话数、选项数。
-        [[nodiscard]] GraphModuleSummary build_summary(const IrModule& module)
+        [[nodiscard]] GraphModuleSummary build_summary(const ir::IrModule& module)
         {
             std::optional<std::u16string> line;
             for (const auto& content : module.content) {
@@ -209,13 +209,13 @@ namespace weftline::ir {
 
             std::int32_t dialogue_count = 0;
             for (const auto& content : module.content) {
-                if (content.kind == ContentKind::Dialogue) {
+                if (content.kind == ir::ContentKind::Dialogue) {
                     ++dialogue_count;
                 }
             }
 
             std::int32_t choice_count = 0;
-            if (module.exit && module.exit->mode == ExitMode::Choice) {
+            if (module.exit && module.exit->mode == ir::ExitMode::Choice) {
                 choice_count = static_cast<std::int32_t>(module.exit->branches.size());
             }
 
@@ -228,8 +228,8 @@ namespace weftline::ir {
 
         // 模块角标：默认入口、候选入口、有 END 出口、从入口不可达、无法到达 END。
         [[nodiscard]] GraphModuleFlags build_module_flags(
-            const IrModule& module,
-            const StoryGraph& graph,
+            const ir::IrModule& module,
+            const ir::StoryGraph& graph,
             const GraphAnalysis& analysis,
             const std::unordered_set<std::u16string>& entry_candidates)
         {
@@ -245,7 +245,7 @@ namespace weftline::ir {
                 const auto has_end = std::any_of(
                     module.exit->branches.begin(),
                     module.exit->branches.end(),
-                    [&](const IrExitBranch& branch) {
+                    [&](const ir::IrExitBranch& branch) {
                         return branch.target == graph.end;
                     });
                 if (has_end) {
@@ -267,7 +267,7 @@ namespace weftline::ir {
 
         // 场景列表按源顺序去重，避免同一模块重复显示同一个场景。
         [[nodiscard]] std::vector<std::u16string> build_scenes(
-            const IrModule& module)
+            const ir::IrModule& module)
         {
             std::vector<std::u16string> scenes;
             std::unordered_set<std::u16string> seen;
@@ -283,7 +283,7 @@ namespace weftline::ir {
 
         // 模块节点只带图视图需要的元数据，不复制完整正文。
         [[nodiscard]] std::vector<GraphModuleNode> build_modules(
-            const StoryGraph& graph,
+            const ir::StoryGraph& graph,
             const GraphAnalysis& analysis,
             const std::unordered_set<std::u16string>& entry_candidates)
         {
@@ -310,8 +310,8 @@ namespace weftline::ir {
 
         // 每个出口分支生成一条边；external 标记目标是否在另一章节。
         [[nodiscard]] std::vector<GraphModuleEdge> build_module_edges(
-            const StoryGraph& graph,
-            const std::unordered_map<std::u16string, const IrModule*>& modules_by_id)
+            const ir::StoryGraph& graph,
+            const std::unordered_map<std::u16string, const ir::IrModule*>& modules_by_id)
         {
             std::vector<GraphModuleEdge> edges;
 
@@ -349,8 +349,8 @@ namespace weftline::ir {
 
     // 图视图投影：章节容器、模块节点/边、章节聚合边和筛选引用索引。
     GraphProjection build_graph_projection(
-        const ProjectModel& model,
-        const StoryGraph& graph,
+        const ir::ProjectModel& model,
+        const ir::StoryGraph& graph,
         const GraphAnalysis& analysis)
     {
         const auto modules_by_id = by_id(graph);
@@ -369,11 +369,11 @@ namespace weftline::ir {
     }
 
     GraphProjection build_graph_projection(
-        const ProjectModel& model,
-        const StoryGraph& graph)
+        const ir::ProjectModel& model,
+        const ir::StoryGraph& graph)
     {
         const auto analysis = build_graph_analysis(model, graph);
         return build_graph_projection(model, graph, analysis);
     }
 
-} // namespace weftline::ir
+} // namespace weftline::graph

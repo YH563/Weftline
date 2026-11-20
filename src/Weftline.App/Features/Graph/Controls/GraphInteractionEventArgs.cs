@@ -30,6 +30,15 @@ public sealed class ChapterEdgeActivatedEventArgs(ChapterEdge edge) : EventArgs
 }
 
 /// <summary>
+/// 请求把某个模块设为项目入口时触发。
+/// Raised when a module is requested as the project entry.
+/// </summary>
+public sealed class ModuleEntryRequestedEventArgs(GraphModuleNode module) : EventArgs
+{
+    public GraphModuleNode Module { get; } = module;
+}
+
+/// <summary>
 /// 悬停模块变化时触发；离开模块时 Module 为 null。
 /// Raised when the hovered module changes; Module is null when leaving modules.
 /// </summary>

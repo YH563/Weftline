@@ -272,6 +272,27 @@ namespace weftline::syntax {
                         wstory.summary = parse_summary(line);
                         continue;
                     }
+                    if (is_directive(trimmed, u"@entry")) {
+                        const auto entry = source::trim(trimmed.substr(6));
+
+                        if (entry.empty()) {
+                            error(
+                                diagnostics::DiagnosticCode::EmptyEntry,
+                                line.span,
+                                u"@entry 需要模块名。");
+                        } else if (wstory.entry) {
+                            error(
+                                diagnostics::DiagnosticCode::DuplicateEntry,
+                                line.span,
+                                u"@entry 只能出现一次。");
+                        } else {
+                            wstory.entry = std::u16string(entry);
+                            wstory.entry_span = span_after(line, u"@entry", *wstory.entry);
+                        }
+
+                        advance();
+                        continue;
+                    }
                     if (is_directive(trimmed, u"@chapters")) {
                         advance();
                         parse_chapters(wstory.chapters);
@@ -338,7 +359,7 @@ namespace weftline::syntax {
                         error(
                             diagnostics::DiagnosticCode::MalformedDirective,
                             line.span,
-                            u".wstory 只能包含 @project、@summary、@chapters、@docs、@chars、@items、@scenes 和 @vars。");
+                            u".wstory 只能包含 @project、@summary、@entry、@chapters、@docs、@chars、@items、@scenes 和 @vars。");
                         advance();
                         continue;
                     }
@@ -758,6 +779,7 @@ namespace weftline::syntax {
             {
                 return is_directive(trimmed, u"@project")
                     || is_directive(trimmed, u"@summary")
+                    || is_directive(trimmed, u"@entry")
                     || is_directive(trimmed, u"@doc")
                     || is_directive(trimmed, u"@chapter");
             }

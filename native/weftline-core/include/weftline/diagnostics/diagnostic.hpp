@@ -150,6 +150,8 @@ namespace weftline::diagnostics {
         inline constexpr std::string_view MissingChapterTitle = "WFT2017";
         inline constexpr std::string_view MultipleChapterTitle = "WFT2018";
         inline constexpr std::string_view DuplicateChapterTitle = "WFT2019";
+        inline constexpr std::string_view DuplicateEntry = "WFT2020";
+        inline constexpr std::string_view EmptyEntry = "WFT2021";
 
         // 内容与出口
         inline constexpr std::string_view MissingExitBlock = "WFT3001";
@@ -172,6 +174,8 @@ namespace weftline::diagnostics {
         inline constexpr std::string_view ExternalTargetInIsolation = "WFT4006";
         inline constexpr std::string_view MissingAsset = "WFT4007";
         inline constexpr std::string_view UnusedGlobalVariable = "WFT4008";
+        inline constexpr std::string_view EntryNotFound = "WFT4009";
+        inline constexpr std::string_view EntryInCycle = "WFT4010";
     } // namespace DiagnosticCode
 
     /**

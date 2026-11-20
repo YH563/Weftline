@@ -257,6 +257,66 @@ TEST(ProjectApi, ReturnsRuntimeProjection)
     EXPECT_EQ(json.find("\"source\""), std::string::npos);
 }
 
+TEST(ProjectApi, WritesGeneratedWStory)
+{
+    WeftProject* project = weft_project_create(nullptr);
+    ASSERT_NE(project, nullptr);
+
+    weft_project_set_document(
+        project,
+        "story.wstory",
+        "@project 测试项目\n"
+        "    @chapters\n"
+        "        @chapter 第一章 [开篇。]\n"
+        "    @chars\n"
+        "        @char 萧影 [主角。]\n");
+
+    weft_project_set_document(
+        project,
+        "chapter.weft",
+        "@title 第一章\n"
+        "@char 萧影\n"
+        "@item 钥匙\n"
+        "@module A\n"
+        "@next -> END\n");
+
+    char* response = weft_project_compile(project, WEFT_COMPILE_WSTORY);
+    ASSERT_NE(response, nullptr);
+
+    const std::string json(response);
+    weft_free(response);
+    weft_project_destroy(project);
+
+    EXPECT_NE(json.find("\"hasErrors\":false"), std::string::npos);
+    EXPECT_NE(json.find("\"wstory\":"), std::string::npos);
+    EXPECT_NE(json.find("@project 测试项目"), std::string::npos);
+    EXPECT_NE(json.find("@chapter 第一章 [开篇。]"), std::string::npos);
+    EXPECT_NE(json.find("@char 萧影 [主角。]"), std::string::npos);
+    EXPECT_NE(json.find("@item 钥匙 []"), std::string::npos);
+}
+
+TEST(ProjectApi, OmitsWStoryWithoutFlag)
+{
+    WeftProject* project = weft_project_create(nullptr);
+    ASSERT_NE(project, nullptr);
+
+    weft_project_set_document(
+        project,
+        "chapter.weft",
+        "@title 第一章\n"
+        "@module A\n"
+        "@next -> END\n");
+
+    char* response = weft_project_compile(project, WEFT_COMPILE_NONE);
+    ASSERT_NE(response, nullptr);
+
+    const std::string json(response);
+    weft_free(response);
+    weft_project_destroy(project);
+
+    EXPECT_EQ(json.find("\"wstory\""), std::string::npos);
+}
+
 TEST(ProjectApi, HandlesNullProject)
 {
     char* response = weft_project_compile(nullptr, WEFT_COMPILE_NONE);

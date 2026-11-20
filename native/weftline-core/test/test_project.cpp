@@ -169,6 +169,99 @@ TEST(ProjectEntry, ResolvesDefaultEntryAndCandidateRoots)
     EXPECT_EQ(entries.candidates, (std::vector<std::u16string>{u"C"}));
 }
 
+TEST(ProjectEntry, PrefersMinimumInDegreeOverFirstModule)
+{
+    ProjectSnapshot snapshot;
+    snapshot.folder = "mem";
+    snapshot.documents["a.weft"] = R"(@title 第一章
+@module A
+@next -> B
+
+@module B
+@next -> A
+
+@module C
+@next -> END
+)";
+
+    const auto project = weftline::projects::load(snapshot);
+    ASSERT_TRUE(project.diagnostics.empty());
+
+    const auto entries = weftline::projects::resolve_entries(project);
+
+    ASSERT_TRUE(entries.default_entry.has_value());
+    EXPECT_EQ(*entries.default_entry, u"C");
+    EXPECT_FALSE(entries.is_explicit);
+    EXPECT_EQ(entries.default_in_degree, 0u);
+}
+
+TEST(ProjectEntry, UsesExplicitWStoryEntry)
+{
+    ProjectSnapshot snapshot;
+    snapshot.folder = "mem";
+    snapshot.documents["project.wstory"] = R"(@project 雨夜
+    @entry B
+)";
+    snapshot.documents["a.weft"] = R"(@title 第一章
+@module A
+@next -> B
+
+@module B
+@next -> END
+)";
+
+    const auto project = weftline::projects::load(snapshot);
+    ASSERT_TRUE(project.diagnostics.empty());
+
+    const auto entries = weftline::projects::resolve_entries(project);
+
+    ASSERT_TRUE(entries.default_entry.has_value());
+    EXPECT_EQ(*entries.default_entry, u"B");
+    EXPECT_TRUE(entries.is_explicit);
+}
+
+TEST(Validator, ReportsMissingExplicitEntry)
+{
+    ProjectSnapshot snapshot;
+    snapshot.folder = "mem";
+    snapshot.documents["project.wstory"] = R"(@project 雨夜
+    @entry Missing
+)";
+    snapshot.documents["a.weft"] = R"(@title 第一章
+@module A
+@next -> END
+)";
+
+    const auto project = weftline::projects::load(snapshot);
+    ASSERT_TRUE(project.diagnostics.empty());
+
+    const auto binding = weftline::projects::bind(
+        project.weft_files,
+        project.wstory ? &*project.wstory : nullptr,
+        project.wstory_path);
+    const auto diagnostics =
+        weftline::projects::validate(project, binding.index);
+
+    EXPECT_TRUE(has_code(
+        diagnostics,
+        weftline::diagnostics::DiagnosticCode::EntryNotFound));
+}
+
+TEST(Validator, WarnsWhenNoZeroIndegreeEntry)
+{
+    const auto result = compile_single(R"(@title 第一章
+@module A
+@next -> B
+
+@module B
+@next -> A
+)");
+
+    EXPECT_TRUE(has_code(
+        result.diagnostics,
+        weftline::diagnostics::DiagnosticCode::EntryInCycle));
+}
+
 TEST(Validator, ReportsPathCannotReachEnd)
 {
     const auto result = compile_single(R"(@title 第39章

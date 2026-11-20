@@ -13,6 +13,9 @@ file(GLOB WEFTLINE_CORE_SOURCES CONFIGURE_DEPENDS
     src/binding/*.cpp
     src/projects/*.cpp
     src/ir/*.cpp
+    src/graph/*.cpp
+    src/runtime/*.cpp
+    src/serialization/*.cpp
     src/generation/*.cpp
     src/api/*.cpp
     src/tools/*.cpp

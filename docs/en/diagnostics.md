@@ -38,6 +38,8 @@ The editor shows a diagnostic code at the problem location. This page lists the 
 | WFT2017 | `.weft` is missing a chapter title | Put `@title <chapter>` on the first line |
 | WFT2018 | Multiple chapter titles in one file | A `.weft` file has exactly one `@title` |
 | WFT2019 | Duplicate chapter title | Give each chapter file a unique title |
+| WFT2020 | Duplicate `@entry` | Keep only one `@entry` |
+| WFT2021 | `@entry` is missing a module name | Write `@entry <module>` |
 
 ## 3. Content and exits
 
@@ -50,7 +52,7 @@ The editor shows a diagnostic code at the problem location. This page lists the 
 | WFT3005 | Content after the exit block | Move the content before `@next` |
 | WFT3006 | Condition references an undeclared variable | Add `@var` before the first `@module` in `.weft` |
 | WFT3007 | `@set` references an undeclared variable | Add `@var` before the first `@module` in `.weft` |
-| WFT3008 | Boolean expression syntax error | Check `not` / `and` / `or` and parentheses |
+| WFT3008 | Boolean expression syntax error | Check `not` / `and` / `or` and parentheses; nesting is limited to 64 levels |
 | WFT3009 | Non-`@set` statement in an effect block | Effect blocks only allow `@set` |
 | WFT3010 | Repeated assignment in one effect block | Later wins; consider removing the duplicate |
 
@@ -63,6 +65,8 @@ The editor shows a diagnostic code at the problem location. This page lists the 
 | WFT4004 | Module unreachable from the entry | Check whether an exit points to it |
 | WFT4005 | A path cannot reach `END` | Check dead ends and fallbacks |
 | WFT4007 | Image asset not found | Fix the `@fig` path or import the asset |
+| WFT4009 | Entry module does not exist | Check that `.wstory` `@entry` names an `@module` |
+| WFT4010 | No zero-in-degree module; entry uses the minimum in-degree | Confirm the entry, or set `@entry` explicitly in `.wstory` |
 
 ---
 

@@ -227,5 +227,18 @@ public partial class MainWindowViewModel
     }
 
     [RelayCommand]
+    private async Task CompileProjectAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_projectFolder))
+        {
+            Status.SetStatus("没有打开项目");
+            return;
+        }
+
+        await CompileNowAsync().ConfigureAwait(true);
+        Status.SetStatus("编译完成");
+    }
+
+    [RelayCommand]
     private void About() => Status.SetStatus("Weftline · 剧情 demo / 叙事演示工具");
 }

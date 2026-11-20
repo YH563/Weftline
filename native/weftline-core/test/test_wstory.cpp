@@ -84,6 +84,36 @@ TEST(WStoryParser, ParsesProjectSummaryDocsAndGroups)
     EXPECT_EQ(file.variables[0].description->text, u"萧影是否信任影子。");
 }
 
+TEST(WStoryParser, ParsesEntry)
+{
+    const auto source = R"(@project 雨夜
+    @entry 序
+)";
+    DiagnosticBag diagnostics;
+    const auto file = parse_wstory(source, diagnostics);
+
+    EXPECT_TRUE(diagnostics.empty());
+    ASSERT_TRUE(file.entry.has_value());
+    EXPECT_EQ(*file.entry, u"序");
+}
+
+TEST(WStoryParser, RejectsEmptyAndDuplicateEntry)
+{
+    DiagnosticBag empty_diagnostics;
+    static_cast<void>(parse_wstory(
+        "@project 雨夜\n    @entry\n", empty_diagnostics));
+    EXPECT_TRUE(has_code(
+        empty_diagnostics, weftline::diagnostics::DiagnosticCode::EmptyEntry));
+
+    DiagnosticBag duplicate_diagnostics;
+    static_cast<void>(parse_wstory(
+        "@project 雨夜\n    @entry A\n    @entry B\n",
+        duplicate_diagnostics));
+    EXPECT_TRUE(has_code(
+        duplicate_diagnostics,
+        weftline::diagnostics::DiagnosticCode::DuplicateEntry));
+}
+
 TEST(WStoryParser, ParsesChapters)
 {
     const auto source = R"(@project 雨夜
@@ -246,6 +276,53 @@ TEST(WStoryGenerator, GenerationIsIdempotent)
 
     const auto second = weftline::generation::generate(files, &reparsed, u"fallback");
     EXPECT_EQ(first, second);
+}
+
+TEST(WStoryGenerator, PreservesEntry)
+{
+    DiagnosticBag weft_diagnostics;
+    auto weft = parse_weft(R"(@title 第52章
+@chars
+    @char 萧影
+)", weft_diagnostics);
+    ASSERT_TRUE(weft_diagnostics.empty());
+
+    DiagnosticBag existing_diagnostics;
+    auto existing = parse_wstory(R"(@project 雨夜
+    @entry 序
+    @chars
+        @char 萧影 [主角。]
+)", existing_diagnostics);
+    ASSERT_TRUE(existing_diagnostics.empty());
+
+    std::vector<WeftFile> files;
+    files.push_back(std::move(weft));
+    const auto generated = weftline::source::utf16_to_utf8(
+        weftline::generation::generate(files, &existing, u"fallback"));
+
+    EXPECT_NE(generated.find("@entry 序"), std::string::npos);
+    EXPECT_NE(generated.find("@char 萧影 [主角。]"), std::string::npos);
+}
+
+TEST(WStoryGenerator, DoesNotInventEntry)
+{
+    DiagnosticBag weft_diagnostics;
+    auto weft = parse_weft(R"(@title 第53章
+@chars
+    @char 萧影
+)", weft_diagnostics);
+    ASSERT_TRUE(weft_diagnostics.empty());
+
+    DiagnosticBag existing_diagnostics;
+    auto existing = parse_wstory("@project 雨夜\n", existing_diagnostics);
+    ASSERT_TRUE(existing_diagnostics.empty());
+
+    std::vector<WeftFile> files;
+    files.push_back(std::move(weft));
+    const auto generated = weftline::source::utf16_to_utf8(
+        weftline::generation::generate(files, &existing, u"fallback"));
+
+    EXPECT_EQ(generated.find("@entry"), std::string::npos);
 }
 
 TEST(WStoryGenerator, PreservesSummaryAndDocs)

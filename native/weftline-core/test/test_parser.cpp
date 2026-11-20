@@ -121,6 +121,30 @@ TEST(Parser, AllowsFirstBranchOnNextLine)
     EXPECT_FALSE(file->modules[0].exit->branches[1].condition.has_value());
 }
 
+TEST(Parser, RejectsDeeplyNestedCondition)
+{
+    // 超过解析器允许的嵌套深度时必须报诊断，而不是耗尽调用栈。
+    std::string text = "@title T\n@module M\n@next(): (";
+    text.append(200, '(');
+    text += "true";
+    text.append(200, ')');
+    text += ") -> END\n    () -> END\n";
+
+    const auto source = weftline::source::SourceText::from_utf8(text);
+    weftline::diagnostics::DiagnosticBag diagnostics;
+
+    static_cast<void>(weftline::syntax::parse(source, diagnostics));
+
+    bool found = false;
+    for (const auto& diagnostic : diagnostics) {
+        if (diagnostic.code == weftline::diagnostics::DiagnosticCode::InvalidCondition) {
+            found = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found);
+}
+
 TEST(Parser, ParsesFlatDeclarationsWithoutGroups)
 {
     const auto source = weftline::source::SourceText::from_utf8(

@@ -3,6 +3,7 @@ using Weftline.App.Features.Editor.ViewModels;
 using Weftline.App.Features.Graph.Layout;
 using Weftline.App.Services;
 using Weftline.App.ViewModels;
+using Weftline.Core;
 using Weftline.Core.Language;
 using Weftline.Native;
 
@@ -60,6 +61,56 @@ public sealed class MainWindowViewModelTests
         Assert.Same(projection, context.ViewModel.Graph.Projection);
         Assert.Empty(context.ViewModel.Diagnostics);
         Assert.Equal("分析失败：boom", context.ViewModel.Status.StatusText);
+    }
+
+    [Fact]
+    public async Task SetEntryEditsAndSavesWStory()
+    {
+        var context = await CreateContextAsync();
+        var wstoryPath = Path.Combine(context.Folder, "project.wstory");
+        const string original = "@project 雨夜\n";
+
+        File.WriteAllText(wstoryPath, original);
+        context.Loader.Files[wstoryPath] = original;
+
+        var module = new GraphModuleNode(
+            "M",
+            "第一章",
+            [],
+            0,
+            GraphModuleFlags.None,
+            new GraphModuleSummary(null, 0, 0),
+            new SourceLocation(context.FilePath, new TextSpan(0, 0)));
+
+        await context.ViewModel.SetEntryAsync(module);
+
+        var save = Assert.Single(
+            context.Saver.Saves,
+            entry => entry.Path == wstoryPath);
+        Assert.Contains("@entry M", save.Text);
+    }
+
+    [Fact]
+    public async Task GenerateProjectFileMarksModifiedWithoutSaving()
+    {
+        var context = await CreateContextAsync();
+        var wstoryPath = Path.Combine(context.Folder, "project.wstory");
+        const string original = "@project 雨夜\n";
+
+        File.WriteAllText(wstoryPath, original);
+        context.Loader.Files[wstoryPath] = original;
+        context.Scheduler.GeneratedWStory =
+            "@project 雨夜\n    @entry 序\n    @chars\n        @char 萧影 []\n";
+
+        await context.ViewModel.GenerateProjectFileCommand.ExecuteAsync(null);
+
+        var document = context.ViewModel.Editor.SelectedDocument;
+        Assert.NotNull(document);
+        Assert.True(document!.IsModified);
+        Assert.Contains("@entry 序", document.GetTextSnapshot());
+        Assert.DoesNotContain(
+            context.Saver.Saves,
+            entry => entry.Path == wstoryPath);
     }
 
     [Fact]
@@ -194,7 +245,7 @@ public sealed class MainWindowViewModelTests
         var viewModel = new MainWindowViewModel(services);
         await viewModel.LoadProjectForPreviewAsync(folder, "a.weft");
 
-        return new TestContext(viewModel, scheduler, layouts, saver, folder, filePath);
+        return new TestContext(viewModel, scheduler, layouts, saver, loader, folder, filePath);
     }
 
     private sealed record TestContext(
@@ -202,6 +253,7 @@ public sealed class MainWindowViewModelTests
         FakeProjectAnalysisScheduler Scheduler,
         FakeLayoutStore Layouts,
         FakeDocumentSaver Saver,
+        FakeDocumentLoader Loader,
         string Folder,
         string FilePath);
 }

@@ -66,6 +66,8 @@ internal sealed class FakeProjectAnalysisScheduler : IProjectAnalysisScheduler
 
     public int RunCount { get; private set; }
 
+    public string GeneratedWStory { get; set; } = string.Empty;
+
     public int ResetCount { get; private set; }
 
     public string? LastFolder { get; private set; }
@@ -85,6 +87,9 @@ internal sealed class FakeProjectAnalysisScheduler : IProjectAnalysisScheduler
 
     public Task<RuntimeProjection> CompileRuntimeAsync(CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
+
+    public Task<string> GenerateWStoryAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(GeneratedWStory);
 
     public Task ResetAsync()
     {

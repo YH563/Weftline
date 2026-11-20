@@ -73,6 +73,38 @@ namespace {
         EXPECT_FALSE(result.projection.has_value());
     }
 
+    TEST(ProjectCompiler, UsesExplicitWStoryEntry)
+    {
+        ProjectSnapshot snapshot;
+        snapshot.folder = "test";
+        snapshot.documents["project.wstory"] = R"(@project 雨夜
+    @entry B
+)";
+        snapshot.documents["chapter.weft"] = R"(@title 第一章
+@module A
+@next -> B
+
+@module B
+@next -> END
+)";
+
+        CompilationOptions options;
+        options.build_projection = true;
+        options.build_runtime = true;
+        const auto result = weftline::projects::compile(snapshot, options);
+
+        EXPECT_FALSE(result.has_errors());
+        ASSERT_TRUE(result.graph.has_value());
+        ASSERT_TRUE(result.graph.value()->entry.has_value());
+        EXPECT_EQ(*result.graph.value()->entry, u"B");
+        ASSERT_TRUE(result.projection.has_value());
+        ASSERT_TRUE(result.projection.value()->entry_module_id.has_value());
+        EXPECT_EQ(*result.projection.value()->entry_module_id, u"B");
+        ASSERT_TRUE(result.runtime.has_value());
+        ASSERT_TRUE(result.runtime.value()->entry.has_value());
+        EXPECT_EQ(*result.runtime.value()->entry, u"B");
+    }
+
     TEST(ProjectCompiler, OmitsRuntimeWhenNotRequested)
     {
         const auto snapshot = make_snapshot(R"(@title 第一章

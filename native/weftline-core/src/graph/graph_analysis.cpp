@@ -1,4 +1,4 @@
-#include "weftline/ir/graph_analysis.hpp"
+#include "weftline/graph/graph_analysis.hpp"
 
 #include <cstddef>
 #include <string>
@@ -6,7 +6,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace weftline::ir {
+namespace weftline::graph {
 
     // 枚举简单路径：on_path 防止环，limit 控制组合爆炸。
     // 当前图视图只用最短路径；这个接口留给后续“全部路径/结局”功能。
@@ -59,4 +59,4 @@ namespace weftline::ir {
         return results;
     }
 
-} // namespace weftline::ir
+} // namespace weftline::graph

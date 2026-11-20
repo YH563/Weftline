@@ -17,6 +17,7 @@ public sealed class NativeProjectResponse
     public NativeStoryGraph? Graph { get; set; }
     public NativeProjection? Projection { get; set; }
     public NativeRuntimeProjection? Runtime { get; set; }
+    public string? WStory { get; set; }
 }
 
 /// <summary>

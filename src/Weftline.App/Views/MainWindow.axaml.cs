@@ -23,6 +23,7 @@ public partial class MainWindow : Window
         GraphView.ModuleActivated += OnModuleActivated;
         GraphView.ModuleEdgeActivated += OnModuleEdgeActivated;
         GraphView.ChapterEdgeActivated += OnChapterEdgeActivated;
+        GraphView.ModuleEntryRequested += OnModuleEntryRequested;
         GraphView.ModuleHoverChanged += OnModuleHoverChanged;
     }
 
@@ -189,6 +190,24 @@ public partial class MainWindow : Window
 
     private void OnModuleHoverChanged(object? sender, ModuleHoverChangedEventArgs e)
         => (DataContext as MainWindowViewModel)?.UpdateModuleHover(e.Module);
+
+    private async void OnModuleEntryRequested(
+        object? sender, ModuleEntryRequestedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        try
+        {
+            await viewModel.SetEntryAsync(e.Module);
+        }
+        catch (Exception exception)
+        {
+            AppLog.Error(exception, $"设置入口失败：{e.Module.ModuleId}");
+        }
+    }
 
     private void OnDiagnosticDoubleTapped(object? sender, TappedEventArgs e)
     {

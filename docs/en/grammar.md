@@ -23,6 +23,7 @@ All directives start with `@`:
 ```text
 @project
 @summary
+@entry
 @chapters
 @chapter
 @doc
@@ -178,7 +179,9 @@ UnaryExpr       ::= "not" UnaryExpr
 WStoryFile      ::= "@project" TitleText NEWLINE
                     WStoryItem*
 
-WStoryItem      ::= Summary | ChapterGroup | DocGroup | CharGroup | ItemGroup | SceneGroup | VarGroup
+WStoryItem      ::= Entry | Summary | ChapterGroup | DocGroup | CharGroup | ItemGroup | SceneGroup | VarGroup
+
+Entry           ::= "@entry" TitleText NEWLINE
 
 Summary         ::= "@summary" TextBlock NEWLINE
 

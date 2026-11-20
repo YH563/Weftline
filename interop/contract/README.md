@@ -4,7 +4,7 @@
 
 ## 版本
 
-- 每个响应顶层都有 `schemaVersion`（当前为 4）。
+- 每个响应顶层都有 `schemaVersion`：项目编译当前为 4，单文件解析当前为 1。
 - 嵌套载荷带各自的版本：`graph` 是 `schemaVersion: 2`（StoryGraph），`runtime` 是 `schemaVersion: 1`（RuntimeProjection）。
 - `projection` 目前没有版本字段，见「待定」。
 
@@ -13,6 +13,13 @@
 - **数组 / 映射字段永远出现**，为空时写 `[]` / `{}`。
 - **可选标量 / 可选对象缺失即省略**，不写 `null`。
 - 两者对 `System.Text.Json` 等价：缺失字段落到 DTO 的默认值（`= []`），显式空数组也落到空列表。
+
+## 项目文件生成
+
+- `weft_project_compile` 的 `WEFT_COMPILE_WSTORY` 标志会在响应里加文本字段
+  `wstory`（UTF-8），内容是根据当前 `.weft` 声明生成、并保留现有 `.wstory` 描述的文本。
+- 只有显式请求该标志时才出现；core 不访问磁盘，是否写回 `.wstory` 由宿主决定。
+- 有诊断 error 时也会生成当前可用的文本，宿主应先检查 `hasErrors` 再落盘。
 
 ## 所有权
 

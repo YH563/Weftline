@@ -13,6 +13,31 @@
 namespace weftline::syntax {
     namespace {
 
+        // 条件表达式是递归下降；限制同时活跃的嵌套层数，避免异常输入耗尽调用栈。
+        constexpr int kMaxConditionDepth = 64;
+
+        /// @brief 进入/离开解析层时维护当前递归深度。
+        class DepthGuard
+        {
+        public:
+            explicit DepthGuard(int& depth) noexcept
+                : depth_(depth)
+            {
+                ++depth_;
+            }
+
+            ~DepthGuard()
+            {
+                --depth_;
+            }
+
+            DepthGuard(const DepthGuard&) = delete;
+            DepthGuard& operator=(const DepthGuard&) = delete;
+
+        private:
+            int& depth_;
+        };
+
         // 递归下降解析布尔条件：or > and > not > primary。
         // 输入是模块文本的局部片段，offset 用于把局部位置换算回文件绝对位置。
         class ConditionParser
@@ -104,6 +129,13 @@ namespace weftline::syntax {
             // not 右结合，可以连续写 not not x。
             [[nodiscard]] std::optional<BoolExpr> parse_unary()
             {
+                if (depth_ >= kMaxConditionDepth) {
+                    report(u"条件表达式嵌套过深。", position_, 0);
+                    return std::nullopt;
+                }
+
+                const DepthGuard guard{depth_};
+
                 skip_whitespace();
                 const auto start = position_;
 
@@ -233,6 +265,7 @@ namespace weftline::syntax {
             std::int32_t offset_{0};
             diagnostics::DiagnosticBag& diagnostics_;
             std::size_t position_{0};
+            int depth_{0};
         };
 
     } // namespace

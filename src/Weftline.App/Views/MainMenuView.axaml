@@ -10,7 +10,9 @@
             BorderBrush="{DynamicResource Border}"
             BorderThickness="0,0,0,1"
             Padding="4,0">
-        <Menu x:Name="TopMenu"
+        <Grid ColumnDefinitions="*,Auto">
+        <Menu Grid.Column="0"
+              x:Name="TopMenu"
               FontSize="13"
               ItemContainerTheme="{StaticResource WeftTopLevelMenuItem}">
             <MenuItem Header="文件">
@@ -38,6 +40,8 @@
                 </MenuItem>
                 <MenuItem Header="保存布局"
                           Command="{Binding SaveLayoutCommand}" />
+                <MenuItem Header="生成项目文件"
+                          Command="{Binding GenerateProjectFileCommand}" />
                 <Separator />
                 <MenuItem Header="退出"
                           InputGesture="Alt+F4"
@@ -102,5 +106,17 @@
                           Command="{Binding AboutCommand}" />
             </MenuItem>
         </Menu>
+        <Button Grid.Column="1"
+                Classes="icon"
+                Margin="4,3,6,3"
+                VerticalAlignment="Center"
+                Command="{Binding CompileProjectCommand}"
+                ToolTip.Tip="编译项目">
+            <PathIcon Data="{StaticResource IconBuild}"
+                      Width="16"
+                      Height="16"
+                      Foreground="{DynamicResource TextSecondary}" />
+        </Button>
+        </Grid>
     </Border>
 </UserControl>

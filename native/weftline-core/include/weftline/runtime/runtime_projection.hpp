@@ -7,7 +7,7 @@
 
 #include "weftline/ir/story_graph.hpp"
 
-namespace weftline::ir {
+namespace weftline::runtime {
 
     /**
      * @brief 播放器使用的章节标题。
@@ -23,10 +23,10 @@ namespace weftline::ir {
      */
     struct RuntimeBranch
     {
-        std::optional<IrBoolExpr> condition;
+        std::optional<ir::IrBoolExpr> condition;
         std::optional<std::u16string> label;
         std::u16string target;
-        std::vector<IrAssignment> effects;
+        std::vector<ir::IrAssignment> effects;
     };
 
     /**
@@ -34,7 +34,7 @@ namespace weftline::ir {
      */
     struct RuntimeExit
     {
-        ExitMode mode{ExitMode::Auto};
+        ir::ExitMode mode{ir::ExitMode::Auto};
         std::optional<std::u16string> character;
         std::vector<RuntimeBranch> branches;
     };
@@ -56,7 +56,7 @@ namespace weftline::ir {
         std::u16string id;
         std::u16string chapter_id;
         std::vector<RuntimeScene> scenes;
-        std::vector<IrContentBlock> content;
+        std::vector<ir::IrContentBlock> content;
         std::optional<RuntimeExit> exit;
     };
 
@@ -73,8 +73,8 @@ namespace weftline::ir {
         std::optional<std::u16string> entry;
         std::u16string end{u"END"};
         std::vector<RuntimeChapter> chapters;
-        std::vector<IrGlobal> globals;
+        std::vector<ir::IrGlobal> globals;
         std::vector<RuntimeModule> modules;
     };
 
-} // namespace weftline::ir
+} // namespace weftline::runtime

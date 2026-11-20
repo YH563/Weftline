@@ -93,10 +93,15 @@ public sealed class EditorLanguageService : IWeftEditorLanguageService
         var beforeCaret = text[lineStart..offset];
         var trimmedBefore = beforeCaret.TrimStart();
 
+        var isWStory = Path.GetExtension(context.FilePath).Equals(
+            ".wstory", StringComparison.OrdinalIgnoreCase);
         var isDirectivePrefix = prefix.StartsWith('@');
         var afterSet = beforeCaret.LastIndexOf("@set ", StringComparison.Ordinal) >= 0;
         var afterScene = trimmedBefore.StartsWith("@scene ", StringComparison.Ordinal) ||
                          trimmedBefore.StartsWith("@scene\t", StringComparison.Ordinal);
+        var afterEntry = isWStory &&
+                         (trimmedBefore.StartsWith("@entry ", StringComparison.Ordinal) ||
+                          trimmedBefore.StartsWith("@entry\t", StringComparison.Ordinal));
         var afterArrow = beforeCaret.LastIndexOf("->", StringComparison.Ordinal) >= 0;
         var insideParen = IsInsideOpenParen(beforeCaret);
         var insideCondition = insideParen && IsConditionParen(beforeCaret);
@@ -130,6 +135,10 @@ public sealed class EditorLanguageService : IWeftEditorLanguageService
         else if (afterScene)
         {
             items.AddRange(GetSymbolItems(_symbols?.Scenes));
+        }
+        else if (afterEntry)
+        {
+            items.AddRange(GetModuleItems());
         }
         else if (afterArrow)
         {
@@ -232,6 +241,12 @@ public sealed class EditorLanguageService : IWeftEditorLanguageService
             column >= "@scene ".Length)
         {
             return ResolveScene(FirstToken(trimmed["@scene ".Length..]));
+        }
+
+        if (trimmed.StartsWith("@entry ", StringComparison.Ordinal) &&
+            column >= "@entry ".Length)
+        {
+            return ResolveModule(trimmed["@entry ".Length..].Trim());
         }
 
         if (trimmed.StartsWith("@var ", StringComparison.Ordinal) &&
@@ -439,6 +454,7 @@ public sealed class EditorLanguageService : IWeftEditorLanguageService
     [
         new("@project", "@project", "项目信息"),
         new("@summary", "@summary", "项目概要"),
+        new("@entry", "@entry", "项目入口模块"),
         new("@chapters", "@chapters", "章节分组"),
         new("@chapter", "@chapter", "章节"),
         new("@docs", "@docs", "设定文档分组"),

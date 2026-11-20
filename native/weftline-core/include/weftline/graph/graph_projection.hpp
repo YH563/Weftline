@@ -6,11 +6,11 @@
 #include <type_traits>
 #include <vector>
 
-#include "weftline/ir/graph_analysis.hpp"
+#include "weftline/graph/graph_analysis.hpp"
 #include "weftline/ir/story_graph.hpp"
 #include "weftline/source/location.hpp"
 
-namespace weftline::ir {
+namespace weftline::graph {
 
     /**
      * @brief 章节在投影中的状态。
@@ -100,9 +100,9 @@ namespace weftline::ir {
     {
         std::u16string from_module;
         std::u16string to_module;
-        ExitMode mode{ExitMode::Auto};
+        ir::ExitMode mode{ir::ExitMode::Auto};
         std::optional<std::u16string> label;
-        std::optional<IrBoolExpr> condition;
+        std::optional<ir::IrBoolExpr> condition;
         bool external{};
         source::SourceLocation source;
     };
@@ -123,4 +123,4 @@ namespace weftline::ir {
         ReferenceIndex references;
     };
 
-} // namespace weftline::ir
+} // namespace weftline::graph

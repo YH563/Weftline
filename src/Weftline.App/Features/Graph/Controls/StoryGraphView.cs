@@ -98,6 +98,12 @@ public sealed partial class StoryGraphView : Control
         AffectsRender<StoryGraphView>(FilterProperty);
     }
 
+    /// <summary>
+    /// 右键选择“设为入口”时触发。
+    /// Raised when the context menu requests a module as the project entry.
+    /// </summary>
+    public event EventHandler<ModuleEntryRequestedEventArgs>? ModuleEntryRequested;
+
     public GraphProjection? Projection
     {
         get => GetValue(ProjectionProperty);

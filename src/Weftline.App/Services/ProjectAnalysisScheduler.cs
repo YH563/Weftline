@@ -122,6 +122,31 @@ public sealed class ProjectAnalysisScheduler : IProjectAnalysisScheduler, IDispo
         }
     }
 
+    /// <summary>
+    /// 用当前项目的编译缓存生成 .wstory 文本；调用方负责写盘。
+    /// Generates .wstory text from the current project; the caller owns disk writes.
+    /// </summary>
+    public async Task<string> GenerateWStoryAsync(
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            var client = _client
+                ?? throw new InvalidOperationException("项目尚未完成首次编译。");
+
+            return await Task.Run(
+                () => client.Compile(NativeCompileFlags.WStory).WStory ?? string.Empty,
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     private Task StartAsync(
         string folder,
         bool reloadFromDisk,

@@ -36,6 +36,24 @@ public sealed partial class StoryGraphView
             return;
         }
 
+        if (properties.IsRightButtonPressed)
+        {
+            var hitPoint = ToLayoutPoint(e.GetPosition(this));
+
+            if (HitTestModule(hitPoint) is { } contextModule)
+            {
+                _selectedModuleId = contextModule.Node.ModuleId;
+                _selectedChapterId = null;
+                _selectedEnd = false;
+                UpdatePathHighlight();
+                InvalidateVisual();
+                ShowModuleContextMenu(contextModule.Node);
+                e.Handled = true;
+            }
+
+            return;
+        }
+
         if (!properties.IsLeftButtonPressed)
         {
             return;
@@ -439,5 +457,19 @@ public sealed partial class StoryGraphView
         }
 
         e.Handled = true;
+    }
+
+    private void ShowModuleContextMenu(GraphModuleNode module)
+    {
+        var menu = new ContextMenu
+        {
+            Placement = PlacementMode.Pointer,
+            PlacementTarget = this,
+        };
+        var entryItem = new MenuItem { Header = "设为入口" };
+        entryItem.Click += (_, _) => ModuleEntryRequested?.Invoke(
+            this, new ModuleEntryRequestedEventArgs(module));
+        menu.Items.Add(entryItem);
+        menu.Open(this);
     }
 }

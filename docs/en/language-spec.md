@@ -140,7 +140,7 @@ Rules:
 - Declarations must provide an initial value.
 - Runtime changes only happen in exit branch effects.
 - Text content does not support `@set`.
-- There are no entry overrides.
+- There is no per-entry override of variable initial values.
 
 | Layer | Location | When it applies |
 |---|---|---|
@@ -310,12 +310,18 @@ Or inline:
 
 ## 7. Entry and single-module handling
 
-The language has **no** entry declaration.
+Entry is **module-level** and can be declared explicitly in `.wstory`:
 
-- Default entry = the first module of the first file.
+```text
+@project Rainy Night
+    @entry Prologue
+```
+
+- Explicit entry: `@entry <module>`, taking precedence over the heuristic.
+- Default entry: the module with the minimum global in-degree; ties are broken by file order and module order within the file.
 - Other modules with no incoming edges are candidate entries; they affect reachability checks and graph badges without changing the default entry.
 - Project order = chapter file order + module order inside each file.
-- The tool UI can start playback from any module.
+- The tool UI can start playback from any module; HTML export uses the project entry.
 - Full export uses the initial values from `.weft` `@var`.
 - In single-module export, external targets become end or stubs.
 
@@ -359,7 +365,7 @@ Chapters are not graph nodes; a collapsed view may render a chapter as a contain
 
 - Numeric state and comparisons
 - Multi-level / nested conditions
-- Multiple entry declarations
+- Multiple entry declarations in one project (only one `@entry` is supported)
 - Event contracts, data-flow analysis
 - True concurrency, schedulers
 - Engine export (Unity / Godot)

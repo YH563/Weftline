@@ -8,6 +8,7 @@
 #include <variant>
 #include <vector>
 
+#include "weftline/graph/builders.hpp"
 #include "weftline/ir/builders.hpp"
 #include "weftline/projects/project_binder.hpp"
 #include "weftline/projects/project_index.hpp"
@@ -17,8 +18,8 @@
 
 namespace {
 
-    using weftline::ir::ChapterEdge;
-    using weftline::ir::GraphAnalysis;
+    using weftline::graph::ChapterEdge;
+    using weftline::graph::GraphAnalysis;
     using weftline::ir::ProjectModel;
     using weftline::ir::StoryGraph;
     using weftline::projects::LoadedProject;
@@ -59,7 +60,7 @@ namespace {
 
         auto model = weftline::ir::build_project_model(project, binding.index);
         auto graph = weftline::ir::build_story_graph(project, model);
-        auto analysis = weftline::ir::build_graph_analysis(model, graph);
+        auto analysis = weftline::graph::build_graph_analysis(model, graph);
 
         return AnalysisResult{
             std::move(model),

@@ -1,4 +1,4 @@
-#include "weftline/ir/builders.hpp"
+#include "weftline/graph/builders.hpp"
 
 #include <deque>
 #include <map>
@@ -10,16 +10,16 @@
 #include <utility>
 #include <vector>
 
-namespace weftline::ir {
+namespace weftline::graph {
     namespace {
 
         using StringList = std::vector<std::u16string>;
         using Index = std::unordered_map<std::u16string, StringList>;
 
-        [[nodiscard]] std::unordered_map<std::u16string, const IrModule*> by_id(
-            const StoryGraph& graph)
+        [[nodiscard]] std::unordered_map<std::u16string, const ir::IrModule*> by_id(
+            const ir::StoryGraph& graph)
         {
-            std::unordered_map<std::u16string, const IrModule*> modules;
+            std::unordered_map<std::u16string, const ir::IrModule*> modules;
             for (const auto& module : graph.modules) {
                 modules.emplace(module.id, &module);
             }
@@ -28,7 +28,7 @@ namespace weftline::ir {
 
         // 每个模块的出边目标去重；END 也在邻接表里，作为路径终点。
         [[nodiscard]] std::unordered_map<std::u16string, StringList> build_adjacency(
-            const StoryGraph& graph)
+            const ir::StoryGraph& graph)
         {
             std::unordered_map<std::u16string, StringList> adjacency;
 
@@ -70,8 +70,8 @@ namespace weftline::ir {
 
         // 从默认入口和候选入口 BFS；不存在的目标模块和 END 不进入可达集合。
         [[nodiscard]] std::unordered_set<std::u16string> compute_reachable(
-            const StoryGraph& graph,
-            const std::unordered_map<std::u16string, const IrModule*>& modules_by_id,
+            const ir::StoryGraph& graph,
+            const std::unordered_map<std::u16string, const ir::IrModule*>& modules_by_id,
             const std::unordered_map<std::u16string, StringList>& adjacency)
         {
             std::unordered_set<std::u16string> reachable;
@@ -119,7 +119,7 @@ namespace weftline::ir {
 
         // 反向 BFS：先找直接连 END 的模块，再向所有前驱扩散。
         [[nodiscard]] std::unordered_set<std::u16string> compute_can_reach_end(
-            const StoryGraph& graph,
+            const ir::StoryGraph& graph,
             const std::unordered_map<std::u16string, StringList>& reverse_adjacency)
         {
             std::unordered_set<std::u16string> can_reach_end;
@@ -173,21 +173,21 @@ namespace weftline::ir {
 
         template <typename Add>
         // 条件里的变量引用也算模块依赖，供筛选使用。
-        void add_condition_variables(const IrBoolExpr& expression, Add add)
+        void add_condition_variables(const ir::IrBoolExpr& expression, Add add)
         {
             switch (expression.kind) {
-                case BoolExprKind::Ref:
+                case ir::BoolExprKind::Ref:
                     if (!expression.name.empty()) {
                         add(expression.name);
                     }
                     break;
-                case BoolExprKind::Not:
+                case ir::BoolExprKind::Not:
                     if (expression.operand) {
                         add_condition_variables(*expression.operand, add);
                     }
                     break;
-                case BoolExprKind::And:
-                case BoolExprKind::Or:
+                case ir::BoolExprKind::And:
+                case ir::BoolExprKind::Or:
                     if (expression.left) {
                         add_condition_variables(*expression.left, add);
                     }
@@ -195,14 +195,14 @@ namespace weftline::ir {
                         add_condition_variables(*expression.right, add);
                     }
                     break;
-                case BoolExprKind::Literal:
+                case ir::BoolExprKind::Literal:
                     break;
             }
         }
 
         // 正文 {名字} 由符号表区分是角色还是道具；未声明引用不进入索引。
         void add_segment_references(
-            const std::vector<IrTextSegment>& segments,
+            const std::vector<ir::IrTextSegment>& segments,
             const std::u16string& module_id,
             Index& characters,
             Index& items,
@@ -210,7 +210,7 @@ namespace weftline::ir {
             const std::unordered_set<std::u16string>& item_names)
         {
             for (const auto& segment : segments) {
-                if (segment.kind != TextSegmentKind::Ref || segment.name.empty()) {
+                if (segment.kind != ir::TextSegmentKind::Ref || segment.name.empty()) {
                     continue;
                 }
 
@@ -224,8 +224,8 @@ namespace weftline::ir {
 
         // 扫描正文、对话说话人、出口角色/条件/效果，建立筛选用的引用索引。
         [[nodiscard]] ReferenceIndex build_references(
-            const ProjectModel& model,
-            const StoryGraph& graph)
+            const ir::ProjectModel& model,
+            const ir::StoryGraph& graph)
         {
             Index characters;
             Index items;
@@ -252,12 +252,12 @@ namespace weftline::ir {
                 }
 
                 for (const auto& content : module.content) {
-                    if (content.kind == ContentKind::Dialogue) {
+                    if (content.kind == ir::ContentKind::Dialogue) {
                         add_reference(characters, content.speaker, module.id);
                         add_segment_references(
                             content.segments, module.id, characters, items,
                             character_names, item_names);
-                    } else if (content.kind == ContentKind::Narration) {
+                    } else if (content.kind == ir::ContentKind::Narration) {
                         add_segment_references(
                             content.segments, module.id, characters, items,
                             character_names, item_names);
@@ -291,8 +291,8 @@ namespace weftline::ir {
 
         // 把跨章节模块边按 (源章节, 目标章节) 聚合；同章节内部边不进入聚合。
         [[nodiscard]] std::vector<ChapterEdge> build_chapter_edges(
-            const StoryGraph& graph,
-            const std::unordered_map<std::u16string, const IrModule*>& modules_by_id)
+            const ir::StoryGraph& graph,
+            const std::unordered_map<std::u16string, const ir::IrModule*>& modules_by_id)
         {
             std::vector<ChapterEdge> edges;
             std::map<std::pair<std::u16string, std::u16string>, std::size_t> indexes;
@@ -349,8 +349,8 @@ namespace weftline::ir {
 
     // 图分析总入口：邻接、反向邻接、可达性、引用和章节聚合边。
     GraphAnalysis build_graph_analysis(
-        const ProjectModel& model,
-        const StoryGraph& graph)
+        const ir::ProjectModel& model,
+        const ir::StoryGraph& graph)
     {
         const auto modules_by_id = by_id(graph);
         auto adjacency = build_adjacency(graph);
@@ -366,4 +366,4 @@ namespace weftline::ir {
         };
     }
 
-} // namespace weftline::ir
+} // namespace weftline::graph

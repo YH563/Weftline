@@ -455,6 +455,10 @@ namespace weftline::syntax {
         std::u16string project_name;
         TextSpan project_name_span;
 
+        /// @brief 可选的入口模块；缺失时由编译器按最小入度推导。
+        std::optional<std::u16string> entry;
+        TextSpan entry_span;
+
         std::optional<TextBlock> summary;
         std::vector<WStoryChapter> chapters;
         std::vector<Doc> docs;

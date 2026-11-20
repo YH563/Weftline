@@ -125,9 +125,13 @@
       "type": "object",
       "description": "StoryGraph JSON；字段见 docs 或 ir/story_graph.hpp。"
     },
+    "wstory": {
+      "type": "string",
+      "description": "由 .weft 声明生成、保留现有描述的 .wstory 文本；仅在 WEFT_COMPILE_WSTORY 时出现。"
+    },
     "projection": {
       "type": "object",
-      "description": "GraphProjection JSON；字段见 ir/graph_projection.hpp。"
+      "description": "GraphProjection JSON；字段见 graph/graph_projection.hpp。"
     },
     "runtime": {
       "$ref": "#/$defs/runtimeProjection"

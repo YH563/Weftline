@@ -58,16 +58,18 @@ extern "C" {
      * 诊断、符号和项目名始终返回；其他产物按位选择：
      * - WEFT_COMPILE_PARTIAL：有 error 时仍构建部分图；
      * - WEFT_COMPILE_PROJECTION：返回 graph 和 projection；
-     * - WEFT_COMPILE_RUNTIME：无 error 时返回 runtime 播放器载荷。
+     * - WEFT_COMPILE_RUNTIME：无 error 时返回 runtime 播放器载荷；
+     * - WEFT_COMPILE_WSTORY：返回由 .weft 声明生成的 .wstory 文本。
      *
      * 严格模式是默认；PARTIAL 需要显式开启。
      */
     typedef unsigned int WeftCompileFlags;
 
-#define WEFT_COMPILE_NONE       0u
-#define WEFT_COMPILE_PARTIAL    (1u << 0)
-#define WEFT_COMPILE_PROJECTION (1u << 1)
-#define WEFT_COMPILE_RUNTIME    (1u << 2)
+    #define WEFT_COMPILE_NONE       0u
+    #define WEFT_COMPILE_PARTIAL    (1u << 0)
+    #define WEFT_COMPILE_PROJECTION (1u << 1)
+    #define WEFT_COMPILE_RUNTIME    (1u << 2)
+    #define WEFT_COMPILE_WSTORY     (1u << 3)
 
     /**
      * @brief 创建一个空项目句柄。
@@ -101,7 +103,8 @@ extern "C" {
      * 响应 schema 见 interop/contract/project.response.schema.json：
      * - 始终包含 schemaVersion、version、projectName、hasErrors、diagnostics、symbols；
      * - flags 含 PROJECTION 时包含 graph 和 projection；
-     * - flags 含 RUNTIME 且无 error 时包含 runtime。
+     * - flags 含 RUNTIME 且无 error 时包含 runtime；
+     * - flags 含 WSTORY 时包含 wstory（UTF-8 的 .wstory 文本）。
      *
      * @return JSON；由 core 分配，调用方必须用 weft_free() 释放。
      *         仅当响应缓冲区分配失败时返回 NULL。

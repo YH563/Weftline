@@ -1,14 +1,14 @@
-#include "weftline/ir/builders.hpp"
+#include "weftline/runtime/builders.hpp"
 
 #include <optional>
 #include <utility>
 #include <vector>
 
-namespace weftline::ir {
+namespace weftline::runtime {
     namespace {
 
         // 播放器不需要源码位置，分支只保留执行语义。
-        [[nodiscard]] RuntimeBranch to_runtime_branch(const IrExitBranch& branch)
+        [[nodiscard]] RuntimeBranch to_runtime_branch(const ir::IrExitBranch& branch)
         {
             return RuntimeBranch{
                 branch.condition,
@@ -18,7 +18,7 @@ namespace weftline::ir {
             };
         }
 
-        [[nodiscard]] RuntimeExit to_runtime_exit(const IrExitBlock& exit)
+        [[nodiscard]] RuntimeExit to_runtime_exit(const ir::IrExitBlock& exit)
         {
             std::vector<RuntimeBranch> branches;
             branches.reserve(exit.branches.size());
@@ -34,7 +34,7 @@ namespace weftline::ir {
             };
         }
 
-        [[nodiscard]] RuntimeModule to_runtime_module(const IrModule& module)
+        [[nodiscard]] RuntimeModule to_runtime_module(const ir::IrModule& module)
         {
             std::optional<RuntimeExit> exit;
             if (module.exit) {
@@ -62,8 +62,8 @@ namespace weftline::ir {
     } // namespace
 
     RuntimeProjection build_runtime_projection(
-        const ProjectModel& model,
-        const StoryGraph& graph)
+        const ir::ProjectModel& model,
+        const ir::StoryGraph& graph)
     {
         RuntimeProjection runtime;
         runtime.schema_version = 1;
@@ -86,4 +86,4 @@ namespace weftline::ir {
         return runtime;
     }
 
-} // namespace weftline::ir
+} // namespace weftline::runtime

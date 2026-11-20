@@ -47,7 +47,7 @@ The current C ABI only keeps:
 - `weft_project_create(folder)` / `destroy` / `set_document` / `remove_document`
 - `weft_project_compile(project, flags)`
 
-Flags: `PARTIAL` / `PROJECTION` / `RUNTIME`. Diagnostics and symbols are always returned; graph/projection and runtime are opt-in.
+Flags: `PARTIAL` / `PROJECTION` / `RUNTIME` / `WSTORY`. Diagnostics and symbols are always returned; graph/projection, runtime, and generated `.wstory` text are opt-in.
 
 Watch for `schemaVersion`, version echo, `error/hasErrors`, project-handle lifetime, and `weft_free` ownership.
 
@@ -101,18 +101,22 @@ Focus: per-file symbols, reference resolution, variable initial values, chapter/
 
 Focus: flat directory, `.weft` as the only declaration source, forward references, entry candidates, END reachability, incremental cache.
 
-### 2.5 Semantic IR and graph
+### 2.5 Semantic IR, graph, and playback payload
 
 1. `include/weftline/ir/project_model.hpp` → `src/ir/project_model_builder.cpp`
 2. `include/weftline/ir/story_graph.hpp` → `src/ir/story_graph_builder.cpp`
-3. `include/weftline/ir/graph_analysis.hpp` → `src/ir/graph_analysis.cpp`, `src/ir/graph_analysis_builder.cpp`
-4. `include/weftline/ir/graph_projection.hpp` → `src/ir/graph_projection_builder.cpp`
-5. `include/weftline/ir/runtime_projection.hpp` → `src/ir/runtime_projection_builder.cpp`
-6. `include/weftline/ir/ir_json.hpp` → `src/ir/ir_json.cpp`
+3. `include/weftline/graph/graph_analysis.hpp` → `src/graph/graph_analysis.cpp`, `src/graph/graph_analysis_builder.cpp`
+4. `include/weftline/graph/graph_projection.hpp` → `src/graph/graph_projection_builder.cpp`
+5. `include/weftline/runtime/runtime_projection.hpp` → `src/runtime/runtime_projection_builder.cpp`
+6. `include/weftline/serialization/ir_json.hpp` → `src/serialization/ir_json.cpp`
 
-All five `build_*` entry points are declared in `include/weftline/ir/builders.hpp`, in pipeline order (ProjectModel → StoryGraph → GraphAnalysis → GraphProjection); each implementation stays in its own `*_builder.cpp`.
+Build entry points are split so IR does not depend on derived data:
 
-Focus: `ProjectModel` is the semantic summary; `StoryGraph` is the uncompressed graph; `GraphProjection` is the UI projection; `RuntimeProjection` is the player payload.
+- `include/weftline/ir/builders.hpp`: `build_project_model`, `build_story_graph`
+- `include/weftline/graph/builders.hpp`: `build_graph_analysis`, `build_graph_projection`
+- `include/weftline/runtime/builders.hpp`: `build_runtime_projection`
+
+Focus: `ProjectModel` is the semantic summary; `StoryGraph` is the uncompressed graph; `GraphAnalysis` / `GraphProjection` are derived analysis and UI projection; `RuntimeProjection` is the shared payload for preview and HTML export. The entry comes from `.wstory` `@entry` when present; otherwise the module with the minimum global in-degree, with source order as the tie-break.
 
 ### 2.6 Generation
 

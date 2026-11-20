@@ -6,8 +6,10 @@
 #include <variant>
 #include <vector>
 
+#include "weftline/graph/builders.hpp"
 #include "weftline/ir/builders.hpp"
-#include "weftline/ir/ir_json.hpp"
+#include "weftline/runtime/builders.hpp"
+#include "weftline/serialization/ir_json.hpp"
 #include "weftline/projects/project_binder.hpp"
 #include "weftline/projects/project_loader.hpp"
 #include "weftline/source/source_text.hpp"
@@ -60,7 +62,7 @@ namespace {
         const auto model =
             weftline::ir::build_project_model(project, binding.index);
         const auto graph = weftline::ir::build_story_graph(project, model);
-        const auto json = weftline::ir::story_graph_to_json(graph);
+        const auto json = weftline::serialization::story_graph_to_json(graph);
 
         EXPECT_NE(json.find("\"schemaVersion\":2"), std::string::npos);
         EXPECT_NE(json.find("\"end\":\"END\""), std::string::npos);
@@ -108,16 +110,16 @@ namespace {
         const auto model =
             weftline::ir::build_project_model(project, binding.index);
         const auto graph = weftline::ir::build_story_graph(project, model);
-        const auto graph_json = weftline::ir::story_graph_to_json(graph);
+        const auto graph_json = weftline::serialization::story_graph_to_json(graph);
 
         EXPECT_NE(
             graph_json.find("\"entryCandidates\":[\"B\"]"),
             std::string::npos);
 
         const auto projection =
-            weftline::ir::build_graph_projection(model, graph);
+            weftline::graph::build_graph_projection(model, graph);
         const auto projection_json =
-            weftline::ir::graph_projection_to_json(projection);
+            weftline::serialization::graph_projection_to_json(projection);
 
         EXPECT_NE(
             projection_json.find("\"entryCandidates\":[\"B\"]"),
@@ -154,8 +156,8 @@ namespace {
             weftline::ir::build_project_model(project, binding.index);
         const auto graph = weftline::ir::build_story_graph(project, model);
         const auto projection =
-            weftline::ir::build_graph_projection(model, graph);
-        const auto json = weftline::ir::graph_projection_to_json(projection);
+            weftline::graph::build_graph_projection(model, graph);
+        const auto json = weftline::serialization::graph_projection_to_json(projection);
 
         EXPECT_NE(json.find("\"entryModuleId\":\"M\""), std::string::npos);
         EXPECT_NE(json.find("\"chapterId\":\"T\""), std::string::npos);
@@ -176,7 +178,7 @@ namespace {
     TEST(IrJson, SerializesReferencesInStableOrder)
     {
         // unordered_map 的遍历序不可依赖：输出必须按键排序，两次序列化完全一致。
-        weftline::ir::GraphProjection projection;
+        weftline::graph::GraphProjection projection;
         projection.references.variables.emplace(
             u"zeta", std::vector<std::u16string>{u"M2"});
         projection.references.variables.emplace(
@@ -184,8 +186,8 @@ namespace {
         projection.references.variables.emplace(
             u"mu", std::vector<std::u16string>{u"M0"});
 
-        const auto first = weftline::ir::graph_projection_to_json(projection);
-        const auto second = weftline::ir::graph_projection_to_json(projection);
+        const auto first = weftline::serialization::graph_projection_to_json(projection);
+        const auto second = weftline::serialization::graph_projection_to_json(projection);
         EXPECT_EQ(first, second);
 
         const auto alpha = first.find("\"alpha\"");
@@ -201,17 +203,17 @@ namespace {
     TEST(IrJson, WritesEmptyArrays)
     {
         // 契约：数组字段始终出现，空就是 []；可选标量（entryModuleId）缺失。
-        weftline::ir::GraphProjection projection;
+        weftline::graph::GraphProjection projection;
 
-        weftline::ir::GraphChapter chapter;
+        weftline::graph::GraphChapter chapter;
         chapter.chapter_id = u"C";
         projection.chapters.push_back(chapter);
 
-        weftline::ir::GraphModuleNode node;
+        weftline::graph::GraphModuleNode node;
         node.module_id = u"M";
         projection.modules.push_back(node);
 
-        const auto json = weftline::ir::graph_projection_to_json(projection);
+        const auto json = weftline::serialization::graph_projection_to_json(projection);
 
         EXPECT_EQ(json.find("\"entryModuleId\""), std::string::npos);
 

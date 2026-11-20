@@ -7,6 +7,7 @@
 #include <variant>
 #include <vector>
 
+#include "weftline/graph/builders.hpp"
 #include "weftline/ir/builders.hpp"
 #include "weftline/projects/project_binder.hpp"
 #include "weftline/projects/project_loader.hpp"
@@ -15,12 +16,12 @@
 
 namespace {
 
-    using weftline::ir::GraphChapter;
-    using weftline::ir::GraphChapterFlags;
-    using weftline::ir::GraphModuleFlags;
-    using weftline::ir::GraphModuleNode;
-    using weftline::ir::GraphProjection;
-    using weftline::ir::has_flag;
+    using weftline::graph::GraphChapter;
+    using weftline::graph::GraphChapterFlags;
+    using weftline::graph::GraphModuleFlags;
+    using weftline::graph::GraphModuleNode;
+    using weftline::graph::GraphProjection;
+    using weftline::graph::has_flag;
     using weftline::projects::LoadedProject;
     using weftline::projects::ProjectFile;
     using weftline::syntax::WeftFile;
@@ -58,7 +59,7 @@ namespace {
         const auto model =
             weftline::ir::build_project_model(project, binding.index);
         const auto graph = weftline::ir::build_story_graph(project, model);
-        return weftline::ir::build_graph_projection(model, graph);
+        return weftline::graph::build_graph_projection(model, graph);
     }
 
     [[nodiscard]] const GraphChapter* find_chapter(

@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "weftline/diagnostics/diagnostic.hpp"
-#include "weftline/ir/ir_json.hpp"
+#include "weftline/serialization/ir_json.hpp"
 #include "weftline/json/json_writer.hpp"
 #include "weftline/projects/compilation_cache.hpp"
 #include "weftline/projects/project_compiler.hpp"
@@ -161,11 +161,11 @@ namespace {
     }
 
     /**
-     * @brief 把一次项目编译结果序列化为 C# 使用的 JSON（schema v3）。
+     * @brief 把一次项目编译结果序列化为 C# 使用的 JSON（schema v4）。
      *
-     * 响应包含诊断、符号、可选的 graph/projection。graph/projection 可能来自
-     * CompilationCache 的复用结果，因此这里只做序列化，不再复制 IR。
-     * 所有 start/length 都是 UTF-16 code unit。
+     * 响应包含诊断、符号、可选的 graph/projection、runtime 和 .wstory 文本。
+     * graph/projection 可能来自 CompilationCache 的复用结果，因此这里只做序列化，
+     * 不再复制 IR。所有 start/length 都是 UTF-16 code unit。
      */
     [[nodiscard]]
     std::string project_compile_json(
@@ -212,23 +212,29 @@ namespace {
         writer.key("symbols");
         write_project_symbols(writer, result);
 
+        // .wstory 文本只在显式请求 WSTORY 时出现，由宿主决定是否落盘。
+        if (result.wstory) {
+            writer.key("wstory").string(
+                weftline::source::utf16_to_utf8(*result.wstory));
+        }
+
         // graph/projection 只在显式请求 PROJECTION 时返回；值可能来自编译缓存。
         if ((flags & WEFT_COMPILE_PROJECTION) != 0) {
             if (result.graph) {
                 writer.key("graph").raw(
-                    weftline::ir::story_graph_to_json(*result.graph.value()));
+                    weftline::serialization::story_graph_to_json(*result.graph.value()));
             }
 
             if (result.projection) {
                 writer.key("projection").raw(
-                    weftline::ir::graph_projection_to_json(*result.projection.value()));
+                    weftline::serialization::graph_projection_to_json(*result.projection.value()));
             }
         }
 
         // runtime 只在显式请求且无 error 时出现；调用方保留上一次可用载荷。
         if (result.runtime) {
             writer.key("runtime").raw(
-                weftline::ir::runtime_projection_to_json(*result.runtime.value()));
+                weftline::serialization::runtime_projection_to_json(*result.runtime.value()));
         }
 
         writer.end_object();
@@ -310,6 +316,7 @@ char* weft_project_compile(WeftProject* project, WeftCompileFlags flags)
         options.allow_partial = (flags & WEFT_COMPILE_PARTIAL) != 0;
         options.build_projection = (flags & WEFT_COMPILE_PROJECTION) != 0;
         options.build_runtime = (flags & WEFT_COMPILE_RUNTIME) != 0;
+        options.build_wstory = (flags & WEFT_COMPILE_WSTORY) != 0;
 
         // 缓存随句柄存活：未变化文件复用 AST/绑定/图结果，变化部分重新编译。
         const auto result =

@@ -47,7 +47,7 @@
 - `weft_project_create(folder)` / `destroy` / `set_document` / `remove_document`
 - `weft_project_compile(project, flags)`
 
-flags：`PARTIAL` / `PROJECTION` / `RUNTIME`。诊断和符号始终返回；图/投影和 runtime 按需返回。
+flags：`PARTIAL` / `PROJECTION` / `RUNTIME` / `WSTORY`。诊断和符号始终返回；图/投影、runtime 和生成的 `.wstory` 文本按需返回。
 
 阅读重点：`schemaVersion`、版本回显、`error/hasErrors`、项目句柄生命周期、`weft_free` 的所有权。
 
@@ -101,18 +101,22 @@ flags：`PARTIAL` / `PROJECTION` / `RUNTIME`。诊断和符号始终返回；图
 
 重点：扁平目录、`.weft` 是声明唯一来源、跨文件前向引用、入口候选、END 可达性、增量缓存。
 
-### 2.5 语义 IR 与图
+### 2.5 语义 IR、图与播放载荷
 
 1. `include/weftline/ir/project_model.hpp` → `src/ir/project_model_builder.cpp`
 2. `include/weftline/ir/story_graph.hpp` → `src/ir/story_graph_builder.cpp`
-3. `include/weftline/ir/graph_analysis.hpp` → `src/ir/graph_analysis.cpp`、`src/ir/graph_analysis_builder.cpp`
-4. `include/weftline/ir/graph_projection.hpp` → `src/ir/graph_projection_builder.cpp`
-5. `include/weftline/ir/runtime_projection.hpp` → `src/ir/runtime_projection_builder.cpp`
-6. `include/weftline/ir/ir_json.hpp` → `src/ir/ir_json.cpp`
+3. `include/weftline/graph/graph_analysis.hpp` → `src/graph/graph_analysis.cpp`、`src/graph/graph_analysis_builder.cpp`
+4. `include/weftline/graph/graph_projection.hpp` → `src/graph/graph_projection_builder.cpp`
+5. `include/weftline/runtime/runtime_projection.hpp` → `src/runtime/runtime_projection_builder.cpp`
+6. `include/weftline/serialization/ir_json.hpp` → `src/serialization/ir_json.cpp`
 
-五个 `build_*` 入口统一声明在 `include/weftline/ir/builders.hpp`，按 ProjectModel → StoryGraph → GraphAnalysis → GraphProjection 的顺序排列；实现仍分在各自的 `*_builder.cpp`。
+构造入口分开声明，避免 IR 依赖派生数据：
 
-重点：`ProjectModel` 是语义汇总；`StoryGraph` 是未压缩图；`GraphProjection` 是 UI 投影；`RuntimeProjection` 是播放器载荷。
+- `include/weftline/ir/builders.hpp`：`build_project_model`、`build_story_graph`
+- `include/weftline/graph/builders.hpp`：`build_graph_analysis`、`build_graph_projection`
+- `include/weftline/runtime/builders.hpp`：`build_runtime_projection`
+
+重点：`ProjectModel` 是语义汇总；`StoryGraph` 是未压缩图；`GraphAnalysis` / `GraphProjection` 是派生分析与 UI 投影；`RuntimeProjection` 是预览和 HTML 共用的播放载荷。入口优先取 `.wstory` 的 `@entry`；缺失时取全局入度最小的模块，同分按源顺序。
 
 ### 2.6 代码生成
 
