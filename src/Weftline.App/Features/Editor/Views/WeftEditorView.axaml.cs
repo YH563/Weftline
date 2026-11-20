@@ -26,6 +26,7 @@ public partial class WeftEditorView : UserControl
     private EditorHostViewModel? _host;
     private IEditorThemeSource? _themeSource;
     private WeftLineNumberMargin? _lineNumberMargin;
+    private readonly List<Border> _separatorBorders = [];
     private EditorDocumentViewModel? _document;
     private bool _isLoadingDocument;
 
@@ -236,14 +237,15 @@ public partial class WeftEditorView : UserControl
             }
 
             margins.RemoveAt(index);
-            margins.Insert(index, new Border
+            var separator = new Border
             {
                 Width = 1,
                 Margin = new Thickness(0, 0, 12, 0),
-                Background = new SolidColorBrush(Color.Parse("#D8DCE3")),
                 HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Stretch,
-            });
+            };
+            _separatorBorders.Add(separator);
+            margins.Insert(index, separator);
         }
     }
 
@@ -323,8 +325,17 @@ public partial class WeftEditorView : UserControl
         TextEditor.LineNumbersForeground = theme.LineNumberForeground;
         TextEditor.TextArea.TextView.CurrentLineBackground = theme.CurrentLineBackground;
         TextEditor.TextArea.TextView.CurrentLineBorder = new Pen(theme.CurrentLineBorder, 1);
+        TextEditor.TextArea.SelectionBrush = theme.SelectionBackground;
+        TextEditor.TextArea.SelectionForeground = theme.SelectionForeground;
+        TextEditor.TextArea.SelectionBorder = new Pen(theme.SelectionBorder, 1);
 
         _lineNumberMargin?.ApplyTheme(theme);
+
+        foreach (var separator in _separatorBorders)
+        {
+            separator.Background = theme.Separator;
+        }
+
         _diagnosticRenderer.ApplyTheme(theme);
         TextEditor.TextArea.TextView.Redraw();
     }

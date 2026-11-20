@@ -52,15 +52,15 @@
                                        Foreground="{DynamicResource Danger}"
                                        VerticalAlignment="Center" />
                             <Button Content="×"
+                                    AutomationProperties.Name="关闭标签页"
                                     Command="{Binding CloseCommand}"
-                                    Width="16"
-                                    Height="16"
+                                    Width="20"
+                                    Height="20"
                                     Padding="0"
                                     FontSize="13"
                                     Background="Transparent"
                                     BorderThickness="0"
                                     Foreground="{DynamicResource TextSecondary}"
-                                    Focusable="False"
                                     VerticalAlignment="Center" />
                         </StackPanel>
                     </DataTemplate>

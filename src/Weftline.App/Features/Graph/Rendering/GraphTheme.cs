@@ -1,11 +1,11 @@
 using Avalonia.Media;
+using Weftline.App.Services;
 
 namespace Weftline.App.Features.Graph.Rendering;
 
 /// <summary>
-/// 剧情图的默认视觉主题：浅色画布、蓝图式端口与连线。
-/// Default visual theme for the story graph: light canvas with Blueprint-like
-/// ports and wires. A theme service can replace it later.
+/// 剧情图的视觉主题：跟随应用浅色/深色主题切换。
+/// Visual theme for the story graph, following the app light/dark theme.
 /// </summary>
 public static class GraphTheme
 {
@@ -17,71 +17,142 @@ public static class GraphTheme
     public static readonly Typeface Typeface = new(UiFontFamily);
     public static readonly Typeface BoldTypeface = new(UiFontFamily, FontStyle.Normal, FontWeight.SemiBold);
 
-    public static readonly IBrush CanvasBackground = new SolidColorBrush(Color.Parse("#F6F8FC"));
-    public static readonly IPen GridPen = new Pen(new SolidColorBrush(Color.Parse("#E5EAF3")), 1);
+    static GraphTheme()
+    {
+        Apply(ThemeService.Current);
+        ThemeService.Changed += (_, _) => Apply(ThemeService.Current);
+    }
 
-    public static readonly IBrush ChapterFill = new SolidColorBrush(Color.Parse("#F0F4FA"));
-    public static readonly IBrush ChapterHeaderFill = new SolidColorBrush(Color.Parse("#E4EBF7"));
-    public static readonly IBrush ChapterEntryHeaderFill = new SolidColorBrush(Color.Parse("#E5F5EE"));
-    public static readonly IBrush ChapterBorder = new SolidColorBrush(Color.Parse("#D5DEEA"));
-    public static readonly IBrush ChapterTitle = new SolidColorBrush(Color.Parse("#34405A"));
-    public static readonly IBrush ChapterShadow = new SolidColorBrush(Color.Parse("#0C000000"));
-    public static readonly IPen ChapterPen = new Pen(ChapterBorder, 1);
+    public static IBrush CanvasBackground { get; private set; } = Brushes.White;
+    public static IPen GridPen { get; private set; } = new Pen(Brushes.Gray, 1);
 
-    public static readonly IBrush ModuleFill = new SolidColorBrush(Color.Parse("#FFFFFF"));
-    public static readonly IBrush ModuleBorder = new SolidColorBrush(Color.Parse("#D2DAE6"));
-    public static readonly IBrush ModuleShadow = new SolidColorBrush(Color.Parse("#0D000000"));
-    public static readonly IBrush ModuleTitle = new SolidColorBrush(Color.Parse("#23304A"));
-    public static readonly IPen ModulePen = new Pen(ModuleBorder, 1);
-    public static readonly IPen HoverPen = new Pen(new SolidColorBrush(Color.Parse("#9DB4FF")), 1.5);
-    public static readonly IBrush SelectionAccent = new SolidColorBrush(Color.Parse("#8B5CF6"));
-    public static readonly IPen SelectedPen = new Pen(SelectionAccent, 2.8);
-    public static readonly IBrush ResizeHandleFill = new SolidColorBrush(Color.Parse("#DCE5FF"));
-    public static readonly IPen UnreachablePen = new Pen(
-        new SolidColorBrush(Color.Parse("#C8873A")),
-        1.2,
-        new DashStyle(new double[] { 3, 2 }, 0));
+    public static IBrush ChapterFill { get; private set; } = Brushes.White;
+    public static IBrush ChapterHeaderFill { get; private set; } = Brushes.White;
+    public static IBrush ChapterEntryHeaderFill { get; private set; } = Brushes.White;
+    public static IBrush ChapterBorder { get; private set; } = Brushes.Gray;
+    public static IBrush ChapterTitle { get; private set; } = Brushes.Black;
+    public static IBrush ChapterShadow { get; private set; } = Brushes.Transparent;
+    public static IPen ChapterPen { get; private set; } = new Pen(Brushes.Gray, 1);
 
-    public static readonly IBrush EntryAccent = new SolidColorBrush(Color.Parse("#3FA37A"));
-    public static readonly IBrush ExitAccent = new SolidColorBrush(Color.Parse("#5B7CFA"));
-    public static readonly IPen EntryWirePen = new Pen(EntryAccent, 1.8);
-    public static readonly IPen EntryModulePen = new Pen(EntryAccent, 1.8);
-    public static readonly IPen EntryCandidatePen = new Pen(
-        EntryAccent,
-        1.2,
-        new DashStyle(new double[] { 3, 2 }, 0));
-    public static readonly IPen ExitWirePen = new Pen(ExitAccent, 1.8);
-    public static readonly IPen ChapterAnchorPen = new Pen(Brushes.White, 1.6);
+    public static IBrush ModuleFill { get; private set; } = Brushes.White;
+    public static IBrush ModuleBorder { get; private set; } = Brushes.Gray;
+    public static IBrush ModuleShadow { get; private set; } = Brushes.Transparent;
+    public static IBrush ModuleTitle { get; private set; } = Brushes.Black;
+    public static IPen ModulePen { get; private set; } = new Pen(Brushes.Gray, 1);
+    public static IPen HoverPen { get; private set; } = new Pen(Brushes.Blue, 1.5);
+    public static IBrush SelectionAccent { get; private set; } = Brushes.Purple;
+    public static IPen SelectedPen { get; private set; } = new Pen(Brushes.Purple, 2.8);
+    public static IBrush ResizeHandleFill { get; private set; } = Brushes.LightBlue;
+    public static IPen UnreachablePen { get; private set; } = new Pen(Brushes.Orange, 1.2);
 
-    public static readonly IBrush Wire = new SolidColorBrush(Color.Parse("#8290A6"));
-    public static readonly IBrush WireGlow = new SolidColorBrush(Color.Parse("#268290A6"));
-    public static readonly IBrush ChapterWire = new SolidColorBrush(Color.Parse("#5B7CFA"));
-    public static readonly IBrush ChapterWireGlow = new SolidColorBrush(Color.Parse("#2E5B7CFA"));
-    public static readonly IBrush Accent = ChapterWire;
-    public static readonly IBrush AccentSoft = new SolidColorBrush(Color.Parse("#B7C6FF"));
-    public static readonly IBrush Warning = new SolidColorBrush(Color.Parse("#C8873A"));
-    public static readonly IBrush Danger = new SolidColorBrush(Color.Parse("#C65B5B"));
-    public static readonly IBrush BadgeText = Brushes.White;
+    public static IBrush EntryAccent { get; private set; } = Brushes.Green;
+    public static IBrush ExitAccent { get; private set; } = Brushes.Blue;
+    public static IPen EntryWirePen { get; private set; } = new Pen(Brushes.Green, 1.8);
+    public static IPen EntryModulePen { get; private set; } = new Pen(Brushes.Green, 1.8);
+    public static IPen EntryCandidatePen { get; private set; } = new Pen(Brushes.Green, 1.2);
+    public static IPen ExitWirePen { get; private set; } = new Pen(Brushes.Blue, 1.8);
+    public static IPen ChapterAnchorPen { get; private set; } = new Pen(Brushes.White, 1.6);
 
-    public static readonly IBrush PathColor = SelectionAccent;
-    public static readonly IBrush PathGlow = new SolidColorBrush(Color.Parse("#338B5CF6"));
-    public static readonly IPen PathPen = new Pen(PathColor, 2.6);
-    public static readonly IPen PathGlowPen = new Pen(PathGlow, 8);
-    public static readonly IPen PathModulePen = new Pen(PathColor, 2.2);
+    public static IBrush Wire { get; private set; } = Brushes.Gray;
+    public static IBrush WireGlow { get; private set; } = Brushes.Transparent;
+    public static IBrush ChapterWire { get; private set; } = Brushes.Blue;
+    public static IBrush ChapterWireGlow { get; private set; } = Brushes.Transparent;
+    public static IBrush Accent { get; private set; } = Brushes.Blue;
+    public static IBrush AccentSoft { get; private set; } = Brushes.LightBlue;
+    public static IBrush Warning { get; private set; } = Brushes.Orange;
+    public static IBrush Danger { get; private set; } = Brushes.Red;
+    public static IBrush BadgeText { get; private set; } = Brushes.White;
 
-    public static readonly IPen ModuleWirePen = new Pen(Wire, 1.9);
-    public static readonly IPen ModuleWireGlowPen = new Pen(WireGlow, 7);
-    public static readonly IPen ChapterWirePen = new Pen(ChapterWire, 2.8);
-    public static readonly IPen ChapterWireGlowPen = new Pen(ChapterWireGlow, 10);
-    public static readonly IPen BackEdgePen = new Pen(
-        Warning,
-        2.0,
-        new DashStyle(new double[] { 5, 4 }, 0));
+    public static IBrush PathColor { get; private set; } = Brushes.Purple;
+    public static IBrush PathGlow { get; private set; } = Brushes.Transparent;
+    public static IPen PathPen { get; private set; } = new Pen(Brushes.Purple, 2.6);
+    public static IPen PathGlowPen { get; private set; } = new Pen(Brushes.Transparent, 8);
+    public static IPen PathModulePen { get; private set; } = new Pen(Brushes.Purple, 2.2);
 
-    public static readonly IBrush EndFill = new SolidColorBrush(Color.Parse("#E8EEF9"));
-    public static readonly IBrush EndBorder = new SolidColorBrush(Color.Parse("#B7C5DE"));
-    public static readonly IBrush EndText = new SolidColorBrush(Color.Parse("#4C5A73"));
-    public static readonly IPen EndPen = new Pen(EndBorder, 1);
+    public static IPen ModuleWirePen { get; private set; } = new Pen(Brushes.Gray, 1.9);
+    public static IPen ModuleWireGlowPen { get; private set; } = new Pen(Brushes.Transparent, 7);
+    public static IPen ChapterWirePen { get; private set; } = new Pen(Brushes.Blue, 2.8);
+    public static IPen ChapterWireGlowPen { get; private set; } = new Pen(Brushes.Transparent, 10);
+    public static IPen BackEdgePen { get; private set; } = new Pen(Brushes.Orange, 2.0);
+
+    public static IBrush EndFill { get; private set; } = Brushes.White;
+    public static IBrush EndBorder { get; private set; } = Brushes.Gray;
+    public static IBrush EndText { get; private set; } = Brushes.Black;
+    public static IPen EndPen { get; private set; } = new Pen(Brushes.Gray, 1);
+
+    private static void Apply(ThemePalette palette)
+    {
+        var dark = palette.IsDark;
+
+        CanvasBackground = Brush(dark ? "#1B2027" : "#F6F8FC");
+        GridPen = new Pen(Brush(dark ? "#2A323D" : "#E5EAF3"), 1);
+
+        ChapterFill = Brush(dark ? "#20262F" : "#F0F4FA");
+        ChapterHeaderFill = Brush(dark ? "#26303C" : "#E4EBF7");
+        ChapterEntryHeaderFill = Brush(dark ? "#1F332C" : "#E5F5EE");
+        ChapterBorder = Brush(dark ? "#39424F" : "#D5DEEA");
+        ChapterTitle = Brush(dark ? "#D7E1EE" : "#34405A");
+        ChapterShadow = Brush(dark ? "#40000000" : "#0C000000");
+        ChapterPen = new Pen(ChapterBorder, 1);
+
+        ModuleFill = Brush(dark ? "#252C36" : "#FFFFFF");
+        ModuleBorder = Brush(dark ? "#3B4655" : "#D2DAE6");
+        ModuleShadow = Brush(dark ? "#40000000" : "#0D000000");
+        ModuleTitle = Brush(dark ? "#E1E8F2" : "#23304A");
+        ModulePen = new Pen(ModuleBorder, 1);
+        HoverPen = new Pen(Brush(dark ? "#7C9CFF" : "#9DB4FF"), 1.5);
+        SelectionAccent = Brush(dark ? "#B49CFF" : "#8B5CF6");
+        SelectedPen = new Pen(SelectionAccent, 2.8);
+        ResizeHandleFill = Brush(dark ? "#3B4A63" : "#DCE5FF");
+        UnreachablePen = new Pen(
+            Brush(dark ? "#D99A4E" : "#C8873A"),
+            1.2,
+            new DashStyle(new double[] { 3, 2 }, 0));
+
+        EntryAccent = Brush(dark ? "#5BC49A" : "#3FA37A");
+        ExitAccent = Brush(dark ? "#7C9CFF" : "#5B7CFA");
+        EntryWirePen = new Pen(EntryAccent, 1.8);
+        EntryModulePen = new Pen(EntryAccent, 1.8);
+        EntryCandidatePen = new Pen(
+            EntryAccent,
+            1.2,
+            new DashStyle(new double[] { 3, 2 }, 0));
+        ExitWirePen = new Pen(ExitAccent, 1.8);
+        ChapterAnchorPen = new Pen(Brushes.White, 1.6);
+
+        Wire = Brush(dark ? "#8A98AD" : "#8290A6");
+        WireGlow = Brush(dark ? "#338A98AD" : "#268290A6");
+        ChapterWire = Brush(dark ? "#7C9CFF" : "#5B7CFA");
+        ChapterWireGlow = Brush(dark ? "#407C9CFF" : "#2E5B7CFA");
+        Accent = ChapterWire;
+        AccentSoft = Brush(dark ? "#3B4E75" : "#B7C6FF");
+        Warning = Brush(dark ? "#E0A94A" : "#C8873A");
+        Danger = Brush(dark ? "#F07171" : "#C65B5B");
+        BadgeText = Brushes.White;
+
+        PathColor = SelectionAccent;
+        PathGlow = Brush(dark ? "#44B49CFF" : "#338B5CF6");
+        PathPen = new Pen(PathColor, 2.6);
+        PathGlowPen = new Pen(PathGlow, 8);
+        PathModulePen = new Pen(PathColor, 2.2);
+
+        ModuleWirePen = new Pen(Wire, 1.9);
+        ModuleWireGlowPen = new Pen(WireGlow, 7);
+        ChapterWirePen = new Pen(ChapterWire, 2.8);
+        ChapterWireGlowPen = new Pen(ChapterWireGlow, 10);
+        BackEdgePen = new Pen(
+            Warning,
+            2.0,
+            new DashStyle(new double[] { 5, 4 }, 0));
+
+        EndFill = Brush(dark ? "#2A3340" : "#E8EEF9");
+        EndBorder = Brush(dark ? "#4A5A70" : "#B7C5DE");
+        EndText = Brush(dark ? "#C5D0DE" : "#4C5A73");
+        EndPen = new Pen(EndBorder, 1);
+    }
+
+    private static IBrush Brush(string color)
+        => new SolidColorBrush(Color.Parse(color));
 
     /// <summary>
     /// 选择当前平台存在的 CJK 字体，避免 Skia 逐字回退。

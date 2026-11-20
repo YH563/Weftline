@@ -33,6 +33,7 @@
                             Spacing="2"
                             VerticalAlignment="Center">
                     <Button Classes="icon"
+                            AutomationProperties.Name="新建文件"
                             Command="{Binding NewFileCommand}"
                             ToolTip.Tip="新建文件">
                         <PathIcon Width="15"
@@ -41,6 +42,7 @@
                                   Data="{StaticResource IconNewFile}" />
                     </Button>
                     <Button Classes="icon"
+                            AutomationProperties.Name="新建文件夹"
                             Command="{Binding NewFolderCommand}"
                             ToolTip.Tip="新建文件夹">
                         <PathIcon Width="15"
@@ -49,6 +51,7 @@
                                   Data="{StaticResource IconNewFolder}" />
                     </Button>
                     <Button Classes="icon"
+                            AutomationProperties.Name="重命名"
                             Command="{Binding RenameCommand}"
                             IsEnabled="{Binding HasSelection}"
                             ToolTip.Tip="重命名">
@@ -58,6 +61,7 @@
                                   Data="{StaticResource IconRename}" />
                     </Button>
                     <Button Classes="icon"
+                            AutomationProperties.Name="删除"
                             Command="{Binding DeleteCommand}"
                             IsEnabled="{Binding HasSelection}"
                             ToolTip.Tip="删除">

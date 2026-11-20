@@ -108,6 +108,7 @@
         </Menu>
         <Button Grid.Column="1"
                 Classes="icon"
+                AutomationProperties.Name="编译项目"
                 Margin="4,3,6,3"
                 VerticalAlignment="Center"
                 Command="{Binding CompileProjectCommand}"

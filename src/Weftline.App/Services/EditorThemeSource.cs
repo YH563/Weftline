@@ -28,10 +28,14 @@ public sealed class EditorThemeSource : IEditorThemeSource
             palette.EditorBackground,
             palette.EditorForeground,
             palette.EditorLineNumber,
-            new SolidColorBrush(Color.Parse("#F5F6F8")),
+            new SolidColorBrush(Color.Parse(palette.IsDark ? "#1B2027" : "#F5F6F8")),
             new SolidColorBrush(Color.Parse(palette.IsDark ? "#1D2430" : "#F4F8FF")),
             new SolidColorBrush(Color.Parse(palette.IsDark ? "#2D3A4F" : "#E3ECFA")),
             palette.GraphDanger,
             new SolidColorBrush(Color.Parse("#D97706")),
-            palette.GraphAccent);
+            palette.GraphAccent,
+            new SolidColorBrush(Color.Parse(palette.IsDark ? "#2D4A73" : "#D6E4FF")),
+            new SolidColorBrush(Color.Parse(palette.IsDark ? "#F1F5FB" : "#1F2937")),
+            new SolidColorBrush(Color.Parse(palette.IsDark ? "#4F78B8" : "#A8C7FA")),
+            new SolidColorBrush(Color.Parse(palette.IsDark ? "#343C48" : "#D8DCE3")));
 }

@@ -12,7 +12,11 @@ public sealed record EditorTheme(
     IBrush CurrentLineBorder,
     IBrush DiagnosticError,
     IBrush DiagnosticWarning,
-    IBrush DiagnosticInfo)
+    IBrush DiagnosticInfo,
+    IBrush SelectionBackground,
+    IBrush SelectionForeground,
+    IBrush SelectionBorder,
+    IBrush Separator)
 {
     public static EditorTheme Default { get; } = new(
         false,
@@ -24,7 +28,11 @@ public sealed record EditorTheme(
         Brush("#E3ECFA"),
         Brush("#DC2626"),
         Brush("#D97706"),
-        Brush("#2563EB"));
+        Brush("#2563EB"),
+        Brush("#D6E4FF"),
+        Brush("#1F2937"),
+        Brush("#A8C7FA"),
+        Brush("#D8DCE3"));
 
     private static IBrush Brush(string color)
         => new SolidColorBrush(Color.Parse(color));

@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Weftline.App.Features.Graph.Layout;
 using Weftline.App.Features.Graph.Rendering;
+using Weftline.App.Services;
 using Weftline.Core;
 using Weftline.Core.Graph.Analysis;
 
@@ -90,6 +91,7 @@ public sealed partial class StoryGraphView : Control
     private Point _panStart;
     private Vector _panStartOffset;
     private DateTime _lastLayoutRefresh;
+    private bool _themeSubscribed;
 
     static StoryGraphView()
     {
@@ -269,6 +271,12 @@ public sealed partial class StoryGraphView : Control
             _scrollViewer.SizeChanged += OnScrollViewerSizeChanged;
         }
 
+        if (!_themeSubscribed)
+        {
+            ThemeService.Changed += OnThemeChanged;
+            _themeSubscribed = true;
+        }
+
         InvalidateMeasure();
     }
 
@@ -280,7 +288,19 @@ public sealed partial class StoryGraphView : Control
             _scrollViewer = null;
         }
 
+        if (_themeSubscribed)
+        {
+            ThemeService.Changed -= OnThemeChanged;
+            _themeSubscribed = false;
+        }
+
         base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnThemeChanged(object? sender, EventArgs e)
+    {
+        _textCache.Clear();
+        InvalidateVisual();
     }
 
     private void OnScrollViewerSizeChanged(object? sender, SizeChangedEventArgs e)

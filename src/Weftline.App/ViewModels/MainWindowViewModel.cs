@@ -118,6 +118,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<DiagnosticItem> Diagnostics { get; } = [];
 
+    public bool HasDiagnostics => Diagnostics.Count > 0;
+
     [ObservableProperty]
     private bool _isGraphVisible = true;
 

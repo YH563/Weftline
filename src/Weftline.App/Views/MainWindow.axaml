@@ -15,7 +15,7 @@
         Title="Weftline"
         Width="1440"
         Height="900"
-        MinWidth="900"
+        MinWidth="980"
         MinHeight="600"
         WindowStartupLocation="CenterScreen">
 
@@ -31,9 +31,9 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="280" MinWidth="180" MaxWidth="520" />
                 <ColumnDefinition Width="6" />
-                <ColumnDefinition Width="*" MinWidth="360" />
+                <ColumnDefinition Width="3*" MinWidth="360" />
                 <ColumnDefinition Width="6" />
-                <ColumnDefinition Width="520" MinWidth="300" MaxWidth="900" />
+                <ColumnDefinition Width="2.5*" MinWidth="300" MaxWidth="900" />
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0"
@@ -139,6 +139,7 @@
                                     </StackPanel>
                                     <Button Grid.Column="1"
                                             Classes="icon"
+                                            AutomationProperties.Name="关闭章节边明细"
                                             Command="{Binding Graph.CloseChapterEdgeDetailsCommand}">
                                         <PathIcon Data="{StaticResource IconClose}"
                                                   Width="12"
@@ -168,6 +169,11 @@
                     </Grid>
                     </Grid>
 
+                    <Border Grid.Row="1"
+                            Height="2"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource BorderStrong}"
+                            IsHitTestVisible="False" />
                     <GridSplitter x:Name="PaneSplitter"
                                   Grid.Row="1"
                                   Height="6"
@@ -189,6 +195,7 @@
                             BorderThickness="1,0,0,0">
                         <StackPanel Spacing="4">
                             <ToggleButton Classes="railTab"
+                                          AutomationProperties.Name="预览面板"
                                           IsChecked="{Binding IsPreviewVisible, Mode=TwoWay}"
                                           ToolTip.Tip="预览">
                                 <PathIcon Data="{StaticResource IconPreview}"
@@ -196,6 +203,7 @@
                                           Height="16" />
                             </ToggleButton>
                             <ToggleButton Classes="railTab"
+                                          AutomationProperties.Name="剧情图"
                                           IsChecked="{Binding IsGraphVisible, Mode=TwoWay}"
                                           ToolTip.Tip="剧情图">
                                 <PathIcon Data="{StaticResource IconGraph}"
@@ -236,6 +244,7 @@
                     </StackPanel>
                     <Button Grid.Column="1"
                             Classes="icon"
+                            AutomationProperties.Name="关闭问题面板"
                             Command="{Binding ShowProblemsCommand}">
                         <PathIcon Data="{StaticResource IconClose}"
                                   Width="12"
@@ -244,54 +253,73 @@
                     </Button>
                 </Grid>
 
-                <ListBox Grid.Row="1"
-                         ItemsSource="{Binding Diagnostics}"
-                         SelectedItem="{Binding SelectedDiagnostic, Mode=TwoWay}"
-                         DoubleTapped="OnDiagnosticDoubleTapped"
-                         Background="Transparent"
-                         BorderThickness="0"
-                         Padding="4">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate x:DataType="vm:DiagnosticItem">
-                            <Grid ColumnDefinitions="24,70,140,*"
-                                  Margin="2">
-                                <Panel>
-                                    <PathIcon Data="{StaticResource IconError}"
-                                              IsVisible="{Binding IsError}"
-                                              Width="14"
-                                              Height="14"
-                                              Foreground="{DynamicResource Danger}"
-                                              VerticalAlignment="Center" />
-                                    <PathIcon Data="{StaticResource IconWarning}"
-                                              IsVisible="{Binding IsWarning}"
-                                              Width="14"
-                                              Height="14"
-                                              Foreground="{DynamicResource Warning}"
-                                              VerticalAlignment="Center" />
-                                    <PathIcon Data="{StaticResource IconInfo}"
-                                              IsVisible="{Binding IsInfo}"
-                                              Width="14"
-                                              Height="14"
-                                              Foreground="{DynamicResource Accent}"
-                                              VerticalAlignment="Center" />
-                                </Panel>
-                                <TextBlock Grid.Column="1"
-                                            Text="{Binding Code}"
-                                            FontSize="12"
-                                            Foreground="{DynamicResource TextSecondary}" />
-                                <TextBlock Grid.Column="2"
-                                            Text="{Binding Location}"
-                                            FontSize="12"
-                                            Foreground="{DynamicResource TextPrimary}" />
-                                <TextBlock Grid.Column="3"
-                                            Text="{Binding Message}"
-                                            FontSize="12"
-                                            Foreground="{DynamicResource TextPrimary}"
-                                            TextTrimming="CharacterEllipsis" />
-                            </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                <Grid Grid.Row="1">
+                    <ListBox ItemsSource="{Binding Diagnostics}"
+                             SelectedItem="{Binding SelectedDiagnostic, Mode=TwoWay}"
+                             DoubleTapped="OnDiagnosticDoubleTapped"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Padding="4">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:DiagnosticItem">
+                                <Grid ColumnDefinitions="24,70,140,*"
+                                      Margin="2">
+                                    <Panel>
+                                        <PathIcon Data="{StaticResource IconError}"
+                                                  IsVisible="{Binding IsError}"
+                                                  Width="14"
+                                                  Height="14"
+                                                  Foreground="{DynamicResource Danger}"
+                                                  VerticalAlignment="Center" />
+                                        <PathIcon Data="{StaticResource IconWarning}"
+                                                  IsVisible="{Binding IsWarning}"
+                                                  Width="14"
+                                                  Height="14"
+                                                  Foreground="{DynamicResource Warning}"
+                                                  VerticalAlignment="Center" />
+                                        <PathIcon Data="{StaticResource IconInfo}"
+                                                  IsVisible="{Binding IsInfo}"
+                                                  Width="14"
+                                                  Height="14"
+                                                  Foreground="{DynamicResource Accent}"
+                                                  VerticalAlignment="Center" />
+                                    </Panel>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Code}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextSecondary}" />
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding Location}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextPrimary}" />
+                                    <TextBlock Grid.Column="3"
+                                               Text="{Binding Message}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextPrimary}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <StackPanel IsVisible="{Binding !HasDiagnostics}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Spacing="6"
+                                IsHitTestVisible="False">
+                        <PathIcon Data="{StaticResource IconCheck}"
+                                  Width="24"
+                                  Height="24"
+                                  Foreground="{DynamicResource Success}"
+                                  HorizontalAlignment="Center" />
+                        <TextBlock Text="没有诊断"
+                                   Classes="panelTitle"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock Text="当前项目没有语法或语义问题"
+                                   Classes="panelSubtitle"
+                                   HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
             </Grid>
         </Border>
 

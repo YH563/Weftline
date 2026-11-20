@@ -154,6 +154,8 @@ public partial class MainWindowViewModel
         {
             Diagnostics.Add(diagnostic);
         }
+
+        OnPropertyChanged(nameof(HasDiagnostics));
     }
 
     private string? GetDocumentText(string filePath)

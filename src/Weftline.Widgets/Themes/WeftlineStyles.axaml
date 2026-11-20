@@ -66,7 +66,7 @@
         <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
     </Style>
     <Style Selector="TextBlock.caption">
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="12" />
         <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
     </Style>
 
@@ -76,16 +76,18 @@
         <Setter Property="Padding" Value="10,4" />
     </Style>
     <Style Selector="Button.icon">
-        <Setter Property="Width" Value="28" />
-        <Setter Property="Height" Value="28" />
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="CornerRadius" Value="6" />
-        <Setter Property="Focusable" Value="False" />
     </Style>
     <Style Selector="Button.icon:pointerover">
         <Setter Property="Background" Value="{DynamicResource SurfaceMuted}" />
+    </Style>
+    <Style Selector="Button.icon:focus-visible">
+        <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
     </Style>
 
     <!-- 切换按钮基线。 -->
@@ -93,8 +95,8 @@
         <Setter Property="CornerRadius" Value="6" />
     </Style>
     <Style Selector="ToggleButton.railTab">
-        <Setter Property="Width" Value="30" />
-        <Setter Property="Height" Value="30" />
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
